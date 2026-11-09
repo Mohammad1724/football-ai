@@ -110,6 +110,9 @@ interface FootballDataProvider {
 
     suspend fun liveMatches(): Outcome<List<RemoteMatch>>
 
+    /** Refreshes a single fixture by its provider key; used by live tracking. */
+    suspend fun match(matchKey: String): Outcome<RemoteMatch?>
+
     suspend fun matchStatistics(matchKey: String): Outcome<List<RemoteTeamStatistics>>
 
     suspend fun matchEvents(matchKey: String): Outcome<List<RemoteEvent>>

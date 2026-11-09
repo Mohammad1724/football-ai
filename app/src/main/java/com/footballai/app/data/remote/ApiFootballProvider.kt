@@ -90,6 +90,15 @@ class ApiFootballProvider(
     override suspend fun liveMatches(): Outcome<List<RemoteMatch>> =
         request("$baseUrl/fixtures", mapOf("live" to "all")) { body -> parseFixtures(body) }
 
+    override suspend fun match(matchKey: String): Outcome<RemoteMatch?> =
+        request("$baseUrl/fixtures", mapOf("id" to matchKey)) { body -> parseFixtures(body) }
+            .let { outcome ->
+                when (outcome) {
+                    is Outcome.Failure -> outcome
+                    is Outcome.Success -> Outcome.Success(outcome.value.firstOrNull())
+                }
+            }
+
     override suspend fun matchStatistics(matchKey: String): Outcome<List<RemoteTeamStatistics>> =
         request("$baseUrl/fixtures/statistics", mapOf("fixture" to matchKey)) { body ->
             val envelope = json.decodeFromString<AfEnvelope<AfStatisticsResponse>>(body)

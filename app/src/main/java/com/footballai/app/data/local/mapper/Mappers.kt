@@ -82,6 +82,8 @@ fun CompetitionEntity.toDomain(): Competition = Competition(
     season = season,
     providerId = providerId,
     hasFullCoverage = hasFullCoverage,
+    isFollowed = isFollowed,
+    providerKey = providerKey,
 )
 
 fun TeamEntity.toRef(): TeamRef = TeamRef(

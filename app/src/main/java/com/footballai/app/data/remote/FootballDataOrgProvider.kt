@@ -115,6 +115,19 @@ class FootballDataOrgProvider(
             ),
         )
 
+    override suspend fun match(matchKey: String): Outcome<RemoteMatch?> {
+        val result = get("$baseUrl/matches/$matchKey")
+        return when (result) {
+            is Outcome.Failure -> result
+            is Outcome.Success -> try {
+                val payload = json.decodeFromString<com.footballai.app.data.remote.dto.FdoMatch>(result.value)
+                Outcome.Success(payload.toRemoteMatch(payload.competition?.code ?: ""))
+            } catch (error: Exception) {
+                Outcome.Failure(AppError(ErrorCode.PARSE_ERROR, detail = error.message, cause = error))
+            }
+        }
+    }
+
     override suspend fun matchStatistics(matchKey: String): Outcome<List<RemoteTeamStatistics>> =
         Outcome.Success(emptyList())
 

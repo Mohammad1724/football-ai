@@ -9,6 +9,8 @@ data class Competition(
     val season: Int?,
     val providerId: String,
     val hasFullCoverage: Boolean,
+    val isFollowed: Boolean = false,
+    val providerKey: String = "",
 )
 
 data class TeamRef(

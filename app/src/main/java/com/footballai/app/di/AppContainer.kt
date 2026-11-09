@@ -41,6 +41,9 @@ class AppContainer(context: Context) {
 
     private val appContext: Context = context.applicationContext
 
+    /** Exposed only for WorkManager scheduling; nothing else should need it. */
+    fun contextForWork(): Context = appContext
+
     val clock: TimeProvider = TimeProvider.System
     val dispatchers: DispatchersProvider = DispatchersProvider()
 
@@ -54,13 +57,15 @@ class AppContainer(context: Context) {
 
     val credentialStore: CredentialStore = KeystoreCredentialStore(appContext)
 
-    private val apiFootballProvider: ApiFootballProvider = ApiFootballProvider(apiClient) {
-        credentialStore.getKey(ApiFootballProvider.PROVIDER_ID)
-    }
+    private val apiFootballProvider: ApiFootballProvider = ApiFootballProvider(
+        client = apiClient,
+        apiKeyProvider = { credentialStore.getKey(ApiFootballProvider.PROVIDER_ID) },
+    )
 
-    private val footballDataOrgProvider: FootballDataOrgProvider = FootballDataOrgProvider(apiClient) {
-        credentialStore.getKey(FootballDataOrgProvider.PROVIDER_ID)
-    }
+    private val footballDataOrgProvider: FootballDataOrgProvider = FootballDataOrgProvider(
+        client = apiClient,
+        apiKeyProvider = { credentialStore.getKey(FootballDataOrgProvider.PROVIDER_ID) },
+    )
 
     private val csvProvider: FootballDataCoUkProvider = FootballDataCoUkProvider(apiClient)
 

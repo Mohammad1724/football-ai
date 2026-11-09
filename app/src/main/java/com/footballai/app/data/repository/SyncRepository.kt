@@ -166,6 +166,25 @@ class SyncRepository(
         }
     }
 
+    /** Refreshes a single fixture (one request); used by live tracking. */
+    suspend fun refreshMatch(matchId: String): Outcome<SyncSummary> {
+        val match = db.matchDao().byId(matchId)
+            ?: return Outcome.Failure(AppError(ErrorCode.NOT_FOUND, detail = "Unknown match $matchId"))
+        val provider = registry.provider(match.providerId)
+            ?: return Outcome.Failure(AppError(ErrorCode.NOT_FOUND, detail = "Unknown provider"))
+        return when (val result = provider.match(match.providerKey)) {
+            is Outcome.Failure -> result
+            is Outcome.Success -> {
+                val remote = result.value
+                    ?: return Outcome.Failure(AppError(ErrorCode.NOT_FOUND, detail = "Fixture not found upstream"))
+                val competitionKey = match.competitionId.substringAfterLast(':')
+                val written = persistMatches(match.providerId, competitionKey, listOf(remote))
+                appendFinishedMatches(match.providerId)
+                Outcome.Success(SyncSummary(live = written, requestsEstimated = 1))
+            }
+        }
+    }
+
     suspend fun syncMatchDetails(matchId: String, force: Boolean = false): Outcome<SyncSummary> {
         val match = db.matchDao().byId(matchId)
             ?: return Outcome.Failure(AppError(ErrorCode.NOT_FOUND, detail = "Unknown match $matchId"))

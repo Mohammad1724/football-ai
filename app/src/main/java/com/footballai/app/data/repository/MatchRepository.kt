@@ -7,6 +7,7 @@ import com.footballai.app.data.local.entity.CompetitionEntity
 import com.footballai.app.data.local.entity.MatchEntity
 import com.footballai.app.data.local.entity.TeamEntity
 import com.footballai.app.data.local.mapper.toDetail
+import com.footballai.app.data.local.mapper.toDomain
 import com.footballai.app.data.local.mapper.toRef
 import com.footballai.app.data.local.mapper.toSummary
 import com.footballai.app.domain.model.Competition
