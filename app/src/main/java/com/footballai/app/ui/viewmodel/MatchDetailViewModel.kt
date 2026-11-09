@@ -108,10 +108,16 @@ class MatchDetailViewModel(
 
     fun setLiveTrackingEnabled(enabled: Boolean) {
         _state.update { it.copy(liveTrackingEnabled = enabled) }
-        if (!enabled) stopTracking() else maybeStartTracking()
+        if (!enabled) {
+            stopTracking()
+        } else {
+            viewModelScope.launch { maybeStartTracking() }
+        }
     }
 
-    fun onScreenVisible() = maybeStartTracking()
+    fun onScreenVisible() {
+        viewModelScope.launch { maybeStartTracking() }
+    }
 
     fun onScreenHidden() = stopTracking()
 
