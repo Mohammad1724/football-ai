@@ -335,4 +335,7 @@
     <string name="ob_history_skip">فعلاً رد کن</string>
     <string name="ob_history_note">تا پایان وارد کردن، برنامه را باز نگه دار.</string>
     <string name="action_run_setup">اجرای دوباره راهنمای راه‌اندازی</string>
+    <string name="ob_key_help_football_data_org">در football-data.org/client/register با ایمیل خودت ثبت‌نام کن؛ توکن تا یک دقیقه به ایمیلت می‌آید. پرداخت یا کارت بانکی لازم نیست.</string>
+    <string name="ob_key_help_api_football">در dashboard.api-football.com ثبت‌نام کن؛ کلید API بلافاصله بعد از ثبت‌نام در داشبورد نشان داده می‌شود.</string>
+    <string name="quota_used_only">استفاده امروز: %1$s (بدون سقف روزانه)</string>
 </resources>

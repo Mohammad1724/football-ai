@@ -373,11 +373,18 @@ private fun ProviderCard(
             provider.quota?.let { quota ->
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    text = stringResource(
-                        R.string.quota_usage,
-                        Formatters.integer(quota.usedToday, languageTag),
-                        Formatters.integer(quota.dailyLimit, languageTag),
-                    ),
+                    text = if (quota.dailyLimit <= 0) {
+                        stringResource(
+                            R.string.quota_used_only,
+                            Formatters.integer(quota.usedToday, languageTag),
+                        )
+                    } else {
+                        stringResource(
+                            R.string.quota_usage,
+                            Formatters.integer(quota.usedToday, languageTag),
+                            Formatters.integer(quota.dailyLimit, languageTag),
+                        )
+                    },
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

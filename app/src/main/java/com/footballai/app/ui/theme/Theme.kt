@@ -101,7 +101,12 @@ fun FootballAiTheme(
 ) {
     val colors = if (darkTheme) DarkColors else LightColors
     val extra = if (darkTheme) DarkExtra else LightExtra
-    val layoutDirection = if (languageTag == "fa") LayoutDirection.Rtl else LayoutDirection.Ltr
+    // Region tags such as "fa-IR" must mirror too, so compare the language subtag.
+    val layoutDirection = if (languageTag.lowercase(Locale.ROOT).startsWith("fa")) {
+        LayoutDirection.Rtl
+    } else {
+        LayoutDirection.Ltr
+    }
 
     CompositionLocalProvider(
         LocalFootballAiColors provides extra,

@@ -315,6 +315,12 @@ private fun ProviderStep(
         )
         Spacer(Modifier.height(4.dp))
         Text(
+            text = stringResource(keyHelpRes(selected.id)),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(2.dp))
+        Text(
             text = stringResource(R.string.ob_provider_hint),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -559,6 +565,12 @@ private fun ActionBar(state: OnboardingUiState, onBack: () -> Unit, onNext: () -
 
 @Composable
 private fun yesNo(value: Boolean): String = stringResource(if (value) R.string.yes else R.string.no)
+
+private fun keyHelpRes(providerId: String): Int = when (providerId) {
+    "football-data-org" -> R.string.ob_key_help_football_data_org
+    "api-football" -> R.string.ob_key_help_api_football
+    else -> R.string.ob_provider_body
+}
 
 private fun signUpUrl(info: ProviderInfo): String? = when (info.id) {
     "football-data-org" -> "https://www.football-data.org/client/register"

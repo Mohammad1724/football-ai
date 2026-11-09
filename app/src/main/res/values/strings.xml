@@ -335,4 +335,7 @@
     <string name="ob_history_skip">Skip for now</string>
     <string name="ob_history_note">Keep the app open until the import finishes.</string>
     <string name="action_run_setup">Run setup guide again</string>
+    <string name="ob_key_help_football_data_org">Register at football-data.org/client/register with your e-mail; the token arrives by e-mail within a minute. No payment or card is needed.</string>
+    <string name="ob_key_help_api_football">Sign up at dashboard.api-football.com; the API key is shown on the dashboard immediately after registration.</string>
+    <string name="quota_used_only">Used today: %1$s (no daily cap)</string>
 </resources>
