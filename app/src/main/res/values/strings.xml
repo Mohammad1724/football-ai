@@ -334,4 +334,5 @@
     <string name="ob_history_result">%1$d finished matches imported for %2$d competitions.</string>
     <string name="ob_history_skip">Skip for now</string>
     <string name="ob_history_note">Keep the app open until the import finishes.</string>
+    <string name="action_run_setup">Run setup guide again</string>
 </resources>

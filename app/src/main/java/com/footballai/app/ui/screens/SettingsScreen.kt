@@ -165,6 +165,9 @@ fun SettingsScreen(onBack: () -> Unit) {
                         text = stringResource(R.string.about_provider, state.providerName ?: stringResource(R.string.none)),
                         style = MaterialTheme.typography.bodySmall,
                     )
+                    TextButton(onClick = viewModel::restartOnboarding) {
+                        Text(stringResource(R.string.action_run_setup))
+                    }
                 }
             }
             item {

@@ -334,4 +334,5 @@
     <string name="ob_history_result">%1$d بازی تمام‌شده برای %2$d رقابت وارد شد.</string>
     <string name="ob_history_skip">فعلاً رد کن</string>
     <string name="ob_history_note">تا پایان وارد کردن، برنامه را باز نگه دار.</string>
+    <string name="action_run_setup">اجرای دوباره راهنمای راه‌اندازی</string>
 </resources>

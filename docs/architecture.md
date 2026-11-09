@@ -96,6 +96,11 @@ the Android Keystore and are never written to preferences, logs or the repositor
 
 * Single-activity Compose app, Material 3, dynamic-light/dark themes with a
   high-contrast palette and chart colours exposed through `FootballAiThemeExtra.colors`.
+* First-run gate: `FootballAiApp()` watches `AppSettings.onboarded` and shows the
+  onboarding flow (language → provider key with live verification → competitions to
+  follow → CSV history import) until it is satisfied. `Settings` can re-open it. Nothing
+  is mocked to fill the empty start: each step explains what is missing and can be
+  skipped.
 * `NavigationBar` with four destinations (Home, Matches, Predictions, Performance);
   match, team and competition screens are pushed on top, and Data sources / Settings
   are reachable from the dashboard.

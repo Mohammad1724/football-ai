@@ -62,6 +62,9 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
 
     suspend fun setOnboarded() = edit { it[KEY_ONBOARDED] = true }
 
+    /** Re-opens the first-run flow, e.g. after the user cleared the configured sources. */
+    suspend fun resetOnboarding() = edit { it[KEY_ONBOARDED] = false }
+
     private suspend fun edit(block: (androidx.datastore.preferences.core.MutablePreferences) -> Unit) {
         dataStore.edit { block(it) }
     }

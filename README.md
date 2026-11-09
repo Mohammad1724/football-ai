@@ -45,7 +45,10 @@ compileSdk/targetSdk 34, minSdk 26, JVM 17.
 
 ## Getting data in
 
-The app starts empty. Open **Data sources** and:
+On first launch a short setup flow asks for the language, a provider token, the
+competitions to follow and the history import; every step can be skipped and repeated
+later from **Settings → Run setup guide again**. The same actions are always available in
+**Data sources**:
 
 * **football-data.org** — a free personal token is required for every endpoint
   (registration is free and manual). The token is stored in the Android Keystore.

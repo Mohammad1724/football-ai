@@ -74,8 +74,9 @@ added with a proper Room migration rather than by reusing existing columns.
     keep the APK small and the build dependency-light, but it limits interactivity.
 15. **Tablet/foldable layouts are functional but not optimised** — the app targets a
     phone screen, which matches the intended device.
-16. **Offline mode covers everything already downloaded**; a cold install with no
-    network shows empty states with an explicit "no data yet" message.
+16. **Offline mode covers everything already downloaded**; a cold install shows the
+    setup flow, which works without a network until the key check, and the resulting
+    screens fall back to explicit "no data yet" states.
 
 ## Verification
 

@@ -68,6 +68,11 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
         }
     }
 
+    /** Sends the user back to the setup flow so they can change provider or imports. */
+    fun restartOnboarding() {
+        viewModelScope.launch { container.settingsRepository.resetOnboarding() }
+    }
+
     fun clearAllData() {
         viewModelScope.launch {
             container.database.clearAllTables()
