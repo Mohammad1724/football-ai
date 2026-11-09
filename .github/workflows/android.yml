@@ -12,6 +12,10 @@ concurrency:
   group: android-ci-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+  issues: write
+
 jobs:
   test-and-build:
     name: Test and build debug APK
@@ -31,16 +35,21 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.9"
-          cache-read-only: false
 
       - name: Engine unit tests
-        run: gradle :engine:test --stacktrace
+        run: |
+          set -o pipefail
+          gradle :engine:test --stacktrace 2>&1 | tee build-output.txt
 
       - name: App unit tests
-        run: gradle :app:testDebugUnitTest --stacktrace
+        run: |
+          set -o pipefail
+          gradle :app:testDebugUnitTest --stacktrace 2>&1 | tee -a build-output.txt
 
       - name: Assemble debug APK
-        run: gradle :app:assembleDebug --stacktrace
+        run: |
+          set -o pipefail
+          gradle :app:assembleDebug --stacktrace 2>&1 | tee -a build-output.txt
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
@@ -50,13 +59,21 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      - name: Upload test reports
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-reports
-          path: |
-            engine/build/reports/tests/
-            app/build/reports/tests/
-          if-no-files-found: ignore
-          retention-days: 7
+      # The build log is not readable through the API in every environment, so a
+      # failure publishes the relevant excerpt as an issue. This keeps debugging
+      # possible from a phone-only workflow.
+      - name: Publish failure report
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ -f build-output.txt ]; then
+            echo "## Failure: run $GITHUB_RUN_ID ($GITHUB_SHA)" > report.md
+            grep -n -E "^e: |error:|FAILURE|FAILED|Caused by|Execution failed|> Task .* FAILED|Unresolved|warning: unable" build-output.txt | head -200 >> report.md || true
+            echo "" >> report.md
+            echo "### Tail" >> report.md
+            tail -120 build-output.txt >> report.md
+          else
+            echo "No build output captured for run $GITHUB_RUN_ID" > report.md
+          fi
+          gh issue create --repo "$GITHUB_REPOSITORY" --title "CI failure report $GITHUB_RUN_ID" --body-file report.md || true
