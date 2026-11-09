@@ -50,6 +50,19 @@ class CsvHistoryParserTest {
     }
 
     @Test
+    fun `kickoff honours the league time zone including daylight saving`() {
+        // 2023-08-19 15:00 Europe/London is 14:00 UTC (British Summer Time), so a naive
+        // UTC parse would be one hour off.
+        val matches = CsvHistoryParser.parse(csv, "E0", "Premier League", 2023)
+        assertEquals(1_692_453_600_000L, matches.first().kickoffEpochMs)
+        // Winter fixtures must not be shifted by DST rules.
+        val winter = "Div,Date,Time,HomeTeam,AwayTeam,FTHG,FTAG\n" +
+            "E0,13/01/2024,15:00,Arsenal,Chelsea,2,0"
+        val winterMatch = CsvHistoryParser.parse(winter, "E0", "Premier League", 2023).single()
+        assertEquals(1_705_158_000_000L, winterMatch.kickoffEpochMs)
+    }
+
+    @Test
     fun `rows without a score are skipped`() {
         val partial = """
             Div,Date,HomeTeam,AwayTeam,FTHG,FTAG

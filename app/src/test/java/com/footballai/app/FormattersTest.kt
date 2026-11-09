@@ -3,6 +3,7 @@ package com.footballai.app
 import com.footballai.app.core.Formatters
 import com.footballai.app.core.RelativeUnit
 import com.footballai.app.core.TimeConstants
+import java.util.TimeZone
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -41,6 +42,21 @@ class FormattersTest {
         assertEquals("67'", Formatters.elapsedLabel(67, "en"))
         assertEquals("۶۷'", Formatters.elapsedLabel(67, "fa"))
         assertEquals("", Formatters.elapsedLabel(null, "fa"))
+    }
+
+    @Test
+    fun `kickoff times follow the device time zone`() {
+        // 19 Aug 2023 14:00 UTC, a date when London is on BST and Tehran is UTC+3:30.
+        val instant = 1_692_453_600_000L
+        val previous = TimeZone.getDefault()
+        try {
+            TimeZone.setDefault(TimeZone.getTimeZone("UTC"))
+            assertEquals("Sat 19 Aug, 14:00", Formatters.kickoffDateTime(instant, "en"))
+            TimeZone.setDefault(TimeZone.getTimeZone("Asia/Tehran"))
+            assertEquals("Sat 19 Aug, 17:30", Formatters.kickoffDateTime(instant, "en"))
+        } finally {
+            TimeZone.setDefault(previous)
+        }
     }
 
     @Test
