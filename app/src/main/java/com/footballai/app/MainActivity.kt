@@ -7,7 +7,6 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.graphics.Color
 import com.footballai.app.data.settings.AppLanguage
 import com.footballai.app.data.settings.AppSettings
 import com.footballai.app.data.settings.ThemeMode
