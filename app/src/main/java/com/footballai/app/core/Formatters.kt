@@ -39,7 +39,10 @@ object Formatters {
 
     fun decimal(value: Double, languageTag: String, decimals: Int = 2): String {
         if (value.isNaN() || value.isInfinite()) return "—"
-        return localizeDigits(String.format(Locale.US, "%.${decimals}f", value), languageTag)
+        val text = String.format(Locale.US, "%.${decimals}f", value)
+        // Persian typography uses the Arabic decimal separator (U+066B).
+        if (isPersian(languageTag)) return localizeDigits(text.replace('.', '\u066B'), languageTag)
+        return text
     }
 
     fun integer(value: Int, languageTag: String): String = localizeDigits(value.toString(), languageTag)

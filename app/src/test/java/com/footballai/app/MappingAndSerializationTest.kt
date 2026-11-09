@@ -72,7 +72,7 @@ class MappingAndSerializationTest {
     fun `explanations survive a json round trip`() {
         val explanations = listOf(
             ExplanationView("FAVOURITE_HOME", 0.8, mapOf("attack" to "1.42")),
-            ExplanationView("HOME_ADVANTAGE", 0.35),
+            ExplanationView("HOME_ADVANTAGE", 0.35, emptyMap()),
         )
         val encoded = Serialized.encodeExplanations(explanations)
         val decoded = Serialized.decodeExplanations(encoded)
