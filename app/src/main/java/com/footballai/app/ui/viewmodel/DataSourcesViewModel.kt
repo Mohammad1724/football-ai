@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.footballai.app.core.AppError
 import com.footballai.app.core.ErrorCode
 import com.footballai.app.core.Outcome
+import com.footballai.app.core.Seasons
 import com.footballai.app.data.provider.CsvCompetition
 import com.footballai.app.data.remote.QuotaState
 import com.footballai.app.data.repository.HistoricalSourceOption
@@ -17,8 +18,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.time.ZoneOffset
-import java.time.ZonedDateTime
 
 data class ProviderRow(
     val info: ProviderInfo,
@@ -160,7 +159,7 @@ class DataSourcesViewModel(private val container: AppContainer) : ViewModel() {
     fun importCsvHistory() = runAction("csvHistory") {
         container.syncRepository.importCsvHistory(
             competitionKeys = _state.value.selectedCsvKeys.toList(),
-            seasons = recentSeasonStartYears(_state.value.historicalSeasons),
+            seasons = Seasons.recentStartYears(container.clock.nowEpochMs(), _state.value.historicalSeasons),
         )
     }
 
@@ -176,7 +175,7 @@ class DataSourcesViewModel(private val container: AppContainer) : ViewModel() {
     }
 
     fun setHistoricalSeasons(seasons: Int) {
-        val clamped = seasons.coerceIn(1, 10)
+        val clamped = seasons.coerceIn(Seasons.MIN_SEASONS, Seasons.MAX_SEASONS)
         _state.update {
             it.copy(historicalSeasons = clamped, estimatedRequests = it.selectedCsvKeys.size * clamped)
         }
@@ -205,12 +204,6 @@ class DataSourcesViewModel(private val container: AppContainer) : ViewModel() {
     }
 
     fun dismissMessage() = _state.update { it.copy(messageKey = null, lastError = null, lastSummary = null) }
-
-    private fun recentSeasonStartYears(count: Int): List<Int> {
-        val now = ZonedDateTime.now(ZoneOffset.UTC)
-        val currentStart = if (now.monthValue >= 7) now.year else now.year - 1
-        return (0 until count).map { currentStart - it }
-    }
 
     private fun runAction(action: String, block: suspend () -> Outcome<SyncSummary>?) {
         viewModelScope.launch {

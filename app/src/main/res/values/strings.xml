@@ -301,4 +301,37 @@
     <string name="filter_today">Today</string>
     <string name="filter_tomorrow">Tomorrow</string>
     <string name="filter_week">Next 7 days</string>
+
+    <!-- First-run onboarding -->
+    <string name="onboarding_step">Step %1$d of %2$d</string>
+    <string name="onboarding_skip">Skip</string>
+    <string name="onboarding_next">Continue</string>
+    <string name="onboarding_back">Back</string>
+    <string name="onboarding_finish">Start using the app</string>
+    <string name="ob_welcome_title">Probabilities, not promises</string>
+    <string name="ob_welcome_body">FootballAI runs its own statistical model on this phone. Nothing is downloaded as a ready-made prediction, and no estimate is presented as a fact.</string>
+    <string name="ob_welcome_point_model">Poisson, then Dixon-Coles, then an Elo tilt, scored with Brier score and calibration curves</string>
+    <string name="ob_welcome_point_offline">Predictions are computed offline once the data is cached</string>
+    <string name="ob_welcome_point_honest">Missing lineups, injuries or odds are reported, never invented</string>
+    <string name="ob_language_title">Language</string>
+    <string name="ob_language_hint">You can change this later in Settings.</string>
+    <string name="ob_provider_title">Fixtures need a free provider</string>
+    <string name="ob_provider_body">Free football feeds require a personal API token. Without one the app can still import history and rate teams, but it cannot list matches.</string>
+    <string name="ob_provider_hint">Use your own free key. It is encrypted on this device, never uploaded, and excluded from backups.</string>
+    <string name="ob_key_label">API token</string>
+    <string name="ob_key_verify">Save and check</string>
+    <string name="ob_key_stored">A key is already stored for this provider. Saving a new one replaces it.</string>
+    <string name="ob_provider_get_key">Get a free key</string>
+    <string name="ob_provider_later">I will add a key later</string>
+    <string name="ob_competitions_title">Competitions to follow</string>
+    <string name="ob_competitions_body">Only followed competitions are refreshed in the background, which keeps the request count low.</string>
+    <string name="ob_competitions_empty">No competitions were downloaded yet, so this step is skipped. You can sync them later from Data sources.</string>
+    <string name="ob_history_title">Historical results</string>
+    <string name="ob_history_body">The model learns from finished matches and this source needs no key. Two or three seasons per competition are enough to start; more seasons give steadier ratings.</string>
+    <string name="ob_history_seasons">Seasons</string>
+    <string name="ob_history_estimate">%1$d files, one request each</string>
+    <string name="ob_history_import">Import history</string>
+    <string name="ob_history_result">%1$d finished matches imported for %2$d competitions.</string>
+    <string name="ob_history_skip">Skip for now</string>
+    <string name="ob_history_note">Keep the app open until the import finishes.</string>
 </resources>

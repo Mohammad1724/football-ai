@@ -1,5 +1,6 @@
 package com.footballai.app.ui.navigation
 
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
@@ -23,12 +24,17 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.footballai.app.R
+import com.footballai.app.data.settings.AppSettings
+import com.footballai.app.ui.LocalAppContainer
+import com.footballai.app.ui.components.LoadingState
 import com.footballai.app.ui.screens.CompetitionScreen
 import com.footballai.app.ui.screens.DashboardScreen
 import com.footballai.app.ui.screens.DataSourcesScreen
 import com.footballai.app.ui.screens.MatchDetailScreen
 import com.footballai.app.ui.screens.MatchesScreen
+import com.footballai.app.ui.screens.OnboardingScreen
 import com.footballai.app.ui.screens.PerformanceScreen
 import com.footballai.app.ui.screens.PredictionsScreen
 import com.footballai.app.ui.screens.SettingsScreen
@@ -65,6 +71,22 @@ private val bottomDestinations = listOf(
 
 @Composable
 fun FootballAiApp() {
+    val container = LocalAppContainer.current
+    val settingsState = container.settingsRepository.settings
+        .collectAsStateWithLifecycle<AppSettings?>(initialValue = null)
+    val settings = settingsState.value
+    when {
+        // The stored preferences decide whether the first-run flow is still pending;
+        // showing the app shell before that value is known would flash an empty state.
+        settings == null -> LoadingState(modifier = Modifier.fillMaxSize())
+        !settings.onboarded -> OnboardingScreen()
+        else -> MainNavigation()
+    }
+}
+
+/** The regular app shell, shown once onboarding has been completed or skipped. */
+@Composable
+private fun MainNavigation() {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route

@@ -301,4 +301,37 @@
     <string name="filter_today">امروز</string>
     <string name="filter_tomorrow">فردا</string>
     <string name="filter_week">۷ روز آینده</string>
+
+    <!-- راه‌اندازی اولین اجرا -->
+    <string name="onboarding_step">گام %1$d از %2$d</string>
+    <string name="onboarding_skip">رد کردن</string>
+    <string name="onboarding_next">ادامه</string>
+    <string name="onboarding_back">بازگشت</string>
+    <string name="onboarding_finish">شروع استفاده</string>
+    <string name="ob_welcome_title">احتمال، نه وعده</string>
+    <string name="ob_welcome_body">FootballAI مدل آماری خودش را روی همین گوشی اجرا می‌کند. هیچ پیش‌بینی آماده‌ای دانلود نمی‌شود و هیچ تخمینی به‌جای واقعیت جا زده نمی‌شود.</string>
+    <string name="ob_welcome_point_model">پواسون، سپس Dixon-Coles، سپس تیلت Elo، با ارزیابی Brier و منحنی کالیبراسیون</string>
+    <string name="ob_welcome_point_offline">پس از ذخیره داده‌ها، پیش‌بینی آفلاین محاسبه می‌شود</string>
+    <string name="ob_welcome_point_honest">نبود آمار ترکیب، مصدومیت یا شانس باگزار اعلام می‌شود، نه ساخته‌شدن</string>
+    <string name="ob_language_title">زبان</string>
+    <string name="ob_language_hint">بعداً می‌توانی از تنظیمات تغییرش دهی.</string>
+    <string name="ob_provider_title">لیست بازی‌ها به یک منبع رایگان نیاز دارد</string>
+    <string name="ob_provider_body">فیدهای رایگان فوتبال کلید شخصی می‌خواهند. بدون کلید، برنامه می‌تواند تاریخچه را وارد کند و قدرت تیم‌ها را حساب کند، اما لیست بازی نمی‌تواند بسازد.</string>
+    <string name="ob_provider_hint">از کلید رایگان خودت استفاده کن. کلید روی همین گوشی رمزنگاری می‌شود، جایی آپلود نمی‌شود و از پشتیبان‌گیری خارج است.</string>
+    <string name="ob_key_label">کلید API</string>
+    <string name="ob_key_verify">ذخیره و بررسی</string>
+    <string name="ob_key_stored">برای این منبع از قبل کلید ذخیره شده است. ذخیره کلید تازه جایگزینش می‌کند.</string>
+    <string name="ob_provider_get_key">گرفتن کلید رایگان</string>
+    <string name="ob_provider_later">بعداً کلید را اضافه می‌کنم</string>
+    <string name="ob_competitions_title">رقابت‌های دنبال‌شده</string>
+    <string name="ob_competitions_body">فقط رقابت‌های دنبال‌شده در پس‌زمینه به‌روزرسانی می‌شوند؛ این‌گونه تعداد درخواست‌ها کم می‌ماند.</string>
+    <string name="ob_competitions_empty">هنوز رقابتی دانلود نشده، پس این گام رد می‌شود. بعداً می‌توانی از «منابع داده» همگام‌سازی کنی.</string>
+    <string name="ob_history_title">نتایج تاریخی</string>
+    <string name="ob_history_body">مدل از بازی‌های تمام‌شده یاد می‌گیرد و این منبع کلید لازم ندارد. دو یا سه فصل برای هر رقابت برای شروع کافی است؛ فصل‌های بیشتر برآوردهای پایدارتری می‌دهند.</string>
+    <string name="ob_history_seasons">فصل‌ها</string>
+    <string name="ob_history_estimate">%1$d فایل، هر کدام یک درخواست</string>
+    <string name="ob_history_import">وارد کردن تاریخچه</string>
+    <string name="ob_history_result">%1$d بازی تمام‌شده برای %2$d رقابت وارد شد.</string>
+    <string name="ob_history_skip">فعلاً رد کن</string>
+    <string name="ob_history_note">تا پایان وارد کردن، برنامه را باز نگه دار.</string>
 </resources>
