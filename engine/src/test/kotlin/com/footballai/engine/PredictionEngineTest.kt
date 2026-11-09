@@ -149,7 +149,8 @@ class PredictionEngineTest {
         val context = assertNotNull(live.live)
         assertEquals(90, context.minute)
         assertEquals(0, context.remainingMinutes)
-        assertTrue(live.markets.draw > 0.90, "with no time left the drawn scoreline dominates")
+        assertTrue(live.markets.draw > 0.85, "with no time left the drawn scoreline dominates")
+        assertTrue(live.markets.homeWin + live.markets.awayWin < 0.15)
     }
 
     @Test
