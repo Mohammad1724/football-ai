@@ -356,7 +356,7 @@ fun MarketBarRow(
                 color = MaterialTheme.colorScheme.onSurface,
             )
             Text(
-                text = Formatters.percent(probability, languageTag, decimals = probability < 0.1 ? 1 : 0),
+                text = Formatters.percent(probability, languageTag, decimals = if (probability < 0.1) 1 else 0),
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = if (highlight) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
