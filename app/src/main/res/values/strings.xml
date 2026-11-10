@@ -349,4 +349,5 @@
     <string name="getting_started_done">Done</string>
     <string name="getting_started_do">Do this step</string>
     <string name="getting_started_open">Open data &amp; sync</string>
+    <string name="sync_progress">%1$s of %2$s competitions</string>
 </resources>

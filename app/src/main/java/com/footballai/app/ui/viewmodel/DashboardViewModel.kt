@@ -3,12 +3,16 @@ package com.footballai.app.ui.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.footballai.app.core.AppError
+import com.footballai.app.core.AppErrorException
+import com.footballai.app.core.ErrorCode
 import com.footballai.app.core.Outcome
 import com.footballai.app.core.TimeConstants
 import com.footballai.app.di.AppContainer
 import com.footballai.app.domain.model.MatchSummary
 import com.footballai.app.domain.model.SyncStatus
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -38,6 +42,9 @@ data class DashboardUiState(
     val historicalMatches: Int = 0,
     val lastError: AppError? = null,
     val hasAnyData: Boolean = false,
+    /** Progress of the running fixture sync: competitions finished and total. */
+    val syncDone: Int = 0,
+    val syncTotal: Int = 0,
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -45,6 +52,9 @@ class DashboardViewModel(private val container: AppContainer) : ViewModel() {
 
     private val _state = MutableStateFlow(DashboardUiState())
     val state: StateFlow<DashboardUiState> = _state.asStateFlow()
+
+    private var syncJob: Job? = null
+    private var autoSyncAttempted = false
 
     private val ticker = flow {
         while (true) {
@@ -55,26 +65,72 @@ class DashboardViewModel(private val container: AppContainer) : ViewModel() {
 
     init {
         observeMatches()
+        observeProvider()
         refreshCounts()
         autoSyncIfEmpty()
     }
 
-    fun refresh() {
+    /**
+     * Keeps the provider label in step with the stored credentials: adding a key in the
+     * data screen must not leave the dashboard claiming that nothing is configured.
+     */
+    private fun observeProvider() {
         viewModelScope.launch {
-            _state.update { it.copy(isSyncing = true, lastError = null) }
-            val providerId = container.providerRegistry.activeProviderId()
-            if (providerId == null) {
-                _state.update { it.copy(isSyncing = false, isLoading = false) }
-                return@launch
+            container.settingsRepository.settings.collect {
+                val provider = container.providerRegistry.activeProvider()
+                _state.update { state -> state.copy(providerName = provider?.info?.displayName) }
             }
-            when (val result = container.syncRepository.syncFixtures(providerId)) {
-                is Outcome.Failure -> _state.update { it.copy(isSyncing = false, lastError = result.error) }
-                is Outcome.Success -> {
-                    container.predictionRepository.resolveFinishedPredictions()
-                    _state.update { it.copy(isSyncing = false, lastError = null) }
+        }
+    }
+
+    fun refresh() {
+        if (syncJob?.isActive == true) return
+        syncJob = viewModelScope.launch {
+            _state.update {
+                it.copy(isSyncing = true, isLoading = false, lastError = null, syncDone = 0, syncTotal = 0)
+            }
+            try {
+                val providerId = container.providerRegistry.activeProviderId()
+                if (providerId == null) {
+                    _state.update { it.copy(lastError = AppError(ErrorCode.MISSING_API_KEY)) }
+                    return@launch
                 }
+                val result = container.syncRepository.syncFixtures(
+                    providerId = providerId,
+                    onProgress = { done, total ->
+                        _state.update { it.copy(syncDone = done, syncTotal = total) }
+                    },
+                )
+                when (result) {
+                    is Outcome.Failure -> _state.update { it.copy(lastError = result.error) }
+                    is Outcome.Success -> {
+                        container.predictionRepository.resolveFinishedPredictions()
+                        _state.update { it.copy(lastError = null) }
+                    }
+                }
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (error: AppErrorException) {
+                // Quota exhaustion and similar typed failures must not leave the screen
+                // spinning forever.
+                _state.update { it.copy(lastError = error.error) }
+            } catch (error: Exception) {
+                _state.update {
+                    it.copy(lastError = AppError(ErrorCode.UNKNOWN, detail = error.message))
+                }
+            } finally {
+                _state.update { it.copy(isSyncing = false) }
+                refreshCounts()
             }
-            refreshCounts()
+        }
+    }
+
+    /** Stops a long fixture sync (free providers space requests a few seconds apart). */
+    fun cancelSync() {
+        syncJob?.cancel()
+        syncJob = null
+        _state.update {
+            it.copy(isSyncing = false, syncDone = 0, syncTotal = 0)
         }
     }
 
@@ -133,6 +189,8 @@ class DashboardViewModel(private val container: AppContainer) : ViewModel() {
     }
 
     private fun autoSyncIfEmpty() {
+        if (autoSyncAttempted) return
+        autoSyncAttempted = true
         viewModelScope.launch {
             val providerId = container.providerRegistry.activeProviderId() ?: return@launch
             val (fixtures, _, _) = container.matchRepository.countsTriple()

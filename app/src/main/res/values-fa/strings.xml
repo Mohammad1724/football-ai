@@ -349,4 +349,5 @@
     <string name="getting_started_done">انجام شد</string>
     <string name="getting_started_do">انجام بده</string>
     <string name="getting_started_open">رفتن به داده و همگام‌سازی</string>
+    <string name="sync_progress">%1$s از %2$s لیگ</string>
 </resources>

@@ -99,6 +99,7 @@ class SyncRepository(
         competitionKeys: List<String>? = null,
         daysBack: Int = 7,
         daysAhead: Int = 21,
+        onProgress: (done: Int, total: Int) -> Unit = { _, _ -> },
     ): Outcome<SyncSummary> {
         val provider = registry.provider(providerId)
             ?: return Outcome.Failure(AppError(ErrorCode.NOT_FOUND, detail = "Unknown provider $providerId"))
@@ -117,7 +118,8 @@ class SyncRepository(
         var summary = SyncSummary(requestsEstimated = keys.size)
         val errors = mutableListOf<String>()
 
-        for (key in keys) {
+        onProgress(0, keys.size)
+        for ((index, key) in keys.withIndex()) {
             when (val result = provider.matches(key, season = null, fromEpochMs = from, toEpochMs = to)) {
                 is Outcome.Failure -> errors.add("${provider.info.displayName}/$key: ${result.error.code}")
                 is Outcome.Success -> {
@@ -125,6 +127,9 @@ class SyncRepository(
                     summary = summary + SyncSummary(fixtures = written)
                 }
             }
+            // Free providers space requests out, so a full run can take a while; the
+            // caller wants to show which competition it is on.
+            onProgress(index + 1, keys.size)
         }
 
         settingsRepository.setLastSync(now)

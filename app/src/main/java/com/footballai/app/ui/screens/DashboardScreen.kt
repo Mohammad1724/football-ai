@@ -130,7 +130,10 @@ fun DashboardScreen(
                         historical = state.sync.historicalCount,
                         predictions = state.sync.predictionsCount,
                         isSyncing = state.isSyncing,
+                        progressDone = state.syncDone,
+                        progressTotal = state.syncTotal,
                         onSync = { viewModel.refresh() },
+                        onCancelSync = { viewModel.cancelSync() },
                         onConfigure = onOpenDataSources,
                     )
                 }
@@ -183,8 +186,11 @@ fun DashboardScreen(
                             fixtures = state.sync.fixturesCount,
                             historical = state.historicalMatches,
                             isSyncing = state.isSyncing,
+                            syncDone = state.syncDone,
+                            syncTotal = state.syncTotal,
                             onAddKey = onOpenDataSources,
                             onSyncFixtures = { viewModel.refresh() },
+                            onCancelSync = { viewModel.cancelSync() },
                             onImportHistory = onOpenDataSources,
                         )
                     }
@@ -212,7 +218,10 @@ private fun SyncCard(
     historical: Int,
     predictions: Int,
     isSyncing: Boolean,
+    progressDone: Int,
+    progressTotal: Int,
     onSync: () -> Unit,
+    onCancelSync: () -> Unit,
     onConfigure: () -> Unit,
 ) {
     val languageTag = LocalLanguageTag.current
@@ -251,6 +260,26 @@ private fun SyncCard(
                     TextButton(onClick = onConfigure) {
                         Text(text = stringResource(R.string.action_manage))
                     }
+                }
+            }
+            if (isSyncing) {
+                val tag = LocalLanguageTag.current
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = if (progressTotal > 0) {
+                        stringResource(
+                            R.string.sync_progress,
+                            Formatters.integer(progressDone, tag),
+                            Formatters.integer(progressTotal, tag),
+                        )
+                    } else {
+                        stringResource(R.string.sync_in_progress)
+                    },
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                TextButton(onClick = onCancelSync) {
+                    Text(text = stringResource(R.string.action_cancel))
                 }
             }
             Spacer(Modifier.height(6.dp))
@@ -301,8 +330,11 @@ private fun GettingStartedCard(
     fixtures: Int,
     historical: Int,
     isSyncing: Boolean,
+    syncDone: Int,
+    syncTotal: Int,
     onAddKey: () -> Unit,
     onSyncFixtures: () -> Unit,
+    onCancelSync: () -> Unit,
     onImportHistory: () -> Unit,
 ) {
     val languageTag = LocalLanguageTag.current
@@ -338,15 +370,23 @@ private fun GettingStartedCard(
             SetupStep(
                 number = 2,
                 title = stringResource(R.string.getting_started_step2_title),
-                body = stringResource(R.string.getting_started_step2_body),
+                body = if (isSyncing && syncTotal > 0) {
+                    stringResource(
+                        R.string.sync_progress,
+                        Formatters.integer(syncDone, languageTag),
+                        Formatters.integer(syncTotal, languageTag),
+                    )
+                } else {
+                    stringResource(R.string.getting_started_step2_body)
+                },
                 done = fixtures > 0,
                 actionLabel = if (isSyncing) {
-                    stringResource(R.string.sync_in_progress)
+                    stringResource(R.string.action_cancel)
                 } else {
                     stringResource(R.string.getting_started_do)
                 },
-                onAction = onSyncFixtures,
-                enabled = hasProvider && !isSyncing,
+                onAction = if (isSyncing) onCancelSync else onSyncFixtures,
+                enabled = hasProvider || isSyncing,
             )
             Spacer(Modifier.height(8.dp))
             SetupStep(
