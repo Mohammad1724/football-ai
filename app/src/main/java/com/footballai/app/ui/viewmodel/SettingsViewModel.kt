@@ -23,7 +23,7 @@ data class SettingsUiState(
     val providerName: String? = null,
     val historicalMatches: Int = 0,
     val storedPredictions: Int = 0,
-    val appVersion: String = "0.3.0",
+    val appVersion: String = "0.3.1",
     val lastError: AppError? = null,
     val isClearing: Boolean = false,
 )

@@ -186,6 +186,10 @@ fun MatchDetailScreen(
                     isPredicting = state.isPredicting,
                     error = state.lastError?.let { errorLabel(it) },
                     isLiveMatch = detail.summary.status.isLive,
+                    isFinished = detail.summary.status.isFinished,
+                    canPredict = state.lastError?.code != com.footballai.app.core.ErrorCode.INVALID_MATCH_STATE &&
+                        !detail.summary.status.isFinished &&
+                        (detail.summary.status.isLive || detail.summary.status == com.footballai.app.domain.model.MatchStatus.SCHEDULED),
                     onPredict = { viewModel.predict(forcePersist = true) },
                     liveTrackingEnabled = state.liveTrackingEnabled,
                     isLiveTracking = state.isLiveTracking,
@@ -341,6 +345,8 @@ private fun AnalysisTab(
     isPredicting: Boolean,
     error: String?,
     isLiveMatch: Boolean,
+    isFinished: Boolean,
+    canPredict: Boolean,
     onPredict: () -> Unit,
     liveTrackingEnabled: Boolean,
     isLiveTracking: Boolean,
@@ -377,21 +383,30 @@ private fun AnalysisTab(
             }
         }
 
+        // A finished game with no stored forecast is an expected empty state, not
+        // a retryable calculation error. Never offer an action known to be forbidden.
+        if (prediction == null && isFinished) {
+            item { EmptyState(
+                title = stringResource(R.string.finished_no_prediction_title),
+                message = stringResource(R.string.finished_no_prediction_message),
+            ) }
+            return@LazyColumn
+        }
         if (error != null) {
-            item { ErrorState(message = error, onRetry = onPredict) }
+            item {
+                if (canPredict) ErrorState(message = error, onRetry = onPredict)
+                else EmptyState(title = stringResource(R.string.analysis_unavailable), message = error)
+            }
+            if (prediction == null) return@LazyColumn
         }
-
-        if (isPredicting && prediction == null) {
-            item { LoadingState() }
-        }
-
         if (prediction == null) {
             item {
-                EmptyState(
-                    title = stringResource(R.string.no_prediction_title),
-                    message = stringResource(R.string.no_prediction_message),
-                    actionLabel = stringResource(R.string.action_analyze),
-                    onAction = onPredict,
+                if (isPredicting) LoadingState()
+                else EmptyState(
+                    title = stringResource(if (canPredict) R.string.no_prediction_title else R.string.analysis_unavailable),
+                    message = stringResource(if (canPredict) R.string.no_prediction_message else R.string.error_match_state),
+                    actionLabel = if (canPredict) stringResource(R.string.action_analyze) else null,
+                    onAction = if (canPredict) onPredict else null,
                 )
             }
             return@LazyColumn

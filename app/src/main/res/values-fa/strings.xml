@@ -160,7 +160,7 @@
     <string name="no_history_stored">هنوز تاریخچه‌ای ذخیره نشده است.</string>
     <string name="no_live_prediction_message">تحلیل زنده به سرویس‌دهنده‌ای با پوشش زنده مانند API-Football نیاز دارد.</string>
     <string name="no_live_prediction_title">تحلیل زنده‌ای نیست</string>
-    <string name="no_prediction_message">برای تولید احتمال‌های این بازی، موتور را اجرا کنید.</string>
+    <string name="no_prediction_message">برای محاسبه احتمال‌های این بازی، «تحلیل بازی» را بزنید. محاسبه داخل همین برنامه انجام می‌شود و ابزار جداگانه‌ای لازم نیست.</string>
     <string name="no_prediction_title">هنوز تحلیلی نیست</string>
     <string name="no_provider_body">برای دریافت بازی‌ها و نتایج زنده یک کلید رایگان اضافه کنید.</string>
     <string name="no_provider_title">هیچ منبع داده‌ای تنظیم نشده</string>
@@ -360,4 +360,10 @@
     <string name="error_match_time">دقیقه معتبر یا زمان باقی‌مانده مشخص نیست. پیش‌بینی زنده متوقف شد.</string>
     <string name="market_paired_comparison">بریر مدل روی همان بازی‌های دارای ضریب: %1$s (%2$s بازی)</string>
     <string name="history_upgrade_notice">پس از ارتقا از نسخه ۰٫۲، تاریخچه API را دوباره وارد کنید. نتایج قدیمی API که امتیاز ۹۰ دقیقه آن‌ها مشخص نیست حفظ شده‌اند، اما در آموزش استفاده نمی‌شوند. شناسه‌های CSV خودکار اصلاح می‌شوند. تاریخچه هر منبع فقط برای مسابقات همان منبع استفاده می‌شود.</string>
+    <string name="finished_no_prediction_title">این بازی پایان یافته است</string>
+    <string name="finished_no_prediction_message">برای این بازی پیش‌بینی ذخیره‌شده‌ای وجود ندارد. برای جلوگیری از نتیجه گمراه‌کننده، بعد از پایان بازی پیش‌بینی جدید نمی‌سازیم. برای پیش‌بینی، یک بازی آینده را انتخاب کنید؛ نتیجه و آمار این بازی در همین صفحه قابل مشاهده‌اند.</string>
+    <string name="analysis_unavailable">تحلیل جدید در دسترس نیست</string>
+    <string name="empty_filtered_matches_title">در این بازه بازی‌ای پیدا نشد</string>
+    <string name="empty_recent_results_message">در لیگ و بازه انتخاب‌شده نتیجه پایان‌یافته‌ای ذخیره نشده است. فیلتر لیگ را تغییر دهید یا همگام‌سازی کنید.</string>
+    <string name="empty_upcoming_message">در بازه و لیگ انتخاب‌شده بازی‌ای ذخیره نشده است. همگام‌سازی کنید یا فیلتر لیگ را تغییر دهید. ممکن است منبع انتخابی هنوز برنامه این بازه را منتشر نکرده باشد یا پوشش آن را نداشته باشد.</string>
 </resources>

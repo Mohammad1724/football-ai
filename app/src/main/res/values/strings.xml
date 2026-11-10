@@ -160,7 +160,7 @@
     <string name="no_history_stored">No historical results stored yet.</string>
     <string name="no_live_prediction_message">Live analysis needs an in-play provider such as API-Football.</string>
     <string name="no_live_prediction_title">No live analysis</string>
-    <string name="no_prediction_message">Run the engine to produce probabilities for this match.</string>
+    <string name="no_prediction_message">Tap Analyze match to calculate probabilities inside this app. No separate tool is needed.</string>
     <string name="no_prediction_title">No analysis yet</string>
     <string name="no_provider_body">Add a free API key to load fixtures and live scores.</string>
     <string name="no_provider_title">No data source configured</string>
@@ -360,4 +360,10 @@
     <string name="error_match_time">Reliable live minute / remaining time is unavailable. Prediction paused.</string>
     <string name="market_paired_comparison">Model Brier on the same market subset: %1$s (%2$s matches)</string>
     <string name="history_upgrade_notice">After upgrading from 0.2: re-import API history. Old API scores without a verified 90-minute scope are preserved but excluded from training. CSV IDs are migrated automatically. History from one provider does not train fixtures from another provider.</string>
+    <string name="finished_no_prediction_title">This match has finished</string>
+    <string name="finished_no_prediction_message">No saved prediction exists for this match. We do not create predictions after the result is known. Choose an upcoming match for a forecast; the result and available statistics remain accessible here.</string>
+    <string name="analysis_unavailable">New analysis unavailable</string>
+    <string name="empty_filtered_matches_title">No matches in this range</string>
+    <string name="empty_recent_results_message">No finished results are stored for this league and date range. Change the league filter or sync.</string>
+    <string name="empty_upcoming_message">No fixtures are stored for this league and date range. Sync or change the league filter. Your selected provider may not yet publish or cover this period.</string>
 </resources>

@@ -55,7 +55,7 @@ fun MatchesScreen(onMatchClick: (String) -> Unit) {
             TopAppBar(
                 title = { Text(stringResource(R.string.title_matches)) },
                 actions = {
-                    IconButton(onClick = { viewModel.refresh() }) {
+                    IconButton(onClick = { viewModel.refresh() }, enabled = !state.isRefreshing) {
                         Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.action_sync))
                     }
                 },
@@ -113,12 +113,22 @@ fun MatchesScreen(onMatchClick: (String) -> Unit) {
                 }
             }
 
+            if (state.isRefreshing) {
+                androidx.compose.material3.LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            }
+            state.lastError?.let { error ->
+                Text(com.footballai.app.ui.errorLabel(error),
+                    color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(16.dp))
+            }
             if (state.isLoading) {
                 LoadingState()
             } else if (state.matches.isEmpty()) {
                 EmptyState(
-                    title = stringResource(R.string.empty_matches_title),
-                    message = stringResource(R.string.empty_matches_message),
+                    title = stringResource(R.string.empty_filtered_matches_title),
+                    message = stringResource(if (state.filter == MatchListFilter.FINISHED)
+                        R.string.empty_recent_results_message else R.string.empty_upcoming_message),
+                    actionLabel = if (state.isRefreshing) null else stringResource(R.string.action_sync),
+                    onAction = if (state.isRefreshing) null else ({ viewModel.refresh() }),
                 )
             } else {
                 LazyColumn(modifier = Modifier.fillMaxSize()) {
