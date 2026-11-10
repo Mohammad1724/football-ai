@@ -34,9 +34,12 @@ class CsvFixturesParserTest {
         val matches = CsvFixturesParser.parse(csv, competitions)
         assertEquals(3, matches.size)
         assertTrue(matches.all { it.status == MatchStatus.SCHEDULED })
-        assertEquals("Premier League", matches.first().competitionName)
-        assertEquals("arsenal", matches.first().home.providerKey)
-        assertEquals("chelsea", matches.first().away.providerKey)
+        // The list is ordered by kickoff, so the earliest fixture comes first.
+        val arsenal = matches.first { it.home.name == "Arsenal" }
+        assertEquals("Premier League", arsenal.competitionName)
+        assertEquals("arsenal", arsenal.home.providerKey)
+        assertEquals("chelsea", arsenal.away.providerKey)
+        assertEquals("Bundesliga", matches.first().competitionName)
     }
 
     @Test
