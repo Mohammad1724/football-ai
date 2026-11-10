@@ -11,6 +11,13 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 
 class MatchListRulesTest {
+    @Test fun `upcoming includes all of the tenth future calendar day`() {
+        val now = Instant.parse("2026-11-10T10:00:00Z").toEpochMilli()
+        val range = MatchListRules.range(MatchListFilter.WEEK, now, ZoneId.of("Asia/Tehran"))
+        assertEquals(now, range.first)
+        assertEquals(Instant.parse("2026-11-20T20:30:00Z").toEpochMilli() - 1, range.second)
+    }
+
     private fun match(id: String, time: Long, status: MatchStatus = MatchStatus.FINISHED, league: String = "L") =
         MatchSummary(id, league, league, null, TeamRef("h", "Home"), TeamRef("a", "Away"),
             time, status, null, null, null, 0, false, false, false, false)

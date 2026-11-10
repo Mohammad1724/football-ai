@@ -34,14 +34,24 @@ class RatingsRepository(
     private val cache = HashMap<Key, Entry>()
     private val mutex = Mutex()
 
+    private suspend fun history(source: String, competitionId: String, asOf: Long): List<HistoricalMatchEntity> {
+        val native = db.historicalDao().forCompetition(source, competitionId, asOf)
+        if (source != "football-data-org") return native
+        val code = HistoryBridge.leagues[competitionId.substringAfterLast(':')] ?: return native
+        val csv = db.historicalDao().forCompetition("football-data-co-uk", "football-data-co-uk:league:$code", asOf)
+        val mapped = HistoryBridge.map(csv, db.teamDao().forCompetition(competitionId))
+        // Use one complete source, never double-count the same results across providers.
+        return if (mapped.size > native.size) mapped else native
+    }
+
     suspend fun book(source: String, competitionId: String, asOfEpochMs: Long = clock.nowEpochMs()): RatingBook? =
         mutex.withLock {
-            val rows = db.historicalDao().forCompetition(source, competitionId, asOfEpochMs)
+            val rows = history(source, competitionId, asOfEpochMs)
             if (rows.isEmpty()) return null
             val key = Key(source, competitionId)
             val latest = rows.last().kickoffEpochMs
             val cached = cache[key]
-            if (cached != null && cached.historyCount == rows.size && cached.latestKickoff == latest) {
+            if (source != "football-data-org" && cached != null && cached.historyCount == rows.size && cached.latestKickoff == latest) {
                 return cached.book
             }
             val book = RatingBook(config)
@@ -74,7 +84,7 @@ class RatingsRepository(
         withContext(Dispatchers.Default) { book(source, competitionId, asOfEpochMs)?.eloRating(teamId, asOfEpochMs) ?: TeamStrength.AVERAGE_ELO }
 
     suspend fun matchCount(source: String, competitionId: String): Int =
-        db.historicalDao().forCompetition(source, competitionId, clock.nowEpochMs()).size
+        history(source, competitionId, clock.nowEpochMs()).size
 
     /** Invalidates the cache, e.g. after a historical import or a fixture sync. */
     suspend fun invalidate() = mutex.withLock { cache.clear() }

@@ -56,7 +56,7 @@
     <string name="empty_match_title">Match not found</string>
     <string name="empty_matches_message">Synchronise fixtures from a data source to get started.</string>
     <string name="empty_matches_title">No matches yet</string>
-    <string name="empty_predictions_message">Run sync from Home. Pre-match forecasts are generated for today and tomorrow when enough history exists. The Home report shows missing fixtures or insufficient history.</string>
+    <string name="empty_predictions_message">Run sync from Home. Pre-match forecasts are generated for today through the next 10 days when enough history exists. The Home report shows missing fixtures or insufficient history.</string>
     <string name="empty_predictions_title">No predictions stored</string>
     <string name="empty_recent_message">Finished matches will appear once synchronised.</string>
     <string name="empty_recent_title">No recent results</string>
@@ -379,9 +379,9 @@
     <string name="api_trial_hint">Checks account status and upcoming Premier League / La Liga fixtures (normally 3 requests). Your followed leagues are unchanged and CSV fallback is disabled, so API failures stay visible.</string>
     <string name="daily_mode_title">Keyless daily analysis</string>
     <string name="daily_mode_hint">CSV fixtures and history; pre-match forecasts, no live polling. Turn off to use optional API sources.</string>
-    <string name="daily_dashboard_hint">Analyses today and tomorrow across the CSV source coverage, not every league worldwide. First run downloads history and may take several minutes. Open Predictions for saved forecasts. Lineups, injuries and weather are unavailable and are not model inputs.</string>
+    <string name="daily_dashboard_hint">Analyses today through the next 10 days across the CSV source coverage, not every league worldwide. First run downloads history and may take several minutes. Open Predictions for saved forecasts. Lineups, injuries and weather are unavailable and are not model inputs.</string>
     <string name="daily_report_title">Last daily analysis report</string>
-    <string name="daily_report_body">Leagues checked: %1$s\nToday/tomorrow candidates: %2$s\nExisting or generated forecasts: %3$s\nInsufficient history: %4$s\nFailed or kickoff passed: %5$s\nRun time: %6$s</string>
+    <string name="daily_report_body">Leagues checked: %1$s\nToday through day 10 candidates: %2$s\nExisting or generated forecasts: %3$s\nInsufficient history: %4$s\nFailed or kickoff passed: %5$s\nRun time: %6$s</string>
     <string name="error_insufficient_history">Insufficient history: at least 40 league matches in the training window and 5 per team are required. Run daily analysis from Home; if history is still insufficient, no forecast is generated.</string>
     <string name="daily_pick_team">Most likely result: %1$s win</string>
     <string name="daily_pick_draw">Most likely result: draw</string>

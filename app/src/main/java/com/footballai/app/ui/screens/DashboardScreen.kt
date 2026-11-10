@@ -124,7 +124,8 @@ fun DashboardScreen(
             ) {
                 if (state.dailyMode) {
                     item { InfoCard(title = stringResource(R.string.daily_mode_title), body = stringResource(R.string.daily_dashboard_hint)) }
-                    state.dailyReport?.let { report ->
+                }
+                state.dailyReport?.let { report ->
                         item {
                             InfoCard(title = stringResource(R.string.daily_report_title), body = stringResource(
                                 R.string.daily_report_body,
@@ -137,7 +138,6 @@ fun DashboardScreen(
                             ))
                         }
                     }
-                }
                 item {
                     SyncCard(
                         dailyMode = state.dailyMode,
@@ -188,6 +188,15 @@ fun DashboardScreen(
                             ),
                             containerColor = MaterialTheme.colorScheme.surfaceVariant,
                         )
+                        state.syncWarnings.distinct().forEach { warning ->
+                            val warningCode = warning.substringAfterLast(": ")
+                            InfoCard(
+                                title = warning.substringBeforeLast(": ", "Sync"),
+                                body = errorLabel(com.footballai.app.core.AppError(runCatching {
+                                    com.footballai.app.core.ErrorCode.valueOf(warningCode)
+                                }.getOrDefault(com.footballai.app.core.ErrorCode.REQUEST_FAILED))),
+                            )
+                        }
                     }
                 }
 

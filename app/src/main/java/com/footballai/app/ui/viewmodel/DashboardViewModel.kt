@@ -100,7 +100,7 @@ class DashboardViewModel(private val container: AppContainer) : ViewModel() {
                 it.copy(isSyncing = true, isLoading = false, lastError = null, syncDone = 0, syncTotal = 0)
             }
             try {
-                if (container.settingsRepository.current().dailyAnalysisEnabled) {
+                if (container.settingsRepository.current().dailyAnalysisEnabled || container.providerRegistry.activeProviderId() == "football-data-org") {
                     val report = container.dailyAnalysisRepository.run { done, total ->
                         _state.update { it.copy(syncDone = done, syncTotal = total) }
                     }
@@ -180,7 +180,7 @@ class DashboardViewModel(private val container: AppContainer) : ViewModel() {
                     combine(
                         container.matchRepository.observeLive(),
                         container.matchRepository.observeBetween(dayStart, dayEnd),
-                        container.matchRepository.observeBetween(now, now + 7 * TimeConstants.DAY_MS),
+                        container.matchRepository.observeBetween(now, MatchListRules.range(MatchListFilter.WEEK, now).second),
                     ) { live, today, upcoming ->
                         fun visible(list: List<MatchSummary>) = if (daily) list.filter { it.id.startsWith("football-data-co-uk:") } else list
                         val shownLive = if (daily) emptyList() else live
@@ -223,7 +223,7 @@ class DashboardViewModel(private val container: AppContainer) : ViewModel() {
         if (autoSyncAttempted) return
         autoSyncAttempted = true
         viewModelScope.launch {
-            if (container.settingsRepository.current().dailyAnalysisEnabled) {
+            if (container.settingsRepository.current().dailyAnalysisEnabled || container.providerRegistry.activeProviderId() == "football-data-org") {
                 if (container.dailyAnalysisRepository.needsRefresh()) refresh()
                 return@launch
             }

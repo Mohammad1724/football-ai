@@ -41,6 +41,7 @@ class DailyAnalysisTest {
             every { meta.observeAll() } returns flowOf(emptyList())
             coEvery { meta.get(any()) } returns null
             coEvery { meta.put(any()) } just Runs
+            coEvery { registry.activeProviderId() } returns source
             every { registry.historical } returns history
             every { history.availableCompetitions() } returns listOf(CsvCompetition("E0", "Premier League", "England"))
             coEvery { sync.syncCompetitions(source) } returns Outcome.Success(1)
@@ -64,7 +65,7 @@ class DailyAnalysisTest {
         val report = e.repo.run()
         assertEquals(1, report.predicted)
         assertEquals(2, report.resolved)
-        coVerify { e.sync.syncFixtures(e.source, listOf("E0"), 0, 7, false, any()) }
+        coVerify { e.sync.syncFixtures(e.source, listOf("E0"), 0, 10, false, any()) }
         coVerify { e.sync.importCsvHistory(listOf("E0"), listOf(2024, 2025, 2026)) }
         coVerify(exactly = 0) { e.sync.syncLive(any()) }
     }

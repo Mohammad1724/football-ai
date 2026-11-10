@@ -88,7 +88,7 @@ class PredictionRepository(
         val baseline = ratingsRepository.baseline(source, match.competitionId, now)
         val fit = ratingsRepository.fit(source, match.competitionId, now)
         val historyCount = ratingsRepository.matchCount(source, match.competitionId)
-        if (dailyMode && !DailyAnalysisPolicy.hasEnoughHistory(historyCount, strengths.first.matchesUsed, strengths.second.matchesUsed)) {
+        if (!DailyAnalysisPolicy.hasEnoughHistory(historyCount, strengths.first.matchesUsed, strengths.second.matchesUsed)) {
             return Outcome.Failure(AppError(ErrorCode.INSUFFICIENT_HISTORY))
         }
         val statistics = db.statisticsDao().byMatch(matchId)
@@ -110,6 +110,9 @@ class PredictionRepository(
             ),
         )
 
+        if (quality.level == com.footballai.engine.model.DataQualityLevel.INSUFFICIENT) {
+            return Outcome.Failure(AppError(ErrorCode.INSUFFICIENT_HISTORY))
+        }
         val preMatchInput = PreMatchInput(
             home = strengths.first,
             away = strengths.second,
@@ -399,6 +402,8 @@ class PredictionRepository(
     }
 
     private suspend fun toView(entity: PredictionEntity): PredictionView? {
+        // Retain legacy snapshots for audit, but never present insufficient-data probabilities.
+        if (entity.qualityLevel == QualityLevel.INSUFFICIENT.name) return null
         val quality = Serialized.decodeQuality(entity.qualityJson)
         val markets = db.predictionDao().markets(entity.id)
         val marketRows = markets.mapNotNull { row ->

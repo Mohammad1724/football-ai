@@ -119,7 +119,7 @@ class MatchesViewModel(private val container: AppContainer) : ViewModel() {
         _state.update { it.copy(isSyncing = true, lastError = null) }
         viewModelScope.launch {
             try {
-                if (container.settingsRepository.current().dailyAnalysisEnabled) {
+                if (container.settingsRepository.current().dailyAnalysisEnabled || container.providerRegistry.activeProviderId() == "football-data-org") {
                     val report = container.dailyAnalysisRepository.run()
                     _state.update {
                         it.copy(lastError = report.errors.firstOrNull()?.let { AppError(ErrorCode.REQUEST_FAILED) })

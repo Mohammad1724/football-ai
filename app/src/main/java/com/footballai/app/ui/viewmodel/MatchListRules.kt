@@ -15,7 +15,7 @@ object MatchListRules {
         return when (filter) {
             MatchListFilter.TODAY -> start(0) to start(1) - 1
             MatchListFilter.TOMORROW -> start(1) to start(2) - 1
-            MatchListFilter.WEEK -> now to start(7) - 1
+            MatchListFilter.WEEK -> now to start(11) - 1
             MatchListFilter.FINISHED -> start(-14) to now
         }
     }
