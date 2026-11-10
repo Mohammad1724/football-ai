@@ -38,6 +38,7 @@ data class DataSourcesUiState(
     val lastSummary: SyncSummary? = null,
     val lastError: AppError? = null,
     val messageKey: String? = null,
+    val verifiedProviderId: String? = null,
     val estimatedRequests: Int = 0,
 )
 
@@ -87,22 +88,34 @@ class DataSourcesViewModel(private val container: AppContainer) : ViewModel() {
     }
 
     fun saveKey(providerId: String, apiKey: String) {
-        if (apiKey.isBlank()) return
+        if (apiKey.isBlank() || _state.value.busyAction != null) return
         container.providerRegistry.saveCredentials(providerId, apiKey)
+        _state.update { it.copy(busyAction = "verify", lastError = null, messageKey = null, verifiedProviderId = null) }
         viewModelScope.launch {
-            if (container.settingsRepository.current().activeProviderId.isBlank()) {
-                container.settingsRepository.setActiveProvider(providerId)
+            try {
+                // Verify the provider whose key was entered, not another active source.
+                when (val result = container.syncRepository.syncCompetitions(providerId)) {
+                    is Outcome.Failure -> _state.update { it.copy(lastError = result.error) }
+                    is Outcome.Success -> {
+                        container.settingsRepository.setActiveProvider(providerId)
+                        _state.update { it.copy(verifiedProviderId = providerId) }
+                    }
+                }
+            } catch (error: kotlinx.coroutines.CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                _state.update { it.copy(lastError = AppError(ErrorCode.UNKNOWN)) }
+            } finally {
+                _state.update { it.copy(busyAction = null) }
+                refresh()
             }
-            _state.update { it.copy(messageKey = "message_key_saved") }
-            refresh()
-            syncCompetitions()
         }
     }
 
     fun clearKey(providerId: String) {
         container.providerRegistry.clearCredentials(providerId)
         viewModelScope.launch {
-            _state.update { it.copy(messageKey = "message_key_removed") }
+            _state.update { it.copy(messageKey = "message_key_removed", verifiedProviderId = null) }
             refresh()
         }
     }
@@ -110,6 +123,7 @@ class DataSourcesViewModel(private val container: AppContainer) : ViewModel() {
     fun selectProvider(providerId: String) {
         viewModelScope.launch {
             container.settingsRepository.setActiveProvider(providerId)
+            _state.update { it.copy(verifiedProviderId = null) }
             refresh()
         }
     }
@@ -122,6 +136,18 @@ class DataSourcesViewModel(private val container: AppContainer) : ViewModel() {
             when (val result = container.syncRepository.syncCompetitions(providerId)) {
                 is Outcome.Failure -> result
                 is Outcome.Success -> Outcome.Success(SyncSummary(competitions = result.value, requestsEstimated = 1))
+            }
+        }
+    }
+
+    fun testApiFootballAccess() = runAction("trial") {
+        val provider = "api-football"
+        when (val verified = container.syncRepository.syncCompetitions(provider)) {
+            is Outcome.Failure -> verified
+            is Outcome.Success -> when (val synced = container.syncRepository.syncFixtures(provider,
+                competitionKeys = listOf("39", "140"), daysBack = 0, daysAhead = 7, allowFallback = false)) {
+                is Outcome.Failure -> synced
+                is Outcome.Success -> Outcome.Success(synced.value.copy(requestsEstimated = synced.value.requestsEstimated + 1))
             }
         }
     }
@@ -206,16 +232,22 @@ class DataSourcesViewModel(private val container: AppContainer) : ViewModel() {
     fun dismissMessage() = _state.update { it.copy(messageKey = null, lastError = null, lastSummary = null) }
 
     private fun runAction(action: String, block: suspend () -> Outcome<SyncSummary>?) {
+        if (_state.value.busyAction != null) return
+        _state.update { it.copy(busyAction = action, lastError = null, lastSummary = null) }
         viewModelScope.launch {
-            _state.update { it.copy(busyAction = action, lastError = null) }
             try {
                 when (val result = block()) {
                     null -> _state.update { it.copy(busyAction = null) }
                     is Outcome.Failure -> _state.update { it.copy(busyAction = null, lastError = result.error) }
                     is Outcome.Success -> _state.update {
-                        it.copy(busyAction = null, lastSummary = result.value)
+                        it.copy(busyAction = null, lastSummary = result.value,
+                            lastError = result.value.errors.firstOrNull()?.let { message ->
+                                AppError(runCatching { ErrorCode.valueOf(message.substringAfterLast(": ")) }.getOrDefault(ErrorCode.REQUEST_FAILED))
+                            })
                     }
                 }
+            } catch (error: kotlinx.coroutines.CancellationException) {
+                throw error
             } catch (error: Exception) {
                 _state.update {
                     it.copy(busyAction = null, lastError = AppError(ErrorCode.UNKNOWN, detail = error.message))

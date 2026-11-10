@@ -123,7 +123,12 @@ class MatchesViewModel(private val container: AppContainer) : ViewModel() {
                     is Outcome.Success -> if (result.value.errors.isEmpty()) {
                         null
                     } else {
-                        AppError(ErrorCode.REQUEST_FAILED, detail = result.value.errors.joinToString())
+                        AppError(
+                            code = runCatching {
+                                ErrorCode.valueOf(result.value.errors.first().substringAfterLast(": "))
+                            }.getOrDefault(ErrorCode.REQUEST_FAILED),
+                            detail = result.value.errors.joinToString(),
+                        )
                     }
                 }
                 _state.update { it.copy(lastError = error) }

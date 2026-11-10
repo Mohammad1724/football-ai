@@ -172,6 +172,9 @@ fun errorLabel(error: AppError): String = text(
         ErrorCode.RATE_LIMITED -> R.string.error_rate_limited
         ErrorCode.QUOTA_EXHAUSTED -> R.string.error_quota
         ErrorCode.MISSING_API_KEY -> R.string.error_missing_key
+        ErrorCode.ACCESS_DENIED -> R.string.error_access_denied
+        ErrorCode.PLAN_RESTRICTED -> R.string.error_plan_restricted
+        ErrorCode.SUBSCRIPTION_INACTIVE -> R.string.error_subscription_inactive
         ErrorCode.INVALID_API_KEY -> R.string.error_invalid_key
         ErrorCode.PARSE_ERROR -> R.string.error_parse
         ErrorCode.EMPTY_RESPONSE -> R.string.error_empty

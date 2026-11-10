@@ -321,7 +321,7 @@
     <string name="ob_language_title">Language</string>
     <string name="ob_language_hint">You can change this later in Settings.</string>
     <string name="ob_provider_title">Fixtures need a free provider</string>
-    <string name="ob_provider_body">Free football feeds require a personal API token. Without one the app can still import history and rate teams, but it cannot list matches.</string>
+    <string name="ob_provider_body">API data requires a personal key. Saving it checks account access; a free plan may not cover every season or feature. Keyless CSV supplies history and published fixtures, not live scores.</string>
     <string name="ob_provider_hint">Use your own free key. It is encrypted on this device, never uploaded, and excluded from backups.</string>
     <string name="ob_key_label">API token</string>
     <string name="ob_key_verify">Save and check</string>
@@ -358,7 +358,7 @@
     <string name="sync_fallback_title">Fixtures from a keyless source</string>
     <string name="sync_fallback_body">The configured provider returned no matches, so %1$s supplied them instead. It needs no key; it has no live scores or lineups.</string>
     <string name="sync_partial_title">Sync finished with gaps</string>
-    <string name="sync_partial_body">%1$s of %2$s competitions failed (%3$s). Try again later, or follow fewer competitions so the free quota stretches further.</string>
+    <string name="sync_partial_body">Sync recorded %1$s errors (%2$s competitions planned). %3$s</string>
     <string name="sync_fallback_use">Use this source as primary</string>
     <string name="error_stale_data">Live score is missing or stale. Refresh before predicting.</string>
     <string name="error_match_state">A new pre-match prediction is only allowed before kickoff. This match state cannot be analysed.</string>
@@ -371,4 +371,10 @@
     <string name="empty_filtered_matches_title">No matches in this range</string>
     <string name="empty_recent_results_message">No finished results are stored for this league and date range. Change the league filter or sync.</string>
     <string name="empty_upcoming_message">No fixtures are stored for this league and date range. Sync or change the league filter. Your selected provider may not yet publish or cover this period.</string>
+    <string name="error_access_denied">The service denied access (403). This does not necessarily mean a bad key. Check account permissions and access restrictions.</string>
+    <string name="error_plan_restricted">The subscription does not allow the requested season, competition or data. Check plan restrictions in the provider dashboard. Replacing the key or retrying will not remove this restriction.</string>
+    <string name="error_subscription_inactive">This account subscription is inactive. Check its status in the API-Football dashboard.</string>
+    <string name="key_verified_notice">The key and active account were verified with a real request. This does not guarantee access to every season or live data.</string>
+    <string name="api_trial_action">Test access: two leagues, next 7 days</string>
+    <string name="api_trial_hint">Checks account status and upcoming Premier League / La Liga fixtures (normally 3 requests). Your followed leagues are unchanged and CSV fallback is disabled, so API failures stay visible.</string>
 </resources>

@@ -117,6 +117,9 @@ fun DataSourcesScreen(onBack: () -> Unit) {
                     )
                 }
 
+                if (state.verifiedProviderId != null) {
+                    item { Text(stringResource(R.string.key_verified_notice), modifier = Modifier.padding(16.dp)) }
+                }
                 state.lastError?.let { error ->
                     item {
                         Row(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
@@ -128,6 +131,16 @@ fun DataSourcesScreen(onBack: () -> Unit) {
                     item { SummaryCard(summary = summary, languageTag = languageTag) }
                 }
 
+                if (state.providers.any { it.isActive && it.info.id == "api-football" }) {
+                    item {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text(stringResource(R.string.api_trial_hint))
+                            TextButton(onClick = viewModel::testApiFootballAccess, enabled = state.busyAction == null) {
+                                Text(stringResource(R.string.api_trial_action))
+                            }
+                        }
+                    }
+                }
                 item {
                     SectionHeader(title = stringResource(R.string.section_sync_actions))
                 }
