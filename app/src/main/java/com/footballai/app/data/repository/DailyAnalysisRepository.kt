@@ -78,7 +78,7 @@ class DailyAnalysisRepository(
                     is Outcome.Success -> Unit
                 }
                 when (val result = sync.syncFixtures(source, competitionKeys = fixtureKeys,
-                    daysBack = 0, daysAhead = 10, allowFallback = false, onProgress = onProgress)) {
+                    daysBack = if (source == "football-data-org") 7 else 0, daysAhead = 10, allowFallback = false, onProgress = onProgress)) {
                     is Outcome.Failure -> errors += result.error.code.name
                     is Outcome.Success -> {
                         report = report.copy(fixturesReceived = result.value.fixtures)
