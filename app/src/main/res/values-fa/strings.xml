@@ -338,4 +338,15 @@
     <string name="ob_key_help_football_data_org">در football-data.org/client/register با ایمیل خودت ثبت‌نام کن؛ توکن تا یک دقیقه به ایمیلت می‌آید. پرداخت یا کارت بانکی لازم نیست.</string>
     <string name="ob_key_help_api_football">در dashboard.api-football.com ثبت‌نام کن؛ کلید API بلافاصله بعد از ثبت‌نام در داشبورد نشان داده می‌شود.</string>
     <string name="quota_used_only">استفاده امروز: %1$s (بدون سقف روزانه)</string>
+    <string name="getting_started_title">شروع کار</string>
+    <string name="getting_started_body">برنامه از صفر شروع می‌کند: هنوز بازی‌ای ندارد و داده‌ای برای یادگیری مدل نیست. این سه گام چند دقیقه وقت می‌برد و فقط یک‌بار لازم است.</string>
+    <string name="getting_started_step1_title">افزودن کلید رایگان منبع داده</string>
+    <string name="getting_started_step1_body">از football-data.org یا API-Football. بدون کلید، برنامه نمی‌تواند بازی‌ها را دانلود کند.</string>
+    <string name="getting_started_step2_title">همگام‌سازی بازی‌ها</string>
+    <string name="getting_started_step2_body">بازی‌های پیش‌رو برای لیگ‌هایی که دنبال می‌کنی دانلود می‌شود.</string>
+    <string name="getting_started_step3_title">وارد کردن تاریخچه</string>
+    <string name="getting_started_step3_body">دو یا سه فصل CSV برای هر لیگ، به مدل چیزی برای یاد گرفتن می‌دهد.</string>
+    <string name="getting_started_done">انجام شد</string>
+    <string name="getting_started_do">انجام بده</string>
+    <string name="getting_started_open">رفتن به داده و همگام‌سازی</string>
 </resources>

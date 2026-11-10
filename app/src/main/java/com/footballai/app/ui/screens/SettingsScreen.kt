@@ -8,9 +8,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -32,7 +34,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -75,19 +79,33 @@ fun SettingsScreen(onBack: () -> Unit) {
         LazyColumn(modifier = Modifier.fillMaxSize().padding(padding)) {
             item { SectionHeader(title = stringResource(R.string.section_language)) }
             item {
-                SingleChoiceSegmentedButtonRow(modifier = Modifier.padding(horizontal = 16.dp)) {
+                SingleChoiceSegmentedButtonRow(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                ) {
                     AppLanguage.entries.forEachIndexed { index, language ->
                         SegmentedButton(
                             selected = state.settings.language == language,
                             onClick = { viewModel.setLanguage(language) },
                             shape = SegmentedButtonDefaults.itemShape(index = index, count = AppLanguage.entries.size),
+                            modifier = Modifier.weight(1f),
+                            icon = {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = null,
+                                    modifier = Modifier
+                                        .size(18.dp)
+                                        .alpha(if (state.settings.language == language) 1f else 0f),
+                                )
+                            },
                         ) {
                             Text(
-                                when (language) {
+                                text = when (language) {
                                     AppLanguage.SYSTEM -> stringResource(R.string.language_system)
                                     AppLanguage.PERSIAN -> stringResource(R.string.language_persian)
                                     AppLanguage.ENGLISH -> stringResource(R.string.language_english)
                                 },
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
                             )
                         }
                     }
@@ -96,19 +114,33 @@ fun SettingsScreen(onBack: () -> Unit) {
 
             item { SectionHeader(title = stringResource(R.string.section_theme)) }
             item {
-                SingleChoiceSegmentedButtonRow(modifier = Modifier.padding(horizontal = 16.dp)) {
+                SingleChoiceSegmentedButtonRow(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                ) {
                     ThemeMode.entries.forEachIndexed { index, mode ->
                         SegmentedButton(
                             selected = state.settings.themeMode == mode,
                             onClick = { viewModel.setTheme(mode) },
                             shape = SegmentedButtonDefaults.itemShape(index = index, count = ThemeMode.entries.size),
+                            modifier = Modifier.weight(1f),
+                            icon = {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = null,
+                                    modifier = Modifier
+                                        .size(18.dp)
+                                        .alpha(if (state.settings.themeMode == mode) 1f else 0f),
+                                )
+                            },
                         ) {
                             Text(
-                                when (mode) {
+                                text = when (mode) {
                                     ThemeMode.SYSTEM -> stringResource(R.string.theme_system)
                                     ThemeMode.LIGHT -> stringResource(R.string.theme_light)
                                     ThemeMode.DARK -> stringResource(R.string.theme_dark)
                                 },
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
                             )
                         }
                     }

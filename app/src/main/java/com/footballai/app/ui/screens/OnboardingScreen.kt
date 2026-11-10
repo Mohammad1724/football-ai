@@ -45,12 +45,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -229,19 +231,31 @@ private fun WelcomeStep(language: AppLanguage, onLanguageChange: (AppLanguage) -
         style = MaterialTheme.typography.titleMedium,
     )
     Spacer(Modifier.height(8.dp))
+    // Equal weights plus a reserved icon slot keep the control the same size in every
+    // language, so switching between English and Persian does not reflow the layout.
+    val options = listOf(
+        AppLanguage.SYSTEM to stringResource(R.string.language_system),
+        AppLanguage.PERSIAN to stringResource(R.string.language_persian),
+        AppLanguage.ENGLISH to stringResource(R.string.language_english),
+    )
     SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-        val options = listOf(
-            AppLanguage.SYSTEM to stringResource(R.string.language_system),
-            AppLanguage.PERSIAN to stringResource(R.string.language_persian),
-            AppLanguage.ENGLISH to stringResource(R.string.language_english),
-        )
         options.forEachIndexed { index, (value, label) ->
             SegmentedButton(
                 selected = language == value,
                 onClick = { onLanguageChange(value) },
                 shape = SegmentedButtonDefaults.itemShape(index = index, count = options.size),
+                modifier = Modifier.weight(1f),
+                icon = {
+                    Icon(
+                        imageVector = Icons.Default.Check,
+                        contentDescription = null,
+                        modifier = Modifier
+                            .size(18.dp)
+                            .alpha(if (language == value) 1f else 0f),
+                    )
+                },
             ) {
-                Text(label)
+                Text(text = label, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
     }
