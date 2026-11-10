@@ -94,7 +94,6 @@ class SyncRepository(
                     )
                 }
                 db.competitionDao().upsertAll(entities)
-                settingsRepository.setLastSync(now)
                 Outcome.Success(entities.size)
             }
         }
@@ -105,6 +104,7 @@ class SyncRepository(
         competitionKeys: List<String>? = null,
         daysBack: Int = 7,
         daysAhead: Int = 21,
+        allowFallback: Boolean = true,
         onProgress: (done: Int, total: Int) -> Unit = { _, _ -> },
     ): Outcome<SyncSummary> {
         val provider = registry.provider(providerId)
@@ -119,7 +119,7 @@ class SyncRepository(
         // An authenticated provider can legitimately return nothing (plan restrictions,
         // exhausted quota, a rejected season). The keyless CSV source is then used so the
         // user still sees fixtures, and the UI explains where they came from.
-        if (summary.fixtures == 0) {
+        if (allowFallback && summary.fixtures == 0) {
             val keyless = registry.keylessProvider(excludeProviderId = provider.info.id)
             if (keyless != null) {
                 val fallback = syncWithProvider(keyless, null, from, to, now) { _, _ -> }
@@ -131,9 +131,11 @@ class SyncRepository(
                         historical = summary.historical + fallback.historical,
                         standings = summary.standings + fallback.standings,
                         requestsEstimated = summary.requestsEstimated + fallback.requestsEstimated,
-                        errors = summary.errors,
+                        errors = summary.errors + fallback.errors,
                     )
                     appendFinishedMatches(keyless.info.id)
+                } else {
+                    summary += fallback
                 }
             }
         }
@@ -142,7 +144,7 @@ class SyncRepository(
             settingsRepository.setLastSync(now)
         }
         val appended = appendFinishedMatches(provider.info.id)
-        summary += syncPendingCsvResults()
+        if (allowFallback) summary += syncPendingCsvResults()
         ratingsRepository.invalidate()
         return Outcome.Success(
             summary.copy(
@@ -207,7 +209,10 @@ class SyncRepository(
             // A plan restriction fails for every competition in exactly the same way, so
             // stop instead of spending minutes (and quota) on a provider that cannot serve
             // this request at all.
-            if (repeatedFailures >= MAX_REPEATED_FAILURES) break
+            if (lastErrorCode in setOf(ErrorCode.INVALID_API_KEY, ErrorCode.MISSING_API_KEY,
+                    ErrorCode.QUOTA_EXHAUSTED, ErrorCode.RATE_LIMITED, ErrorCode.ACCESS_DENIED,
+                    ErrorCode.SUBSCRIPTION_INACTIVE, ErrorCode.PLAN_RESTRICTED) ||
+                repeatedFailures >= MAX_REPEATED_FAILURES) break
         }
         return summary.copy(errors = errors)
     }

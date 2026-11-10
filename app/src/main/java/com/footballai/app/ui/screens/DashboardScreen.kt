@@ -165,7 +165,9 @@ fun DashboardScreen(
                                     if (state.syncTotal > 0) state.syncTotal else state.syncWarnings.size,
                                     languageTag,
                                 ),
-                                code,
+                                errorLabel(com.footballai.app.core.AppError(runCatching {
+                                    com.footballai.app.core.ErrorCode.valueOf(code)
+                                }.getOrDefault(com.footballai.app.core.ErrorCode.REQUEST_FAILED))),
                             ),
                             containerColor = MaterialTheme.colorScheme.surfaceVariant,
                         )

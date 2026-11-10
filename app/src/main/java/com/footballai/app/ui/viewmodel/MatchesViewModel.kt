@@ -80,7 +80,7 @@ class MatchesViewModel(private val container: AppContainer) : ViewModel() {
                 val error = when (result) {
                     is Outcome.Failure -> result.error
                     is Outcome.Success -> if (result.value.errors.isEmpty()) null
-                        else AppError(ErrorCode.REQUEST_FAILED, detail = result.value.errors.joinToString())
+                        else AppError(runCatching { ErrorCode.valueOf(result.value.errors.first().substringAfterLast(": ")) }.getOrDefault(ErrorCode.REQUEST_FAILED))
                 }
                 _state.update { it.copy(lastError = error) }
             } catch (error: CancellationException) {

@@ -90,7 +90,8 @@ class ApiClient(
                         val retryAfter = response.header("Retry-After")?.toLongOrNull()
                             ?: response.header("X-RateLimit-Retry-After")?.toLongOrNull()
                         val code = when (response.code) {
-                            401, 403 -> ErrorCode.INVALID_API_KEY
+                            401 -> ErrorCode.INVALID_API_KEY
+                            403 -> ErrorCode.ACCESS_DENIED
                             404 -> ErrorCode.NOT_FOUND
                             429 -> ErrorCode.RATE_LIMITED
                             in 500..599 -> ErrorCode.REQUEST_FAILED
@@ -101,7 +102,8 @@ class ApiClient(
                                 code = code,
                                 httpStatus = response.code,
                                 retryAfterSeconds = retryAfter,
-                                detail = body.take(300).ifBlank { response.message },
+                                // Never retain raw error bodies that might echo a token.
+                                detail = null,
                             ),
                         )
                     }

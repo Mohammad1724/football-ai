@@ -143,7 +143,7 @@ class OnboardingViewModel(private val container: AppContainer) : ViewModel() {
             return
         }
         container.providerRegistry.saveCredentials(providerId, key)
-        _state.update { it.copy(hasKey = true, busy = BUSY_VERIFY, error = null) }
+        _state.update { it.copy(hasKey = true, busy = BUSY_VERIFY, error = null, verifiedProviderId = null) }
 
         viewModelScope.launch {
             if (container.settingsRepository.current().activeProviderId.isBlank()) {
@@ -154,7 +154,8 @@ class OnboardingViewModel(private val container: AppContainer) : ViewModel() {
                     it.copy(busy = null, error = result.error)
                 }
                 is Outcome.Success -> {
-                    val competitions = container.database.competitionDao().allOnce()
+                    val competitions = container.database.competitionDao().allOnce().filter { it.providerId == providerId }
+                    container.settingsRepository.setActiveProvider(providerId)
                     _state.update {
                         it.copy(
                             busy = null,

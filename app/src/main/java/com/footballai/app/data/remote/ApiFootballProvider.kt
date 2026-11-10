@@ -38,10 +38,8 @@ import java.time.format.DateTimeFormatter
 /**
  * API-Football provider (api-sports.io).
  *
- * Free plan reality (verified against the provider documentation):
- *  - 100 requests per day, 10 requests per minute,
- *  - all endpoints available, historical seasons limited,
- *  - live fixtures, events, statistics and lineups included.
+ * Account and competition access depend on the subscription returned by the
+ * provider. Capability flags describe implemented features, not guaranteed access.
  *
  * The API key is supplied by the user at runtime and never bundled in the APK.
  */
@@ -70,8 +68,19 @@ class ApiFootballProvider(
         attribution = "Data provided by API-Football (api-sports.io)",
     )
 
-    override suspend fun competitions(): Outcome<List<RemoteCompetition>> =
-        Outcome.Success(CURATED_LEAGUES)
+    override val defaultCompetitionKeys = listOf("39", "140")
+
+    override suspend fun competitions(): Outcome<List<RemoteCompetition>> {
+        val key = apiKeyProvider()?.trim()
+        if (key.isNullOrEmpty()) return Outcome.Failure(AppError(ErrorCode.MISSING_API_KEY))
+        return when (val response = client.get(PROVIDER_ID, info.quota, "$baseUrl/status", headers(key))) {
+            is Outcome.Failure -> response
+            is Outcome.Success -> {
+                val error = ApiFootballDiagnostics.accountError(response.value)
+                if (error != null) Outcome.Failure(error) else Outcome.Success(CURATED_LEAGUES)
+            }
+        }
+    }
 
     override suspend fun matches(
         competitionKey: String,
@@ -195,9 +204,9 @@ class ApiFootballProvider(
         return when (val response = client.get(PROVIDER_ID, info.quota, url, headers(key), query)) {
             is Outcome.Failure -> response
             is Outcome.Success -> {
-                val envelopeErrors = extractErrors(response.value)
+                val envelopeErrors = ApiFootballDiagnostics.error(response.value)
                 if (envelopeErrors != null) {
-                    Outcome.Failure(AppError(code = ErrorCode.INVALID_API_KEY, detail = envelopeErrors))
+                    Outcome.Failure(envelopeErrors)
                 } else {
                     try {
                         val parsed = parser(response.value)
@@ -208,6 +217,8 @@ class ApiFootballProvider(
                         } else {
                             Outcome.Success(parsed)
                         }
+                    } catch (error: kotlinx.coroutines.CancellationException) {
+                        throw error
                     } catch (error: Exception) {
                         Outcome.Failure(
                             AppError(code = ErrorCode.PARSE_ERROR, detail = error.message, cause = error),
@@ -219,19 +230,6 @@ class ApiFootballProvider(
     }
 
     private fun headers(key: String): Map<String, String> = mapOf("x-apisports-key" to key)
-
-    /** API-Football reports logical failures inside a 200 response. */
-    private fun extractErrors(body: String): String? = try {
-        val root = json.parseToJsonElement(body)
-        val errors = (root as? JsonObject)?.get("errors")
-        when (errors) {
-            null -> null
-            is JsonObject -> if (errors.isEmpty()) null else errors.toString()
-            else -> errors.toString().takeIf { it.length > 2 && it != "[]" && it != "{}" }
-        }
-    } catch (error: Exception) {
-        null
-    }
 
     private fun parseFixtures(body: String): List<RemoteMatch> {
         val envelope = json.decodeFromString<AfEnvelope<AfFixtureResponse>>(body)
