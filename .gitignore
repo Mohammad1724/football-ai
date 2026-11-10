@@ -1,0 +1,26 @@
+# Gradle / Kotlin
+.gradle/
+build/
+*/build/
+!gradle/wrapper/gradle-wrapper.jar
+local.properties
+.kotlin/
+
+# IDE
+.idea/
+*.iml
+.DS_Store
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Secrets (never commit API keys)
+secrets.properties
+*.jks
+*.keystore
+keystore.properties
+
+# Generated artifacts
+*.apk
+*.aab
+*.log
