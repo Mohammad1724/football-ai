@@ -350,4 +350,9 @@
     <string name="getting_started_do">انجام بده</string>
     <string name="getting_started_open">رفتن به داده و همگام‌سازی</string>
     <string name="sync_progress">%1$s از %2$s لیگ</string>
+    <string name="sync_fallback_title">بازی‌ها از یک منبع بدون کلید</string>
+    <string name="sync_fallback_body">منبع تنظیم‌شده بازی‌ای برنگرداند، بنابراین %1$s این بازی‌ها را داد. این منبع کلید لازم ندارد اما نتیجه زنده و ترکیب ندارد.</string>
+    <string name="sync_partial_title">همگام‌سازی با نقص تمام شد</string>
+    <string name="sync_partial_body">%1$s از %2$s لیگ همگام‌سازی نشد (%3$s). بعداً دوباره تلاش کن یا لیگ‌های کمتری را دنبال کن تا سهمیه رایگان بیشتر بماند.</string>
+    <string name="sync_fallback_use">این منبع را منبع اصلی کن</string>
 </resources>

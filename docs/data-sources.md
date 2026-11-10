@@ -25,9 +25,12 @@ which provider produced a fixture.
   counts every call, refuses to exceed the daily limit, and warns before enabling live
   polling for many matches at once.
 
-### 3. football-data.co.uk (CSV archive) — history and calibration
+### 3. football-data.co.uk (CSV archive and fixtures) — history, fixtures, calibration
 
-* Free, no key, plain `https://www.football-data.co.uk/mmz4281/{YYyy}/{code}.csv`.
+* Free, no key, plain `https://www.football-data.co.uk/mmz4281/{YYyy}/{code}.csv` for
+  history and `https://www.football-data.co.uk/fixtures.csv` for upcoming matches.
+* `fixtures.csv` covers the main European divisions with kick-off date/time and closing
+  1X2 odds, and is downloaded at most once per five minutes, then filtered locally.
 * Contains results, half-time scores, shots and 1X2 / Over 2.5 / Asian-handicap odds for
   many leagues, updated a few days after each matchday.
 * This is the backbone of the model: 2–3 seasons per competition (~700–1100 matches)
@@ -39,7 +42,7 @@ which provider produced a fixture.
 
 | Need | football-data.org | API-Football (free) | football-data.co.uk |
 | --- | --- | --- | --- |
-| Fixtures / results | yes | yes | delayed (days) |
+| Fixtures / results | yes | yes | upcoming fixtures + results (delayed) |
 | Live minute | delayed | yes | no |
 | Lineups | no | mostly | no |
 | Injuries | no | partial | no |

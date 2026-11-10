@@ -138,6 +138,40 @@ fun DashboardScreen(
                     )
                 }
 
+                state.fallbackProviderName?.let { name ->
+                    item {
+                        Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+                            InfoCard(
+                                title = stringResource(R.string.sync_fallback_title),
+                                body = stringResource(R.string.sync_fallback_body, name),
+                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                            )
+                            TextButton(onClick = { viewModel.useFallbackProvider() }) {
+                                Text(stringResource(R.string.sync_fallback_use))
+                            }
+                        }
+                    }
+                }
+
+                if (state.syncWarnings.isNotEmpty()) {
+                    item {
+                        val code = state.syncWarnings.first().substringAfterLast(": ")
+                        InfoCard(
+                            title = stringResource(R.string.sync_partial_title),
+                            body = stringResource(
+                                R.string.sync_partial_body,
+                                Formatters.integer(state.syncWarnings.size, languageTag),
+                                Formatters.integer(
+                                    if (state.syncTotal > 0) state.syncTotal else state.syncWarnings.size,
+                                    languageTag,
+                                ),
+                                code,
+                            ),
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        )
+                    }
+                }
+
                 state.lastError?.let { error ->
                     item {
                         ErrorState(

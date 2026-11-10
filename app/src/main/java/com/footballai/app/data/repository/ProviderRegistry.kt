@@ -22,16 +22,16 @@ class ProviderRegistry(
     private val settingsRepository: SettingsRepository,
 ) {
 
-    val fixtureProviders: List<FootballDataProvider> = listOf(apiFootballProvider, footballDataOrgProvider)
+    val fixtureProviders: List<FootballDataProvider> =
+        listOf(apiFootballProvider, footballDataOrgProvider, historicalProvider)
 
     val historical: HistoricalDataProvider get() = historicalProvider
 
     fun provider(id: String): FootballDataProvider? = fixtureProviders.firstOrNull { it.info.id == id }
 
     fun info(id: String): ProviderInfo? = fixtureProviders.firstOrNull { it.info.id == id }?.info
-        ?: historicalProvider.info.takeIf { it.id == id }
 
-    val allInfos: List<ProviderInfo> = fixtureProviders.map { it.info } + historicalProvider.info
+    val allInfos: List<ProviderInfo> = fixtureProviders.map { it.info }
 
     fun hasCredentials(providerId: String): Boolean = credentialStore.hasKey(providerId)
 
@@ -49,8 +49,14 @@ class ProviderRegistry(
         if (selected != null && (!selected.info.requiresApiKey || hasCredentials(selected.info.id))) {
             return selected
         }
-        return fixtureProviders.firstOrNull { hasCredentials(it.info.id) }
+        fixtureProviders.firstOrNull { hasCredentials(it.info.id) }?.let { return it }
+        // Last resort: the keyless CSV source, so a fresh install can still show fixtures.
+        return fixtureProviders.firstOrNull { !it.info.requiresApiKey }
     }
+
+    /** The keyless source used as a fallback when an authenticated provider returns nothing. */
+    fun keylessProvider(excludeProviderId: String? = null): FootballDataProvider? =
+        fixtureProviders.firstOrNull { !it.info.requiresApiKey && it.info.id != excludeProviderId }
 
     suspend fun activeProviderId(): String? = activeProvider()?.info?.id
 }

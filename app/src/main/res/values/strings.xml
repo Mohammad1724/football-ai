@@ -350,4 +350,9 @@
     <string name="getting_started_do">Do this step</string>
     <string name="getting_started_open">Open data &amp; sync</string>
     <string name="sync_progress">%1$s of %2$s competitions</string>
+    <string name="sync_fallback_title">Fixtures from a keyless source</string>
+    <string name="sync_fallback_body">The configured provider returned no matches, so %1$s supplied them instead. It needs no key; it has no live scores or lineups.</string>
+    <string name="sync_partial_title">Sync finished with gaps</string>
+    <string name="sync_partial_body">%1$s of %2$s competitions failed (%3$s). Try again later, or follow fewer competitions so the free quota stretches further.</string>
+    <string name="sync_fallback_use">Use this source as primary</string>
 </resources>

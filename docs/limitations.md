@@ -5,11 +5,12 @@ moves; nothing here is aspirational wording — each item is a real, current lim
 
 ## Data
 
-1. **Every usable fixture feed needs a free API token.** football-data.org requires
-   `X-Auth-Token` on all endpoints; API-Football requires a key. football-data.co.uk
-   CSV history is the only keyless source, and it contains finished matches only — no
-   upcoming fixtures. Without a token the app can train and evaluate a model but cannot
-   show a match list.
+1. **The richest feeds need a free API token.** football-data.org requires
+   `X-Auth-Token` on all endpoints and API-Football requires a key (its free plan is also
+   restricted to past seasons). football-data.co.uk needs no key and now supplies
+   upcoming fixtures from `fixtures.csv`, so the app can show a match list with zero
+   credentials — but that list is limited to the main European divisions, and it has no
+   live minute, statistics or lineups.
 2. **Free tiers are thin.** football-data.org: 10 requests/minute and 12 competitions.
    API-Football: 100 requests/day. Both mean the app must cache aggressively and refuse
    work rather than silently burn the quota; that is what the quota counters are for.

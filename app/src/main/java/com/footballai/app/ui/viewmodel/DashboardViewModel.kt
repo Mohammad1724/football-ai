@@ -45,6 +45,11 @@ data class DashboardUiState(
     /** Progress of the running fixture sync: competitions finished and total. */
     val syncDone: Int = 0,
     val syncTotal: Int = 0,
+    /** Per-competition failures from the last sync, e.g. "API-Football/39: REQUEST_FAILED". */
+    val syncWarnings: List<String> = emptyList(),
+    /** Keyless source that supplied the fixtures when the configured provider returned none. */
+    val fallbackProviderName: String? = null,
+    val fallbackProviderId: String? = null,
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -105,7 +110,15 @@ class DashboardViewModel(private val container: AppContainer) : ViewModel() {
                     is Outcome.Failure -> _state.update { it.copy(lastError = result.error) }
                     is Outcome.Success -> {
                         container.predictionRepository.resolveFinishedPredictions()
-                        _state.update { it.copy(lastError = null) }
+                        _state.update {
+                            it.copy(
+                                lastError = null,
+                                syncWarnings = result.value.errors,
+                                fallbackProviderName = result.value.fallbackProviderId
+                                    ?.let { id -> container.providerRegistry.info(id)?.displayName },
+                                fallbackProviderId = result.value.fallbackProviderId,
+                            )
+                        }
                     }
                 }
             } catch (cancellation: CancellationException) {
@@ -122,6 +135,16 @@ class DashboardViewModel(private val container: AppContainer) : ViewModel() {
                 _state.update { it.copy(isSyncing = false) }
                 refreshCounts()
             }
+        }
+    }
+
+    /** Makes the keyless source the active provider so later syncs skip the failing one. */
+    fun useFallbackProvider() {
+        val providerId = _state.value.fallbackProviderId ?: return
+        viewModelScope.launch {
+            container.settingsRepository.setActiveProvider(providerId)
+            _state.update { it.copy(fallbackProviderName = null, fallbackProviderId = null) }
+            refresh()
         }
     }
 

@@ -4,12 +4,25 @@ import com.footballai.app.core.AppError
 import com.footballai.app.core.ErrorCode
 import com.footballai.app.core.Outcome
 import com.footballai.app.data.provider.CsvCompetition
+import com.footballai.app.data.provider.FootballDataProvider
 import com.footballai.app.data.provider.HistoricalDataProvider
+import com.footballai.app.data.provider.RemoteCompetition
+import com.footballai.app.data.provider.RemoteEvent
 import com.footballai.app.data.provider.RemoteHistoryMatch
+import com.footballai.app.data.provider.RemoteLineup
+import com.footballai.app.data.provider.RemoteMatch
+import com.footballai.app.data.provider.RemoteStandingRow
+import com.footballai.app.data.provider.RemoteTeam
+import com.footballai.app.data.provider.RemoteTeamStatistics
+import com.footballai.app.domain.model.MatchOdds
+import com.footballai.app.domain.model.MatchStatus
 import com.footballai.app.domain.model.ProviderCapabilities
 import com.footballai.app.domain.model.ProviderInfo
 import com.footballai.app.domain.model.QuotaPolicy
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.time.LocalDate
+import java.time.Instant
 import java.time.LocalTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -26,11 +39,12 @@ import java.util.Locale
 class FootballDataCoUkProvider(
     private val client: ApiClient,
     private val baseUrl: String = DEFAULT_BASE_URL,
-) : HistoricalDataProvider {
+    private val fixturesUrl: String = FIXTURES_URL,
+) : HistoricalDataProvider, FootballDataProvider {
 
     override val info: ProviderInfo = ProviderInfo(
         id = PROVIDER_ID,
-        displayName = "football-data.co.uk (historical CSV)",
+        displayName = "football-data.co.uk (CSV)",
         requiresApiKey = false,
         capabilities = ProviderCapabilities(
             liveScores = false,
@@ -71,9 +85,107 @@ class FootballDataCoUkProvider(
         }
     }
 
+    // ---- Fixtures (no key required) ----
+
+    private val cacheMutex = Mutex()
+    private var cachedFixtures: List<RemoteMatch> = emptyList()
+    private var cachedAtMs: Long = 0L
+
+    /**
+     * Upcoming fixtures for the competitions this provider publishes.
+     *
+     * `fixtures.csv` is a single file covering every main league, so it is downloaded at
+     * most once per [CACHE_TTL_MS] and then filtered locally for each competition.
+     */
+    private suspend fun fixtures(force: Boolean = false): Outcome<List<RemoteMatch>> = cacheMutex.withLock {
+        val now = System.currentTimeMillis()
+        if (!force && cachedFixtures.isNotEmpty() && now - cachedAtMs < CACHE_TTL_MS) {
+            return@withLock Outcome.Success(cachedFixtures)
+        }
+        when (val response = client.get(PROVIDER_ID, info.quota, fixturesUrl)) {
+            is Outcome.Failure -> response
+            is Outcome.Success -> {
+                val parsed = try {
+                    CsvFixturesParser.parse(response.value, COMPETITIONS)
+                } catch (error: Exception) {
+                    return@withLock Outcome.Failure(
+                        AppError(ErrorCode.PARSE_ERROR, detail = error.message, cause = error),
+                    )
+                }
+                cachedFixtures = parsed
+                cachedAtMs = System.currentTimeMillis()
+                Outcome.Success(parsed)
+            }
+        }
+    }
+
+    override suspend fun competitions(): Outcome<List<RemoteCompetition>> = Outcome.Success(
+        COMPETITIONS.map { competition ->
+            RemoteCompetition(
+                providerKey = competition.key,
+                name = competition.name,
+                country = competition.country,
+                emblemUrl = null,
+                currentSeason = currentSeasonStartYear(),
+            )
+        },
+    )
+
+    override suspend fun matches(
+        competitionKey: String,
+        season: Int?,
+        fromEpochMs: Long?,
+        toEpochMs: Long?,
+    ): Outcome<List<RemoteMatch>> = when (val all = fixtures()) {
+        is Outcome.Failure -> all
+        is Outcome.Success -> Outcome.Success(
+            all.value.filter { match ->
+                match.competitionKey == competitionKey &&
+                    (fromEpochMs == null || match.kickoffEpochMs >= fromEpochMs) &&
+                    (toEpochMs == null || match.kickoffEpochMs <= toEpochMs)
+            },
+        )
+    }
+
+    override suspend fun liveMatches(): Outcome<List<RemoteMatch>> = unsupported("live scores")
+
+    override suspend fun match(matchKey: String): Outcome<RemoteMatch?> = when (val all = fixtures()) {
+        is Outcome.Failure -> all
+        is Outcome.Success -> Outcome.Success(all.value.firstOrNull { it.providerKey == matchKey })
+    }
+
+    override suspend fun matchStatistics(matchKey: String): Outcome<List<RemoteTeamStatistics>> =
+        unsupported("match statistics")
+
+    override suspend fun matchEvents(matchKey: String): Outcome<List<RemoteEvent>> = unsupported("match events")
+
+    override suspend fun lineups(matchKey: String): Outcome<List<RemoteLineup>> = unsupported("lineups")
+
+    override suspend fun standings(competitionKey: String, season: Int): Outcome<List<RemoteStandingRow>> =
+        unsupported("standings")
+
+    override val defaultCompetitionKeys: List<String> = DEFAULT_FIXTURE_COMPETITIONS
+
+    private fun <T> unsupported(feature: String): Outcome<T> = Outcome.Failure(
+        AppError(
+            code = ErrorCode.REQUEST_FAILED,
+            detail = "football-data.co.uk does not provide $feature",
+        ),
+    )
+
+    private fun currentSeasonStartYear(): Int {
+        val now = LocalDate.now(ZoneId.of("Europe/London"))
+        return if (now.monthValue >= 7) now.year else now.year - 1
+    }
+
     companion object {
         const val PROVIDER_ID = "football-data-co-uk"
         const val DEFAULT_BASE_URL = "https://www.football-data.co.uk/mmz4281"
+        const val FIXTURES_URL = "https://www.football-data.co.uk/fixtures.csv"
+        private const val CACHE_TTL_MS = 5 * 60 * 1000L
+
+        /** Leagues synced when the user follows none of this provider's competitions. */
+        val DEFAULT_FIXTURE_COMPETITIONS = listOf("E0", "SP1", "D1", "I1", "F1")
 
         fun seasonCode(startYear: Int): String = String.format(
             Locale.US,
@@ -178,7 +290,7 @@ object CsvHistoryParser {
         return results
     }
 
-    private fun firstDouble(columns: List<String>, header: Map<String, Int>, candidates: List<String>): Double? {
+    internal fun firstDouble(columns: List<String>, header: Map<String, Int>, candidates: List<String>): Double? {
         for (name in candidates) {
             val index = header[name] ?: continue
             val value = columns.getOrNull(index)?.trim().orEmpty()
@@ -188,7 +300,16 @@ object CsvHistoryParser {
         return null
     }
 
-    private fun parseKickoff(date: String, time: String?, fallbackSeasonStart: Int): Long? {
+    /** Closing odds of the 1X2 market, or null when the file has no usable prices. */
+    internal fun parseOdds(columns: List<String>, header: Map<String, Int>): MatchOdds? {
+        val home = firstDouble(columns, header, HOME_ODDS_COLUMNS) ?: return null
+        val draw = firstDouble(columns, header, DRAW_ODDS_COLUMNS) ?: return null
+        val away = firstDouble(columns, header, AWAY_ODDS_COLUMNS) ?: return null
+        return MatchOdds(home = home, draw = draw, away = away, bookmaker = "football-data.co.uk")
+    }
+
+    /** Kick-off instant in league local time (Europe/London), or null when unparseable. */
+    internal fun parseKickoff(date: String, time: String?, fallbackSeasonStart: Int): Long? {
         val localDate = DATE_FORMATTERS.firstNotNullOfOrNull { formatter ->
             try {
                 LocalDate.parse(date, formatter)
@@ -245,5 +366,81 @@ object CsvHistoryParser {
         }
         result.add(builder.toString())
         return result
+    }
+}
+
+/**
+ * Parser for `fixtures.csv`, the keyless weekly list of upcoming matches.
+ *
+ * The file shares the column vocabulary of the historical files (Div, Date, Time,
+ * HomeTeam, AwayTeam and closing odds), so team keys and competition codes stay
+ * consistent with the history importer and the ratings built from it.
+ */
+object CsvFixturesParser {
+
+    private val LONDON: ZoneId = ZoneId.of("Europe/London")
+
+    fun parse(csv: String, competitions: List<CsvCompetition>): List<RemoteMatch> {
+        val lines = csv.lineSequence().map { it.trim() }.filter { it.isNotEmpty() }.toList()
+        if (lines.size < 2) return emptyList()
+
+        val header = CsvHistoryParser.splitLine(lines.first())
+            .mapIndexed { index, name -> name.trim() to index }
+            .toMap()
+        val divisionIndex = header["Div"] ?: return emptyList()
+        val dateIndex = header["Date"] ?: return emptyList()
+        val homeIndex = header["HomeTeam"] ?: return emptyList()
+        val awayIndex = header["AwayTeam"] ?: return emptyList()
+        val timeIndex = header["Time"]
+        val fallbackYear = LocalDate.now(LONDON).year
+
+        val matches = ArrayList<RemoteMatch>(lines.size - 1)
+        val seen = HashSet<String>()
+        for (index in 1 until lines.size) {
+            val columns = CsvHistoryParser.splitLine(lines[index])
+            if (columns.size <= maxOf(divisionIndex, dateIndex, homeIndex, awayIndex)) continue
+            val division = columns[divisionIndex].trim()
+            val competition = competitions.firstOrNull { it.key == division } ?: continue
+            val homeTeam = columns[homeIndex].trim()
+            val awayTeam = columns[awayIndex].trim()
+            if (homeTeam.isEmpty() || awayTeam.isEmpty()) continue
+            val kickoff = CsvHistoryParser.parseKickoff(
+                date = columns[dateIndex].trim(),
+                time = timeIndex?.let { columns.getOrNull(it)?.trim() },
+                fallbackSeasonStart = fallbackYear,
+            ) ?: continue
+
+            val homeKey = CsvHistoryParser.slug(homeTeam)
+            val awayKey = CsvHistoryParser.slug(awayTeam)
+            val providerKey = "$division:$homeKey:$awayKey:$kickoff"
+            if (!seen.add(providerKey)) continue
+
+            matches.add(
+                RemoteMatch(
+                    providerKey = providerKey,
+                    competitionKey = division,
+                    competitionName = competition.name,
+                    season = seasonStartYear(kickoff),
+                    matchday = null,
+                    kickoffEpochMs = kickoff,
+                    status = MatchStatus.SCHEDULED,
+                    minute = null,
+                    home = RemoteTeam(providerKey = homeKey, name = homeTeam),
+                    away = RemoteTeam(providerKey = awayKey, name = awayTeam),
+                    homeGoals = null,
+                    awayGoals = null,
+                    homeHalfTimeGoals = null,
+                    awayHalfTimeGoals = null,
+                    venue = null,
+                    odds = CsvHistoryParser.parseOdds(columns, header),
+                ),
+            )
+        }
+        return matches.sortedBy { it.kickoffEpochMs }
+    }
+
+    private fun seasonStartYear(epochMs: Long): Int {
+        val date = Instant.ofEpochMilli(epochMs).atZone(LONDON).toLocalDate()
+        return if (date.monthValue >= 7) date.year else date.year - 1
     }
 }

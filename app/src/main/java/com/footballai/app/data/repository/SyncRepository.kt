@@ -16,6 +16,7 @@ import com.footballai.app.data.local.entity.TeamEntity
 import com.footballai.app.data.local.mapper.Ids
 import com.footballai.app.data.local.mapper.parseStatus
 import com.footballai.app.data.local.mapper.toEntity
+import com.footballai.app.data.provider.FootballDataProvider
 import com.footballai.app.data.provider.RemoteHistoryMatch
 import com.footballai.app.data.provider.RemoteMatch
 import com.footballai.app.data.settings.SettingsRepository
@@ -33,6 +34,8 @@ data class SyncSummary(
     val standings: Int = 0,
     val requestsEstimated: Int = 0,
     val errors: List<String> = emptyList(),
+    /** Set when the configured provider returned nothing and a keyless source was used. */
+    val fallbackProviderId: String? = null,
 ) {
     operator fun plus(other: SyncSummary): SyncSummary = SyncSummary(
         competitions = competitions + other.competitions,
@@ -103,39 +106,106 @@ class SyncRepository(
     ): Outcome<SyncSummary> {
         val provider = registry.provider(providerId)
             ?: return Outcome.Failure(AppError(ErrorCode.NOT_FOUND, detail = "Unknown provider $providerId"))
-        val settings = settingsRepository.current()
-        val keys = competitionKeys?.takeIf { it.isNotEmpty() }
-            ?: settings.followedCompetitionKeys.toList()
-        if (keys.isEmpty()) {
-            return Outcome.Failure(
-                AppError(ErrorCode.EMPTY_RESPONSE, detail = "No followed competitions to synchronise"),
-            )
-        }
-
         val now = clock.nowEpochMs()
         val from = now - daysBack * TimeConstants.DAY_MS
         val to = now + daysAhead * TimeConstants.DAY_MS
+
+        var summary = syncWithProvider(provider, competitionKeys, from, to, now, onProgress)
+        var fallbackProviderId: String? = null
+
+        // An authenticated provider can legitimately return nothing (plan restrictions,
+        // exhausted quota, a rejected season). The keyless CSV source is then used so the
+        // user still sees fixtures, and the UI explains where they came from.
+        if (summary.fixtures == 0) {
+            val keyless = registry.keylessProvider(excludeProviderId = provider.info.id)
+            if (keyless != null) {
+                val fallback = syncWithProvider(keyless, null, from, to, now) { _, _ -> }
+                if (fallback.fixtures > 0) {
+                    fallbackProviderId = keyless.info.id
+                    summary = SyncSummary(
+                        competitions = summary.competitions + fallback.competitions,
+                        fixtures = fallback.fixtures,
+                        historical = summary.historical + fallback.historical,
+                        standings = summary.standings + fallback.standings,
+                        requestsEstimated = summary.requestsEstimated + fallback.requestsEstimated,
+                        errors = summary.errors,
+                    )
+                    appendFinishedMatches(keyless.info.id)
+                }
+            }
+        }
+
+        if (summary.fixtures > 0 || summary.errors.isEmpty()) {
+            settingsRepository.setLastSync(now)
+        }
+        val appended = appendFinishedMatches(provider.info.id)
+        ratingsRepository.invalidate()
+        return Outcome.Success(
+            summary.copy(
+                historical = summary.historical + appended,
+                fallbackProviderId = fallbackProviderId,
+            ),
+        )
+    }
+
+    /**
+     * One provider pass: decides which competitions to fetch, then persists whatever it
+     * returns. Followed competition keys belong to a specific provider, so a list that
+     * belongs to a different source is replaced by the provider's own defaults instead of
+     * silently producing an empty sync.
+     */
+    private suspend fun syncWithProvider(
+        provider: FootballDataProvider,
+        competitionKeys: List<String>?,
+        fromEpochMs: Long,
+        toEpochMs: Long,
+        now: Long,
+        onProgress: (done: Int, total: Int) -> Unit,
+    ): SyncSummary {
+        val known = db.competitionDao().allOnce()
+            .filter { it.providerId == provider.info.id }
+            .map { it.providerKey }
+        val followed = settingsRepository.current().followedCompetitionKeys.toList()
+        val requested = competitionKeys?.takeIf { it.isNotEmpty() } ?: followed
+        val matched = requested.filter { it in known }
+        val keys = when {
+            matched.isNotEmpty() -> matched
+            provider.defaultCompetitionKeys.isNotEmpty() -> provider.defaultCompetitionKeys
+            known.isNotEmpty() -> known
+            else -> requested
+        }
+        if (keys.isEmpty()) {
+            return SyncSummary(errors = listOf("NO_COMPETITIONS"))
+        }
+
         var summary = SyncSummary(requestsEstimated = keys.size)
         val errors = mutableListOf<String>()
-
+        var lastErrorCode: ErrorCode? = null
+        var repeatedFailures = 0
         onProgress(0, keys.size)
         for ((index, key) in keys.withIndex()) {
-            when (val result = provider.matches(key, season = null, fromEpochMs = from, toEpochMs = to)) {
-                is Outcome.Failure -> errors.add("${provider.info.displayName}/$key: ${result.error.code}")
+            when (val result = provider.matches(key, null, fromEpochMs, toEpochMs)) {
+                is Outcome.Failure -> {
+                    errors.add("${provider.info.displayName}/$key: ${result.error.code}")
+                    repeatedFailures = if (result.error.code == lastErrorCode) repeatedFailures + 1 else 1
+                    lastErrorCode = result.error.code
+                }
                 is Outcome.Success -> {
-                    val written = persistMatches(providerId, key, result.value)
+                    repeatedFailures = 0
+                    lastErrorCode = null
+                    val written = persistMatches(provider.info.id, key, result.value, now)
                     summary = summary + SyncSummary(fixtures = written)
                 }
             }
             // Free providers space requests out, so a full run can take a while; the
             // caller wants to show which competition it is on.
             onProgress(index + 1, keys.size)
+            // A plan restriction fails for every competition in exactly the same way, so
+            // stop instead of spending minutes (and quota) on a provider that cannot serve
+            // this request at all.
+            if (repeatedFailures >= MAX_REPEATED_FAILURES) break
         }
-
-        settingsRepository.setLastSync(now)
-        val appended = appendFinishedMatches(providerId)
-        ratingsRepository.invalidate()
-        return Outcome.Success(summary.copy(historical = appended, errors = errors))
+        return summary.copy(errors = errors)
     }
 
     suspend fun syncLive(providerId: String): Outcome<SyncSummary> {
@@ -568,5 +638,8 @@ class SyncRepository(
     companion object {
         private const val DETAILS_TTL_MS = 90_000L
         private const val HISTORY_LOOKBACK_DAYS = 420L
+
+        /** Abort a provider pass after this many identical consecutive failures. */
+        private const val MAX_REPEATED_FAILURES = 3
     }
 }
