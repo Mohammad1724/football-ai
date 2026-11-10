@@ -99,6 +99,14 @@ data class RemoteHistoryMatch(
 interface FootballDataProvider {
     val info: ProviderInfo
 
+    /**
+     * Competition keys to sync when the user follows none of *this* provider's own
+     * competitions (for example after switching sources). Empty means "use whatever the
+     * user follows".
+     */
+    val defaultCompetitionKeys: List<String>
+        get() = emptyList()
+
     suspend fun competitions(): Outcome<List<RemoteCompetition>>
 
     suspend fun matches(
