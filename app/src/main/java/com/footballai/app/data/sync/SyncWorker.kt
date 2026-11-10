@@ -33,7 +33,7 @@ class SyncWorker(
         val providerId = container.providerRegistry.activeProviderId() ?: return Result.success()
 
         return try {
-            if (settings.dailyAnalysisEnabled) {
+            if (settings.dailyAnalysisEnabled || providerId == "football-data-org") {
                 val report = container.dailyAnalysisRepository.run()
                 return if (report.errors.isEmpty() && report.failed == 0) Result.success() else Result.retry()
             }

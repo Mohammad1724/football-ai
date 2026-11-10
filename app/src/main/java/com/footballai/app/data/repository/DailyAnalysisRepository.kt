@@ -66,31 +66,37 @@ class DailyAnalysisRepository(
     suspend fun run(onProgress: (Int, Int) -> Unit = { _, _ -> }): DailyAnalysisReport = mutex.withLock {
         withContext(Dispatchers.Default) {
             val now = clock.nowEpochMs()
-            val source = FootballDataCoUkProvider.PROVIDER_ID
+            val source = registry.activeProviderId() ?: FootballDataCoUkProvider.PROVIDER_ID
             val leagues = registry.historical.availableCompetitions()
-            var report = DailyAnalysisReport(now, coveredLeagues = leagues.size)
+            val fixtureKeys = if (source == FootballDataCoUkProvider.PROVIDER_ID) leagues.map { it.key }
+                else HistoryBridge.leagues.keys.toList() + listOf("BSA", "CL", "EC", "WC")
+            var report = DailyAnalysisReport(now, coveredLeagues = fixtureKeys.size)
             val errors = mutableListOf<String>()
             try {
                 when (val result = sync.syncCompetitions(source)) {
                     is Outcome.Failure -> errors += result.error.code.name
                     is Outcome.Success -> Unit
                 }
-                when (val result = sync.syncFixtures(source, competitionKeys = leagues.map { it.key },
-                    daysBack = 0, daysAhead = 7, allowFallback = false, onProgress = onProgress)) {
+                when (val result = sync.syncFixtures(source, competitionKeys = fixtureKeys,
+                    daysBack = 0, daysAhead = 10, allowFallback = false, onProgress = onProgress)) {
                     is Outcome.Failure -> errors += result.error.code.name
                     is Outcome.Success -> {
                         report = report.copy(fixturesReceived = result.value.fixtures)
                         errors += result.value.errors
                     }
                 }
-                val end = DailyAnalysisPolicy.endOfTomorrow(now, ZoneId.systemDefault())
+                val end = DailyAnalysisPolicy.endOfHorizon(now, ZoneId.systemDefault())
                 val candidates = db.matchDao().scheduledBetween(now + 1, end).filter { it.providerId == source && it.lastSyncedAt >= now }
                 report = report.copy(candidates = candidates.size)
                 // Finished results are pulled for pending cached fixtures too, even on
                 // a day with no new fixtures. Only relevant league-season files are read.
                 val pending = db.matchDao().pendingResults(source, now)
                 val leagueSeasons = (candidates + pending).mapNotNull { m ->
-                    m.season?.let { m.competitionId.substringAfterLast(':') to it }
+                    m.season?.let { season ->
+                        val key = m.competitionId.substringAfterLast(':')
+                        val csvKey = if (source == FootballDataCoUkProvider.PROVIDER_ID) key else HistoryBridge.leagues[key]
+                        csvKey?.let { it to season }
+                    }
                 }.distinct()
                 onProgress(0, leagueSeasons.size + candidates.size)
                 var done = 0
@@ -102,7 +108,7 @@ class DailyAnalysisRepository(
                         is Outcome.Failure -> errors += "$league: ${result.error.code}"
                         is Outcome.Success -> {
                             errors += result.value.errors
-                            val count = ratings.matchCount(source, Ids.competition(source, league))
+                            val count = ratings.matchCount(FootballDataCoUkProvider.PROVIDER_ID, Ids.competition(FootballDataCoUkProvider.PROVIDER_ID, league))
                             if (result.value.errors.isEmpty() && count >= 40) {
                                 db.syncMetaDao().put(SyncMetaEntity(bootstrapKey, "ready", now))
                             }
@@ -121,7 +127,9 @@ class DailyAnalysisRepository(
                             report = report.copy(insufficientHistory = report.insufficientHistory + 1)
                         } else {
                             when (val result = predictions.predict(match.id)) {
-                                is Outcome.Failure -> report = report.copy(failed = report.failed + 1)
+                                is Outcome.Failure -> report = if (result.error.code == com.footballai.app.core.ErrorCode.INSUFFICIENT_HISTORY)
+                                    report.copy(insufficientHistory = report.insufficientHistory + 1)
+                                    else report.copy(failed = report.failed + 1)
                                 is Outcome.Success -> report = report.copy(predicted = report.predicted + 1)
                             }
                         }
@@ -144,6 +152,9 @@ class DailyAnalysisRepository(
 }
 
 object DailyAnalysisPolicy {
+    fun endOfHorizon(now: Long, zone: ZoneId): Long = Instant.ofEpochMilli(now).atZone(zone)
+        .toLocalDate().plusDays(11).atStartOfDay(zone).toInstant().toEpochMilli() - 1
+
     fun endOfTomorrow(now: Long, zone: ZoneId): Long = Instant.ofEpochMilli(now).atZone(zone)
         .toLocalDate().plusDays(2).atStartOfDay(zone).toInstant().toEpochMilli() - 1
 

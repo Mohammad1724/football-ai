@@ -51,6 +51,9 @@ interface CompetitionDao {
 
 @Dao
 interface TeamDao {
+    @Query("SELECT * FROM teams WHERE id IN (SELECT homeTeamId FROM matches WHERE competitionId = :competition UNION SELECT awayTeamId FROM matches WHERE competitionId = :competition)")
+    suspend fun forCompetition(competition: String): List<TeamEntity>
+
     @Upsert
     suspend fun upsertAll(teams: List<TeamEntity>)
 

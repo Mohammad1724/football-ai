@@ -103,7 +103,7 @@ class SyncRepository(
         providerId: String,
         competitionKeys: List<String>? = null,
         daysBack: Int = 7,
-        daysAhead: Int = 21,
+        daysAhead: Int = 10,
         allowFallback: Boolean = true,
         onProgress: (done: Int, total: Int) -> Unit = { _, _ -> },
     ): Outcome<SyncSummary> {
@@ -111,7 +111,8 @@ class SyncRepository(
             ?: return Outcome.Failure(AppError(ErrorCode.NOT_FOUND, detail = "Unknown provider $providerId"))
         val now = clock.nowEpochMs()
         val from = now - daysBack * TimeConstants.DAY_MS
-        val to = now + daysAhead * TimeConstants.DAY_MS
+        val to = java.time.Instant.ofEpochMilli(now).atZone(java.time.ZoneId.systemDefault())
+            .toLocalDate().plusDays(daysAhead.toLong() + 1).atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli() - 1
 
         var summary = syncWithProvider(provider, competitionKeys, from, to, now, onProgress)
         var fallbackProviderId: String? = null
