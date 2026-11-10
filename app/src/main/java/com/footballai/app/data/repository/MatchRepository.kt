@@ -180,8 +180,10 @@ class MatchRepository(
     }
 
     fun dayWindow(nowEpochMs: Long): Pair<Long, Long> {
-        val startOfDay = nowEpochMs - (nowEpochMs % TimeConstants.DAY_MS)
-        return startOfDay to startOfDay + TimeConstants.DAY_MS
+        val zone = java.time.ZoneId.systemDefault()
+        val date = java.time.Instant.ofEpochMilli(nowEpochMs).atZone(zone).toLocalDate()
+        return date.atStartOfDay(zone).toInstant().toEpochMilli() to
+            (date.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli() - 1)
     }
 
     suspend fun countsTriple(): Triple<Int, Int, Int> = Triple(

@@ -56,7 +56,7 @@
     <string name="empty_match_title">Match not found</string>
     <string name="empty_matches_message">Synchronise fixtures from a data source to get started.</string>
     <string name="empty_matches_title">No matches yet</string>
-    <string name="empty_predictions_message">Open a match and run an analysis; results appear here.</string>
+    <string name="empty_predictions_message">Run sync from Home. Pre-match forecasts are generated for today and tomorrow when enough history exists. The Home report shows missing fixtures or insufficient history.</string>
     <string name="empty_predictions_title">No predictions stored</string>
     <string name="empty_recent_message">Finished matches will appear once synchronised.</string>
     <string name="empty_recent_title">No recent results</string>
@@ -250,7 +250,7 @@
     <string name="selection_under">Under</string>
     <string name="selection_yes">Yes</string>
     <string name="setting_background_sync">Background sync</string>
-    <string name="setting_background_sync_body">Refresh fixtures at most every six hours, only on a network connection.</string>
+    <string name="setting_background_sync_body">Daily analysis with a network connection. Android may defer background work; refresh manually before an imminent kickoff.</string>
     <string name="setting_live_polling">Live tracking</string>
     <string name="setting_live_polling_body">Refresh in-play data while a live match screen is open. Costs about 20 provider requests per hour.</string>
     <string name="stat_corners">Corners</string>
@@ -309,7 +309,7 @@
     <string name="onboarding_back">Back</string>
     <string name="onboarding_finish">Start using the app</string>
     <string name="ob_welcome_title">Probabilities, not promises</string>
-    <string name="ob_welcome_body">FootballAI runs its own statistical model on this phone. Nothing is downloaded as a ready-made prediction, and no estimate is presented as a fact.</string>
+    <string name="ob_welcome_body">The default mode needs no key: supported fixtures and history come from CSV, and win/draw/loss probabilities are calculated on your phone. No live scores or guaranteed worldwide league coverage.</string>
     <string name="ob_welcome_point_model">Poisson, then Dixon-Coles, then an Elo tilt, scored with Brier score and calibration curves</string>
     <string name="ob_welcome_point_offline">Predictions are computed offline once the data is cached</string>
     <string name="ob_welcome_point_honest">Missing lineups, injuries or odds are reported, never invented</string>
@@ -372,4 +372,16 @@
     <string name="key_verified_notice">The key and active account were verified with a real request. This does not guarantee access to every season or live data.</string>
     <string name="api_trial_action">Test access: two leagues, next 7 days</string>
     <string name="api_trial_hint">Checks account status and upcoming Premier League / La Liga fixtures (normally 3 requests). Your followed leagues are unchanged and CSV fallback is disabled, so API failures stay visible.</string>
+    <string name="daily_mode_title">Keyless daily analysis</string>
+    <string name="daily_mode_hint">CSV fixtures and history; pre-match forecasts, no live polling. Turn off to use optional API sources.</string>
+    <string name="daily_dashboard_hint">Analyses today and tomorrow across the CSV source coverage, not every league worldwide. First run downloads history and may take several minutes. Open Predictions for saved forecasts. Lineups, injuries and weather are unavailable and are not model inputs.</string>
+    <string name="daily_report_title">Last daily analysis report</string>
+    <string name="daily_report_body">Leagues checked: %1$s\nToday/tomorrow candidates: %2$s\nExisting or generated forecasts: %3$s\nInsufficient history: %4$s\nFailed or kickoff passed: %5$s\nRun time: %6$s</string>
+    <string name="error_insufficient_history">Insufficient history: at least 40 league matches in the training window and 5 per team are required. Run daily analysis from Home; if history is still insufficient, no forecast is generated.</string>
+    <string name="daily_pick_team">Most likely result: %1$s win</string>
+    <string name="daily_pick_draw">Most likely result: draw</string>
+    <string name="daily_pick_unclear">Probabilities are close; no clear favourite</string>
+    <string name="daily_pick_note">Not a guarantee. A gap below 5 percentage points between the top two outcomes is labelled unclear; this threshold is not calibrated confidence.</string>
+    <string name="action_daily_analysis">Run daily analysis</string>
+    <string name="action_daily_start">Run daily analysis</string>
 </resources>

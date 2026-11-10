@@ -50,6 +50,7 @@ class PredictionRepository(
     private val ratingsRepository: RatingsRepository,
     private val engine: MatchPredictionEngine,
     private val clock: TimeProvider,
+    private val settingsRepository: com.footballai.app.data.settings.SettingsRepository,
 ) {
 
     suspend fun predict(matchId: String, persist: Boolean = true): Outcome<PredictionView> = withContext(Dispatchers.Default) {
@@ -67,6 +68,8 @@ class PredictionRepository(
         val now = clock.nowEpochMs()
         val status = parseStatus(match.status)
         val isLive = status.isLive
+        val dailyMode = settingsRepository.current().dailyAnalysisEnabled
+        if (dailyMode && isLive) return Outcome.Failure(AppError(ErrorCode.INVALID_MATCH_STATE))
         if (status.isFinished) {
             return latestView(matchId)?.let { Outcome.Success(it) }
                 ?: Outcome.Failure(AppError(ErrorCode.INVALID_MATCH_STATE))
@@ -85,6 +88,9 @@ class PredictionRepository(
         val baseline = ratingsRepository.baseline(source, match.competitionId, now)
         val fit = ratingsRepository.fit(source, match.competitionId, now)
         val historyCount = ratingsRepository.matchCount(source, match.competitionId)
+        if (dailyMode && !DailyAnalysisPolicy.hasEnoughHistory(historyCount, strengths.first.matchesUsed, strengths.second.matchesUsed)) {
+            return Outcome.Failure(AppError(ErrorCode.INSUFFICIENT_HISTORY))
+        }
         val statistics = db.statisticsDao().byMatch(matchId)
             ?.takeIf { !isLive || now - it.updatedAt in 0..LIVE_TTL_MS }
 
@@ -463,7 +469,7 @@ class PredictionRepository(
     }
 
     companion object {
-        const val MODEL_VERSION = "football-ai/engine-1.1.0"
+        const val MODEL_VERSION = "football-ai/engine-1.2.0"
         const val ELO_BLEND_WEIGHT = 0.15
         const val LIVE_TTL_MS = PredictionPolicy.LIVE_TTL_MS
         private const val STALE_AFTER_MS = 6 * TimeConstants.HOUR_MS

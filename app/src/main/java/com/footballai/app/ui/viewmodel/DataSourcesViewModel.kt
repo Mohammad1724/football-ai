@@ -97,6 +97,7 @@ class DataSourcesViewModel(private val container: AppContainer) : ViewModel() {
                 when (val result = container.syncRepository.syncCompetitions(providerId)) {
                     is Outcome.Failure -> _state.update { it.copy(lastError = result.error) }
                     is Outcome.Success -> {
+                        container.settingsRepository.setDailyAnalysis(false)
                         container.settingsRepository.setActiveProvider(providerId)
                         _state.update { it.copy(verifiedProviderId = providerId) }
                     }
@@ -122,6 +123,7 @@ class DataSourcesViewModel(private val container: AppContainer) : ViewModel() {
 
     fun selectProvider(providerId: String) {
         viewModelScope.launch {
+            container.settingsRepository.setDailyAnalysis(false)
             container.settingsRepository.setActiveProvider(providerId)
             _state.update { it.copy(verifiedProviderId = null) }
             refresh()

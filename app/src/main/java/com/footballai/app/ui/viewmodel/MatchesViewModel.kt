@@ -42,16 +42,23 @@ class MatchesViewModel(private val container: AppContainer) : ViewModel() {
 
     init {
         viewModelScope.launch {
-            container.matchRepository.observeCompetitions().collect { competitions ->
+            combine(container.matchRepository.observeCompetitions(), container.settingsRepository.settings) { competitions, settings ->
+                if (settings.dailyAnalysisEnabled) competitions.filter { it.providerId == "football-data-co-uk" } else competitions
+            }.collect { competitions ->
                 _state.update { it.copy(competitions = competitions) }
+                if (selection.value.second != null && competitions.none { it.id == selection.value.second }) {
+                    selection.value = selection.value.first to null
+                }
             }
         }
         viewModelScope.launch {
-            combine(selection, refreshVersion) { selected, _ -> selected }
-                .flatMapLatest { (filter, competitionId) ->
+            combine(selection, refreshVersion, container.settingsRepository.settings) { selected, _, settings -> selected to settings.dailyAnalysisEnabled }
+                .flatMapLatest { (selected, daily) ->
+                    val (filter, competitionId) = selected
                     val (from, to) = MatchListRules.range(filter, container.clock.nowEpochMs())
                     container.matchRepository.observeBetween(from, to).map { matches ->
-                        Triple(filter, competitionId, MatchListRules.select(matches, filter, competitionId))
+                        val visible = if (daily) matches.filter { it.id.startsWith("football-data-co-uk:") } else matches
+                        Triple(filter, competitionId, MatchListRules.select(visible, filter, competitionId))
                     }
                 }.collect { (filter, competitionId, matches) ->
                     _state.update { it.copy(matches = matches, isLoading = false,
@@ -73,6 +80,11 @@ class MatchesViewModel(private val container: AppContainer) : ViewModel() {
         _state.update { it.copy(isRefreshing = true, lastError = null) }
         viewModelScope.launch {
             try {
+                if (container.settingsRepository.current().dailyAnalysisEnabled) {
+                    val report = container.dailyAnalysisRepository.run()
+                    _state.update { it.copy(lastError = report.errors.firstOrNull()?.let { AppError(ErrorCode.REQUEST_FAILED) }) }
+                    return@launch
+                }
                 val providerId = container.providerRegistry.activeProviderId()
                 val result = if (providerId == null) {
                     Outcome.Failure(AppError(ErrorCode.NOT_FOUND))

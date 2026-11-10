@@ -93,6 +93,7 @@ class AppContainer(context: Context) {
         ratingsRepository = ratingsRepository,
         engine = engine,
         clock = clock,
+        settingsRepository = settingsRepository,
     )
 
     val syncRepository: SyncRepository = SyncRepository(
@@ -101,6 +102,10 @@ class AppContainer(context: Context) {
         settingsRepository = settingsRepository,
         ratingsRepository = ratingsRepository,
         clock = clock,
+    )
+
+    val dailyAnalysisRepository = com.footballai.app.data.repository.DailyAnalysisRepository(
+        database, providerRegistry, syncRepository, ratingsRepository, predictionRepository, clock,
     )
 
     val performanceRepository: PerformanceRepository = PerformanceRepository(

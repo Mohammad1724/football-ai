@@ -23,7 +23,7 @@ data class SettingsUiState(
     val providerName: String? = null,
     val historicalMatches: Int = 0,
     val storedPredictions: Int = 0,
-    val appVersion: String = "0.3.2",
+    val appVersion: String = "0.4.0",
     val lastError: AppError? = null,
     val isClearing: Boolean = false,
 )
@@ -60,6 +60,10 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
         viewModelScope.launch { container.settingsRepository.setThemeMode(mode) }
     }
 
+    fun setDailyAnalysis(enabled: Boolean) {
+        viewModelScope.launch { container.settingsRepository.setDailyAnalysis(enabled) }
+    }
+
     fun setLivePolling(enabled: Boolean) {
         viewModelScope.launch { container.settingsRepository.setLivePolling(enabled) }
     }
@@ -89,7 +93,7 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
                 // clear transaction with database writes already in progress.
                 container.settingsRepository.setBackgroundSync(false)
                 SyncScheduler.cancelPeriodicSync(container.contextForWork())
-                withContext(Dispatchers.IO) { container.database.clearAllTables() }
+                container.dailyAnalysisRepository.clearLocalData()
                 container.ratingsRepository.invalidate()
                 _state.update { it.copy(historicalMatches = 0, storedPredictions = 0) }
             } catch (error: CancellationException) {

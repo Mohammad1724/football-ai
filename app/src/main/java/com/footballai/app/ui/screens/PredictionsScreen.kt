@@ -137,6 +137,8 @@ private fun PredictionHistoryCard(item: PredictionWithMatch, languageTag: String
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.height(8.dp))
+            com.footballai.app.ui.components.PreMatchVerdict(prediction, match.home.name, match.away.name)
+            Spacer(Modifier.height(8.dp))
             ProbabilityBar(
                 homeWin = prediction.homeWin,
                 draw = prediction.draw,
