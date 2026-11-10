@@ -72,6 +72,7 @@ fun RemoteMatch.toEntity(providerId: String, homeTeamId: String, awayTeamId: Str
         hasLineups = false,
         statisticsSyncedAt = null,
         lastSyncedAt = now,
+        scoreScope = scoreScope,
     )
 
 fun CompetitionEntity.toDomain(): Competition = Competition(

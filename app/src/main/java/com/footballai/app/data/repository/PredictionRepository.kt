@@ -30,6 +30,9 @@ import com.footballai.engine.model.PredictionResult
 import com.footballai.engine.prediction.MatchPredictionEngine
 import com.footballai.engine.quality.DataQualityAssessor
 import com.footballai.engine.quality.QualityInputs
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import com.footballai.app.domain.model.MatchStatus
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlin.math.abs
@@ -49,7 +52,11 @@ class PredictionRepository(
     private val clock: TimeProvider,
 ) {
 
-    suspend fun predict(matchId: String, persist: Boolean = true): Outcome<PredictionView> {
+    suspend fun predict(matchId: String, persist: Boolean = true): Outcome<PredictionView> = withContext(Dispatchers.Default) {
+        predictInternal(matchId, persist)
+    }
+
+    private suspend fun predictInternal(matchId: String, persist: Boolean): Outcome<PredictionView> {
         val match = db.matchDao().byId(matchId)
             ?: return Outcome.Failure(AppError(ErrorCode.NOT_FOUND, detail = "Unknown match $matchId"))
         val homeTeam = db.teamDao().byId(match.homeTeamId)
@@ -60,6 +67,12 @@ class PredictionRepository(
         val now = clock.nowEpochMs()
         val status = parseStatus(match.status)
         val isLive = status.isLive
+        if (status.isFinished) {
+            return latestView(matchId)?.let { Outcome.Success(it) }
+                ?: Outcome.Failure(AppError(ErrorCode.INVALID_MATCH_STATE))
+        }
+        PredictionPolicy.error(match, now)?.let { return Outcome.Failure(AppError(it)) }
+        val liveMinute = PredictionPolicy.minute(match)
         val source = match.providerId
 
         val strengths = ratingsRepository.strengths(
@@ -73,6 +86,7 @@ class PredictionRepository(
         val fit = ratingsRepository.fit(source, match.competitionId, now)
         val historyCount = ratingsRepository.matchCount(source, match.competitionId)
         val statistics = db.statisticsDao().byMatch(matchId)
+            ?.takeIf { !isLive || now - it.updatedAt in 0..LIVE_TTL_MS }
 
         val quality = DataQualityAssessor.assess(
             QualityInputs(
@@ -107,7 +121,7 @@ class PredictionRepository(
             engine.predictLive(
                 LiveInput(
                     preMatch = preMatchInput,
-                    minute = match.minute ?: estimatedMinute(match.kickoffEpochMs, now),
+                    minute = requireNotNull(liveMinute),
                     homeGoals = match.homeGoals ?: 0,
                     awayGoals = match.awayGoals ?: 0,
                     homeRedCards = statistics?.homeRedCards ?: 0,
@@ -133,7 +147,20 @@ class PredictionRepository(
                 null
             },
         )
-        if (persist) save(view, matchId)
+        // Fitting may be slow. Do not publish an input snapshot that changed or
+        // crossed kickoff while the CPU work was running.
+        val current = db.matchDao().byId(matchId)
+            ?: return Outcome.Failure(AppError(ErrorCode.NOT_FOUND))
+        PredictionPolicy.error(current, clock.nowEpochMs())?.let { return Outcome.Failure(AppError(it)) }
+        if (current.status != match.status || current.minute != match.minute ||
+            current.homeGoals != match.homeGoals || current.awayGoals != match.awayGoals) {
+            return Outcome.Failure(AppError(ErrorCode.STALE_DATA))
+        }
+        // First pre-match snapshot per model version is immutable; repeated page visits
+        // must not multiply a match's weight or overwrite an earlier forecast.
+        if (persist && (isLive || db.predictionDao().firstPreMatch(matchId, MODEL_VERSION) == null)) {
+            save(view, matchId)
+        }
         return Outcome.Success(view)
     }
 
@@ -224,7 +251,9 @@ class PredictionRepository(
         for (prediction in unresolved) {
             val match = db.matchDao().byId(prediction.matchId) ?: continue
             val status = parseStatus(match.status)
-            if (!status.isFinished) continue
+            if (!status.isFinished || match.scoreScope != "REGULATION") continue
+            if (prediction.modelVersion != MODEL_VERSION) continue
+            if (prediction.kind == PredictionKind.PRE_MATCH.name && prediction.createdAtEpochMs >= match.kickoffEpochMs) continue
             val homeGoals = match.homeGoals ?: continue
             val awayGoals = match.awayGoals ?: continue
             val actual = when {
@@ -421,14 +450,9 @@ class PredictionRepository(
             } else {
                 null
             },
-            isStale = abs(clock.nowEpochMs() - entity.createdAtEpochMs) > STALE_AFTER_MS,
+            isStale = abs(clock.nowEpochMs() - entity.createdAtEpochMs) > (if (entity.kind == PredictionKind.LIVE.name) LIVE_TTL_MS else STALE_AFTER_MS),
             resolution = resolution,
         )
-    }
-
-    private fun estimatedMinute(kickoffEpochMs: Long, nowEpochMs: Long): Int {
-        val elapsed = (nowEpochMs - kickoffEpochMs) / TimeConstants.MINUTE_MS
-        return elapsed.coerceIn(1L, 120L).toInt()
     }
 
     private fun DataQualityLevel.toDomain(): QualityLevel = when (this) {
@@ -439,8 +463,9 @@ class PredictionRepository(
     }
 
     companion object {
-        const val MODEL_VERSION = "football-ai/engine-1.0.0"
+        const val MODEL_VERSION = "football-ai/engine-1.1.0"
         const val ELO_BLEND_WEIGHT = 0.15
+        const val LIVE_TTL_MS = PredictionPolicy.LIVE_TTL_MS
         private const val STALE_AFTER_MS = 6 * TimeConstants.HOUR_MS
     }
 }

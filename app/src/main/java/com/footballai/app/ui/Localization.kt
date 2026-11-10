@@ -164,6 +164,9 @@ fun missingDataLabel(code: String): String = text(
 @Composable
 fun errorLabel(error: AppError): String = text(
     when (error.code) {
+        ErrorCode.STALE_DATA -> R.string.error_stale_data
+        ErrorCode.INVALID_MATCH_STATE -> R.string.error_match_state
+        ErrorCode.UNKNOWN_MATCH_TIME -> R.string.error_match_time
         ErrorCode.NETWORK_UNAVAILABLE -> R.string.error_network
         ErrorCode.REQUEST_FAILED -> R.string.error_request
         ErrorCode.RATE_LIMITED -> R.string.error_rate_limited

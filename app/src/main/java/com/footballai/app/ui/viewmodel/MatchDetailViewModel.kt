@@ -6,6 +6,7 @@ import com.footballai.app.core.AppError
 import com.footballai.app.core.Outcome
 import com.footballai.app.core.TimeConstants
 import com.footballai.app.data.local.mapper.parseStatus
+import com.footballai.app.data.repository.PredictionPolicy
 import com.footballai.app.di.AppContainer
 import com.footballai.app.domain.model.MatchDetail
 import com.footballai.app.domain.model.MatchSummary
@@ -40,6 +41,8 @@ class MatchDetailViewModel(
     private val _state = MutableStateFlow(MatchDetailUiState())
     val state: StateFlow<MatchDetailUiState> = _state.asStateFlow()
 
+    private var freshnessJob: Job? = null
+    private var screenVisible = false
     private var trackingJob: Job? = null
     private var lastLivePredictionAt: Long = 0L
     private var lastDetailsSyncAt: Long = 0L
@@ -51,7 +54,7 @@ class MatchDetailViewModel(
     fun load(refreshFromNetwork: Boolean = true) {
         viewModelScope.launch {
             val detail = container.matchRepository.matchDetail(matchId)
-            _state.update { it.copy(detail = detail, isLoading = detail == null) }
+            _state.update { it.copy(detail = detail, isLoading = false) }
             if (detail != null) {
                 val headToHead = container.matchRepository.headToHead(
                     matchId = matchId,
@@ -63,9 +66,11 @@ class MatchDetailViewModel(
             if (refreshFromNetwork) {
                 val entity = container.matchRepository.matchEntity(matchId)
                 if (entity != null) {
-                    container.syncRepository.refreshMatch(matchId)
-                    container.syncRepository.syncMatchDetails(matchId)
-                    lastDetailsSyncAt = container.clock.nowEpochMs()
+                    if (!syncFresh()) {
+                        if (!parseStatus(entity.status).isLive) predict()
+                        maybeStartTracking()
+                        return@launch
+                    }
                     val refreshed = container.matchRepository.matchDetail(matchId)
                     _state.update { it.copy(detail = refreshed ?: it.detail) }
                 }
@@ -78,8 +83,11 @@ class MatchDetailViewModel(
     fun refresh() {
         viewModelScope.launch {
             _state.update { it.copy(isRefreshing = true) }
-            container.syncRepository.refreshMatch(matchId)
-            container.syncRepository.syncMatchDetails(matchId, force = true)
+            if (!syncFresh()) {
+                if (_state.value.detail?.summary?.status?.isLive == false) predict()
+                _state.update { it.copy(isRefreshing = false) }
+                return@launch
+            }
             val detail = container.matchRepository.matchDetail(matchId)
             _state.update { it.copy(detail = detail, isRefreshing = false) }
             predict()
@@ -88,18 +96,20 @@ class MatchDetailViewModel(
     }
 
     fun predict(forcePersist: Boolean = false) {
+        if (_state.value.isPredicting) return
+        _state.update { it.copy(isPredicting = true) }
         viewModelScope.launch {
-            _state.update { it.copy(isPredicting = true, lastError = null) }
+            _state.update { it.copy(isPredicting = true) }
             val entity = container.matchRepository.matchEntity(matchId)
             val isLive = entity != null && parseStatus(entity.status).isLive
             val now = container.clock.nowEpochMs()
             // Live screens poll every few minutes; only one stored snapshot per 15 minutes
             // keeps the local history readable and the database small.
-            val persist = forcePersist || !isLive || now - lastLivePredictionAt > LIVE_PERSIST_INTERVAL_MS
+            val persist = !isLive || PredictionPolicy.shouldStoreLive(now, lastLivePredictionAt, forcePersist)
             when (val result = container.predictionRepository.predict(matchId, persist = persist)) {
-                is Outcome.Failure -> _state.update { it.copy(isPredicting = false, lastError = result.error) }
+                is Outcome.Failure -> _state.update { it.copy(isPredicting = false, prediction = null, lastError = result.error) }
                 is Outcome.Success -> {
-                    if (isLive) lastLivePredictionAt = now
+                    if (isLive && persist) lastLivePredictionAt = now
                     _state.update { it.copy(isPredicting = false, prediction = result.value) }
                 }
             }
@@ -116,10 +126,26 @@ class MatchDetailViewModel(
     }
 
     fun onScreenVisible() {
+        screenVisible = true
+        if (freshnessJob?.isActive != true) freshnessJob = viewModelScope.launch {
+            while (isActive) {
+                val match = container.matchRepository.matchEntity(matchId)
+                if (match != null && parseStatus(match.status).isLive &&
+                    container.clock.nowEpochMs() - match.lastSyncedAt > PredictionPolicy.LIVE_TTL_MS) {
+                    _state.update { it.copy(prediction = null, lastError = AppError(com.footballai.app.core.ErrorCode.STALE_DATA)) }
+                }
+                delay(10_000L)
+            }
+        }
         viewModelScope.launch { maybeStartTracking() }
     }
 
-    fun onScreenHidden() = stopTracking()
+    fun onScreenHidden() {
+        screenVisible = false
+        freshnessJob?.cancel()
+        freshnessJob = null
+        stopTracking()
+    }
 
     fun dismissError() = _state.update { it.copy(lastError = null) }
 
@@ -127,7 +153,7 @@ class MatchDetailViewModel(
         val settings = container.settingsRepository.current()
         val entity = container.matchRepository.matchEntity(matchId) ?: return
         val isLive = parseStatus(entity.status).isLive
-        val enabled = _state.value.liveTrackingEnabled && settings.livePollingEnabled && isLive
+        val enabled = screenVisible && _state.value.liveTrackingEnabled && settings.livePollingEnabled && isLive
         if (!enabled) {
             stopTracking()
             return
@@ -139,18 +165,31 @@ class MatchDetailViewModel(
                 delay(POLL_INTERVAL_MS)
                 val current = container.matchRepository.matchEntity(matchId) ?: break
                 if (!parseStatus(current.status).isLive) break
-                container.syncRepository.refreshMatch(matchId)
-                val now = container.clock.nowEpochMs()
-                if (now - lastDetailsSyncAt > DETAILS_INTERVAL_MS) {
-                    container.syncRepository.syncMatchDetails(matchId, force = true)
-                    lastDetailsSyncAt = now
-                }
+                if (!syncFresh()) continue
                 val detail = container.matchRepository.matchDetail(matchId)
                 _state.update { it.copy(detail = detail) }
                 predict()
             }
             _state.update { it.copy(isLiveTracking = false) }
         }
+    }
+
+    private suspend fun syncFresh(): Boolean {
+        when (val result = container.syncRepository.refreshMatch(matchId)) {
+            is Outcome.Failure -> {
+                _state.update { it.copy(lastError = result.error, prediction = null, isLoading = false) }
+                return false
+            }
+            is Outcome.Success -> _state.update { it.copy(lastError = null) }
+        }
+        val now = container.clock.nowEpochMs()
+        if (now - lastDetailsSyncAt >= DETAILS_INTERVAL_MS) {
+            // Missing/old statistics are excluded by PredictionRepository. A details
+            // failure must not prevent a fresh score-only prediction.
+            container.syncRepository.syncMatchDetails(matchId, force = true)
+            lastDetailsSyncAt = now
+        }
+        return true
     }
 
     private fun stopTracking() {
@@ -165,10 +204,9 @@ class MatchDetailViewModel(
     }
 
     companion object {
-        /** Three minutes balances freshness against the free-plan request budget. */
-        const val POLL_INTERVAL_MS = 3 * TimeConstants.MINUTE_MS
+        /** One minute; quota guard still enforces provider limits. */
+        const val POLL_INTERVAL_MS = TimeConstants.MINUTE_MS
         private const val DETAILS_INTERVAL_MS = 20 * TimeConstants.MINUTE_MS
-        private const val LIVE_PERSIST_INTERVAL_MS = 15 * TimeConstants.MINUTE_MS
     }
 }
 

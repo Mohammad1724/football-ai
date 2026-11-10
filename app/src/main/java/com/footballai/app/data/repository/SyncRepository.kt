@@ -22,6 +22,9 @@ import com.footballai.app.data.provider.RemoteMatch
 import com.footballai.app.data.settings.SettingsRepository
 import com.footballai.app.domain.model.MatchStatus
 import com.footballai.app.domain.model.StatisticType
+import androidx.room.withTransaction
+import com.footballai.app.data.remote.CsvFixtureIdentity
+import com.footballai.app.data.remote.FootballDataCoUkProvider
 import java.time.Instant
 import java.time.ZoneOffset
 
@@ -139,6 +142,7 @@ class SyncRepository(
             settingsRepository.setLastSync(now)
         }
         val appended = appendFinishedMatches(provider.info.id)
+        summary += syncPendingCsvResults()
         ratingsRepository.invalidate()
         return Outcome.Success(
             summary.copy(
@@ -247,6 +251,14 @@ class SyncRepository(
             ?: return Outcome.Failure(AppError(ErrorCode.NOT_FOUND, detail = "Unknown match $matchId"))
         val provider = registry.provider(match.providerId)
             ?: return Outcome.Failure(AppError(ErrorCode.NOT_FOUND, detail = "Unknown provider"))
+        if (match.providerId == FootballDataCoUkProvider.PROVIDER_ID &&
+            match.kickoffEpochMs <= clock.nowEpochMs() && match.season != null) {
+            val result = importCsvHistory(listOf(match.competitionId.substringAfterLast(':')), listOf(match.season))
+            if (result is Outcome.Failure) return result
+            val refreshed = db.matchDao().byId(matchId)
+            if (refreshed?.status == MatchStatus.FINISHED.name) return result
+            return Outcome.Failure(AppError(ErrorCode.STALE_DATA, detail = "CSV result has not been published yet"))
+        }
         return when (val result = provider.match(match.providerKey)) {
             is Outcome.Failure -> result
             is Outcome.Success -> {
@@ -255,6 +267,7 @@ class SyncRepository(
                 val competitionKey = match.competitionId.substringAfterLast(':')
                 val written = persistMatches(match.providerId, competitionKey, listOf(remote))
                 appendFinishedMatches(match.providerId)
+                ratingsRepository.invalidate()
                 Outcome.Success(SyncSummary(live = written, requestsEstimated = 1))
             }
         }
@@ -418,7 +431,7 @@ class SyncRepository(
                     is Outcome.Success -> {
                         val inserted = persistHistory(
                             source = com.footballai.app.data.remote.FootballDataCoUkProvider.PROVIDER_ID,
-                            competitionId = "csv:$key",
+                            competitionId = Ids.competition(provider.info.id, key),
                             competitionName = competitionName,
                             rows = result.value,
                             now = now,
@@ -458,7 +471,7 @@ class SyncRepository(
                 when (val result = provider.matches(key, season, fromEpochMs = null, toEpochMs = null)) {
                     is Outcome.Failure -> errors.add("$key/$season: ${result.error.code}")
                     is Outcome.Success -> {
-                        val finished = result.value.filter { it.status == MatchStatus.FINISHED }
+                        val finished = result.value.filter { it.status == MatchStatus.FINISHED && it.scoreScope == "REGULATION" && it.homeGoals != null && it.awayGoals != null }
                         val inserted = persistHistory(
                             source = providerId,
                             competitionId = Ids.competition(providerId, key),
@@ -479,7 +492,7 @@ class SyncRepository(
     /** Copies locally stored finished matches into the training table. */
     suspend fun appendFinishedMatches(source: String): Int {
         val finished = db.matchDao().finishedSince(clock.nowEpochMs() - HISTORY_LOOKBACK_DAYS * TimeConstants.DAY_MS)
-            .filter { it.providerId == source }
+            .filter { it.providerId == source && it.scoreScope == "REGULATION" }
         if (finished.isEmpty()) return 0
         val teamIds = finished.flatMap { listOf(it.homeTeamId, it.awayTeamId) }.distinct()
         val teams = db.teamDao().byIds(teamIds).associateBy { it.id }
@@ -553,15 +566,25 @@ class SyncRepository(
         db.teamDao().upsertAll(teams.values.toList())
 
         val entities = matches.map { match ->
-            match.toEntity(
+            val previous = if (providerId == FootballDataCoUkProvider.PROVIDER_ID && match.season != null) {
+                db.matchDao().csvCandidates(providerId, competitionId, match.season,
+                    Ids.team(providerId, match.home.providerKey), Ids.team(providerId, match.away.providerKey))
+                    .firstOrNull { CsvFixtureIdentity.sameDate(it.kickoffEpochMs, match.kickoffEpochMs) }
+            } else null
+            val entity = match.toEntity(
                 providerId = providerId,
                 homeTeamId = Ids.team(providerId, match.home.providerKey),
                 awayTeamId = Ids.team(providerId, match.away.providerKey),
                 competitionId = competitionId,
                 now = now,
             )
+            when {
+                previous?.status == MatchStatus.FINISHED.name -> previous
+                previous != null -> entity.copy(id = previous.id, providerKey = previous.providerKey)
+                else -> entity
+            }
         }
-        db.matchDao().upsertAll(entities)
+        db.matchDao().mergeFixtures(entities)
         return entities.size
     }
 
@@ -578,15 +601,15 @@ class SyncRepository(
                 id = Ids.historical(
                     source = source,
                     competitionId = competitionId,
-                    homeId = row.homeTeamKey,
-                    awayId = row.awayTeamKey,
+                    homeId = Ids.team(source, row.homeTeamKey),
+                    awayId = Ids.team(source, row.awayTeamKey),
                     kickoff = row.kickoffEpochMs,
                 ),
                 source = source,
                 competitionId = competitionId,
                 competitionName = competitionName,
-                homeTeamId = row.homeTeamKey,
-                awayTeamId = row.awayTeamKey,
+                homeTeamId = Ids.team(source, row.homeTeamKey),
+                awayTeamId = Ids.team(source, row.awayTeamKey),
                 homeTeamName = row.homeTeamName,
                 awayTeamName = row.awayTeamName,
                 homeGoals = row.homeGoals,
@@ -598,8 +621,41 @@ class SyncRepository(
                 importedAt = now,
             )
         }
-        val inserted = db.historicalDao().insertAll(entities)
-        return inserted.count { it != -1L }
+        return db.withTransaction {
+            val inserted = db.historicalDao().insertAll(entities)
+            if (source == FootballDataCoUkProvider.PROVIDER_ID) {
+                for (row in rows) {
+                    val season = row.season ?: continue
+                    val candidates = db.matchDao().csvCandidates(
+                        source, competitionId, season,
+                        Ids.team(source, row.homeTeamKey), Ids.team(source, row.awayTeamKey),
+                    )
+                    // Never infer identity from team pair + season alone (e.g. Scotland
+                    // can repeat a home/away pairing). Preserve dated fixture links.
+                    for (match in candidates.filter { CsvFixtureIdentity.sameDate(it.kickoffEpochMs, row.kickoffEpochMs) }) {
+                        db.matchDao().upsertAll(listOf(match.copy(
+                            status = MatchStatus.FINISHED.name,
+                            homeGoals = row.homeGoals, awayGoals = row.awayGoals,
+                            kickoffEpochMs = row.kickoffEpochMs,
+                            minute = null, lastSyncedAt = now, scoreScope = "REGULATION",
+                        )))
+                    }
+                }
+            }
+            inserted.count { it != -1L }
+        }
+    }
+
+    private suspend fun syncPendingCsvResults(): SyncSummary {
+        val pending = db.matchDao().pendingResults(FootballDataCoUkProvider.PROVIDER_ID, clock.nowEpochMs())
+        var summary = SyncSummary()
+        for ((competitionId, season) in pending.mapNotNull { row -> row.season?.let { row.competitionId to it } }.distinct()) {
+            when (val result = importCsvHistory(listOf(competitionId.substringAfterLast(':')), listOf(season))) {
+                is Outcome.Success -> summary += result.value
+                is Outcome.Failure -> summary += SyncSummary(errors = listOf(result.error.code.name))
+            }
+        }
+        return summary
     }
 
     private fun RemoteMatch.toHistoryRow(competitionKey: String): RemoteHistoryMatch = RemoteHistoryMatch(

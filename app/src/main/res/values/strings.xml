@@ -42,7 +42,7 @@
     <string name="badge_data_rich">Rich data</string>
     <string name="badge_odds">Odds</string>
     <string name="calibration_hint">Points near the diagonal mean the probabilities match observed frequencies. Expected calibration error: %1$s</string>
-    <string name="clear_data_warning">This deletes every stored match, prediction and historical result on this device. API keys are kept.</string>
+    <string name="clear_data_warning">This deletes every stored match, prediction and historical result on this device. API keys are kept. Background sync will be turned off; enable it again in Settings when needed.</string>
     <string name="competition_matches">%1$s matches</string>
     <string name="disclaimer_body">Probabilities are model estimates from imperfect data, not guarantees. No market edge is claimed without measurable evidence.</string>
     <string name="disclaimer_title">Honest limits</string>
@@ -230,7 +230,7 @@
     <string name="section_storage">Storage</string>
     <string name="section_stored_history">Stored history</string>
     <string name="section_stored_predictions">Stored predictions</string>
-    <string name="section_stored_predictions_subtitle">Only matches that already finished are scored</string>
+    <string name="section_stored_predictions_subtitle">Current model, first pre-match snapshot per match only. Live and legacy predictions are excluded.</string>
     <string name="section_sync_actions">Manual sync</string>
     <string name="section_team_strength">Team strength</string>
     <string name="section_theme">Theme</string>
@@ -355,4 +355,9 @@
     <string name="sync_partial_title">Sync finished with gaps</string>
     <string name="sync_partial_body">%1$s of %2$s competitions failed (%3$s). Try again later, or follow fewer competitions so the free quota stretches further.</string>
     <string name="sync_fallback_use">Use this source as primary</string>
+    <string name="error_stale_data">Live score is missing or stale. Refresh before predicting.</string>
+    <string name="error_match_state">A new pre-match prediction is only allowed before kickoff. This match state cannot be analysed.</string>
+    <string name="error_match_time">Reliable live minute / remaining time is unavailable. Prediction paused.</string>
+    <string name="market_paired_comparison">Model Brier on the same market subset: %1$s (%2$s matches)</string>
+    <string name="history_upgrade_notice">After upgrading from 0.2: re-import API history. Old API scores without a verified 90-minute scope are preserved but excluded from training. CSV IDs are migrated automatically. History from one provider does not train fixtures from another provider.</string>
 </resources>

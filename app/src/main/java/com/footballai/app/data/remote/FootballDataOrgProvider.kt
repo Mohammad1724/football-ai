@@ -206,6 +206,12 @@ class FootballDataOrgProvider(
             awayHalfTimeGoals = score?.halfTime?.away,
             venue = venue,
             odds = null as MatchOdds?,
+            scoreScope = when {
+                status == "AWARDED" -> "ADMINISTRATIVE"
+                score?.duration == "REGULAR" -> "REGULATION"
+                mapStatus(status) == MatchStatus.SCHEDULED -> "REGULATION"
+                else -> "UNKNOWN"
+            },
         )
     }
 

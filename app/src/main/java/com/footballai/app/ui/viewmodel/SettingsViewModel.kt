@@ -12,13 +12,20 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.CancellationException
+import com.footballai.app.core.AppError
+import com.footballai.app.core.ErrorCode
 
 data class SettingsUiState(
     val settings: AppSettings = AppSettings(),
     val providerName: String? = null,
     val historicalMatches: Int = 0,
     val storedPredictions: Int = 0,
-    val appVersion: String = "0.1.0",
+    val appVersion: String = "0.3.0",
+    val lastError: AppError? = null,
+    val isClearing: Boolean = false,
 )
 
 class SettingsViewModel(private val container: AppContainer) : ViewModel() {
@@ -74,10 +81,24 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
     }
 
     fun clearAllData() {
+        if (_state.value.isClearing) return
+        _state.update { it.copy(isClearing = true, lastError = null) }
         viewModelScope.launch {
-            container.database.clearAllTables()
-            container.ratingsRepository.invalidate()
-            _state.update { it.copy(historicalMatches = 0, storedPredictions = 0) }
+            try {
+                // Disable future background work before clearing. Room serializes the
+                // clear transaction with database writes already in progress.
+                container.settingsRepository.setBackgroundSync(false)
+                SyncScheduler.cancelPeriodicSync(container.contextForWork())
+                withContext(Dispatchers.IO) { container.database.clearAllTables() }
+                container.ratingsRepository.invalidate()
+                _state.update { it.copy(historicalMatches = 0, storedPredictions = 0) }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                _state.update { it.copy(lastError = AppError(ErrorCode.STORAGE_ERROR, cause = error)) }
+            } finally {
+                _state.update { it.copy(isClearing = false) }
+            }
         }
     }
 }

@@ -9,6 +9,8 @@ import com.footballai.engine.ratings.DixonColesFit
 import com.footballai.engine.ratings.RatingBook
 import com.footballai.engine.ratings.RatingBookConfig
 import com.footballai.engine.ratings.RatingMatch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -54,10 +56,10 @@ class RatingsRepository(
         homeTeamId: String,
         awayTeamId: String,
         asOfEpochMs: Long,
-    ): Pair<TeamStrength, TeamStrength> {
+    ): Pair<TeamStrength, TeamStrength> = withContext(Dispatchers.Default) {
         val book = book(source, competitionId, asOfEpochMs)
-            ?: return Pair(TeamStrength.neutral(homeTeamId), TeamStrength.neutral(awayTeamId))
-        return book.strengths(competitionId, homeTeamId, awayTeamId, asOfEpochMs)
+            ?: return@withContext Pair(TeamStrength.neutral(homeTeamId), TeamStrength.neutral(awayTeamId))
+        book.strengths(competitionId, homeTeamId, awayTeamId, asOfEpochMs)
     }
 
     suspend fun baseline(source: String, competitionId: String, asOfEpochMs: Long): LeagueBaseline {
@@ -66,10 +68,10 @@ class RatingsRepository(
     }
 
     suspend fun fit(source: String, competitionId: String, asOfEpochMs: Long): DixonColesFit? =
-        book(source, competitionId, asOfEpochMs)?.fit(competitionId, asOfEpochMs)
+        withContext(Dispatchers.Default) { book(source, competitionId, asOfEpochMs)?.fit(competitionId, asOfEpochMs) }
 
     suspend fun eloRating(source: String, competitionId: String, teamId: String, asOfEpochMs: Long): Double =
-        book(source, competitionId, asOfEpochMs)?.eloRating(teamId, asOfEpochMs) ?: TeamStrength.AVERAGE_ELO
+        withContext(Dispatchers.Default) { book(source, competitionId, asOfEpochMs)?.eloRating(teamId, asOfEpochMs) ?: TeamStrength.AVERAGE_ELO }
 
     suspend fun matchCount(source: String, competitionId: String): Int =
         db.historicalDao().forCompetition(source, competitionId, clock.nowEpochMs()).size

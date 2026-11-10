@@ -45,6 +45,8 @@ data class RemoteMatch(
     val awayHalfTimeGoals: Int?,
     val venue: String?,
     val odds: MatchOdds?,
+    /** Only REGULATION scores may train or settle the 90-minute markets. */
+    val scoreScope: String = "REGULATION",
 )
 
 data class RemoteTeamStatistics(

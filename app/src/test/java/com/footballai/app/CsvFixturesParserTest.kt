@@ -85,7 +85,7 @@ class CsvFixturesParserTest {
         """.trimIndent()
         val matches = CsvFixturesParser.parse(duplicated, competitions)
         assertEquals(1, matches.size)
-        assertEquals("E0:arsenal:chelsea:1795273200000", matches.single().providerKey)
+        assertEquals("E0:arsenal:chelsea:2026-11-21", matches.single().providerKey)
     }
 
     @Test
@@ -105,4 +105,20 @@ class CsvFixturesParserTest {
         assertTrue(CsvFixturesParser.parse("a,b,c\n1,2,3", competitions).isEmpty())
         assertTrue(CsvFixturesParser.parse("", competitions).isEmpty())
     }
+    @Test
+    fun `kickoff time correction on same date preserves fixture identity`() {
+        val original = CsvFixturesParser.parse(csv, competitions).first { it.home.name == "Arsenal" }
+        val changed = CsvFixturesParser.parse(csv.replace("15:00,Arsenal", "17:00,Arsenal"), competitions)
+            .first { it.home.name == "Arsenal" }
+        assertEquals(original.providerKey, changed.providerKey)
+    }
+
+    @Test
+    fun `same home away pairing on different dates is not merged`() {
+        val rows = "Div,Date,Time,HomeTeam,AwayTeam\nE0,21/11/2026,15:00,Arsenal,Chelsea\nE0,21/12/2026,15:00,Arsenal,Chelsea"
+        val parsed = CsvFixturesParser.parse(rows, competitions)
+        assertEquals(2, parsed.size)
+        assertTrue(parsed[0].providerKey != parsed[1].providerKey)
+    }
+
 }
