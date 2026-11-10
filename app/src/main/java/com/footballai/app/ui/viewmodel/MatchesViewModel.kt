@@ -51,21 +51,31 @@ class MatchesViewModel(private val container: AppContainer) : ViewModel() {
 
     init {
         viewModelScope.launch {
-            combine(selection, refreshVersion) { selected, _ -> selected }
-                .flatMapLatest { selected ->
+            combine(
+                selection,
+                refreshVersion,
+                container.settingsRepository.settings,
+            ) { selected, _, settings -> selected to settings.dailyAnalysisEnabled }
+                .flatMapLatest { (selected, dailyAnalysis) ->
                     val now = container.clock.nowEpochMs()
                     val (from, to) = localDayWindow(now, selected.dayOffset)
                     combine(
                         container.matchRepository.observeBetween(from, to),
                         container.matchRepository.observeCompetitions(),
                     ) { matches, competitions ->
-                        val followedIds = competitions.filter { it.isFollowed }.map { it.id }.toSet()
+                        val availableCompetitions = if (dailyAnalysis) {
+                            competitions.filter { it.providerId == "football-data-co-uk" }
+                        } else {
+                            competitions
+                        }
+                        val followedIds = availableCompetitions.filter { it.isFollowed }.map { it.id }.toSet()
                         val visible = matches.filter { match ->
-                            (selected.competitionId == null || match.competitionId == selected.competitionId) &&
+                            (!dailyAnalysis || match.id.startsWith("football-data-co-uk:")) &&
+                                (selected.competitionId == null || match.competitionId == selected.competitionId) &&
                                 (!selected.followedOnly || match.competitionId in followedIds) &&
                                 (!selected.liveOnly || match.status.isLive)
                         }.sortedBy { it.kickoffEpochMs }
-                        visible to competitions
+                        visible to availableCompetitions
                     }
                 }.collect { (matches, competitions) ->
                     val selected = selection.value
@@ -79,6 +89,9 @@ class MatchesViewModel(private val container: AppContainer) : ViewModel() {
                             followedOnly = selected.followedOnly,
                             liveOnly = selected.liveOnly,
                         )
+                    }
+                    if (selected.competitionId != null && competitions.none { it.id == selected.competitionId }) {
+                        selection.update { it.copy(competitionId = null) }
                     }
                 }
         }
@@ -106,6 +119,13 @@ class MatchesViewModel(private val container: AppContainer) : ViewModel() {
         _state.update { it.copy(isSyncing = true, lastError = null) }
         viewModelScope.launch {
             try {
+                if (container.settingsRepository.current().dailyAnalysisEnabled) {
+                    val report = container.dailyAnalysisRepository.run()
+                    _state.update {
+                        it.copy(lastError = report.errors.firstOrNull()?.let { AppError(ErrorCode.REQUEST_FAILED) })
+                    }
+                    return@launch
+                }
                 val providerId = container.providerRegistry.activeProviderId()
                 val result = if (providerId == null) {
                     Outcome.Failure(AppError(ErrorCode.NOT_FOUND))

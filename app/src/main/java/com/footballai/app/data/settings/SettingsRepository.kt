@@ -22,7 +22,8 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
             }.getOrDefault(ThemeMode.SYSTEM),
             activeProviderId = preferences[KEY_ACTIVE_PROVIDER].orEmpty(),
             followedCompetitionKeys = preferences[KEY_FOLLOWED] ?: emptySet(),
-            livePollingEnabled = preferences[KEY_LIVE_POLLING] ?: true,
+            dailyAnalysisEnabled = preferences[KEY_DAILY_ANALYSIS] ?: true,
+            livePollingEnabled = !(preferences[KEY_DAILY_ANALYSIS] ?: true) && (preferences[KEY_LIVE_POLLING] ?: false),
             backgroundSyncEnabled = preferences[KEY_BACKGROUND_SYNC] ?: true,
             autoPredictEnabled = preferences[KEY_AUTO_PREDICT] ?: true,
             dataSaverEnabled = preferences[KEY_DATA_SAVER] ?: false,
@@ -47,6 +48,8 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         if (followed) current.add(key) else current.remove(key)
         preferences[KEY_FOLLOWED] = current
     }
+
+    suspend fun setDailyAnalysis(enabled: Boolean) = edit { it[KEY_DAILY_ANALYSIS] = enabled }
 
     suspend fun setLivePolling(enabled: Boolean) = edit { it[KEY_LIVE_POLLING] = enabled }
 
@@ -76,6 +79,7 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         private val KEY_THEME = stringPreferencesKey("theme")
         private val KEY_ACTIVE_PROVIDER = stringPreferencesKey("active_provider")
         private val KEY_FOLLOWED = stringSetPreferencesKey("followed_competitions")
+        private val KEY_DAILY_ANALYSIS = booleanPreferencesKey("daily_analysis")
         private val KEY_LIVE_POLLING = booleanPreferencesKey("live_polling")
         private val KEY_BACKGROUND_SYNC = booleanPreferencesKey("background_sync")
         private val KEY_AUTO_PREDICT = booleanPreferencesKey("auto_predict")

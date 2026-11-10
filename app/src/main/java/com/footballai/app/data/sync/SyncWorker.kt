@@ -13,9 +13,9 @@ import com.footballai.app.core.Outcome
 import java.util.concurrent.TimeUnit
 
 /**
- * Background refresh of fixtures and live scores.
+ * Daily keyless analysis, or optional advanced-provider refresh.
  *
- * The worker is deliberately conservative: it runs at most every six hours, only on
+ * The worker is deliberately conservative: it runs once per day (Android may defer execution), only on
  * an unmetered-or-any network when the user has enabled background sync, and it
  * stops immediately when no provider is configured.
  */
@@ -28,11 +28,15 @@ class SyncWorker(
         val application = applicationContext as? FootballAiApplication ?: return Result.success()
         val container = application.container
         val settings = container.settingsRepository.current()
-        if (!settings.backgroundSyncEnabled) return Result.success()
+        if (!settings.backgroundSyncEnabled || !settings.onboarded) return Result.success()
 
         val providerId = container.providerRegistry.activeProviderId() ?: return Result.success()
 
         return try {
+            if (settings.dailyAnalysisEnabled) {
+                val report = container.dailyAnalysisRepository.run()
+                return if (report.errors.isEmpty() && report.failed == 0) Result.success() else Result.retry()
+            }
             when (val fixtures = container.syncRepository.syncFixtures(providerId)) {
                 is Outcome.Failure -> Result.retry()
                 is Outcome.Success -> {
@@ -43,6 +47,8 @@ class SyncWorker(
                     Result.success()
                 }
             }
+        } catch (error: kotlinx.coroutines.CancellationException) {
+            throw error
         } catch (error: Exception) {
             Result.retry()
         }
@@ -59,13 +65,13 @@ object SyncScheduler {
         val constraints = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.CONNECTED)
             .build()
-        val request = PeriodicWorkRequestBuilder<SyncWorker>(6, TimeUnit.HOURS)
+        val request = PeriodicWorkRequestBuilder<SyncWorker>(24, TimeUnit.HOURS)
             .setConstraints(constraints)
             .setBackoffCriteria(androidx.work.BackoffPolicy.EXPONENTIAL, 30, TimeUnit.MINUTES)
             .build()
         WorkManager.getInstance(context).enqueueUniquePeriodicWork(
             SyncWorker.WORK_NAME,
-            ExistingPeriodicWorkPolicy.KEEP,
+            ExistingPeriodicWorkPolicy.UPDATE,
             request,
         )
     }

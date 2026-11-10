@@ -187,6 +187,8 @@ fun MatchDetailScreen(
                     error = state.lastError?.let { errorLabel(it) },
                     isLiveMatch = detail.summary.status.isLive,
                     isFinished = detail.summary.status.isFinished,
+                    homeName = detail.summary.home.name,
+                    awayName = detail.summary.away.name,
                     canPredict = state.lastError?.code != com.footballai.app.core.ErrorCode.INVALID_MATCH_STATE &&
                         !detail.summary.status.isFinished &&
                         (detail.summary.status.isLive || detail.summary.status == com.footballai.app.domain.model.MatchStatus.SCHEDULED),
@@ -346,6 +348,8 @@ private fun AnalysisTab(
     error: String?,
     isLiveMatch: Boolean,
     isFinished: Boolean,
+    homeName: String,
+    awayName: String,
     canPredict: Boolean,
     onPredict: () -> Unit,
     liveTrackingEnabled: Boolean,
@@ -430,6 +434,10 @@ private fun AnalysisTab(
                     )
                 }
                 Spacer(Modifier.height(10.dp))
+                if (prediction.kind == com.footballai.app.domain.model.PredictionKind.PRE_MATCH) {
+                    com.footballai.app.ui.components.PreMatchVerdict(prediction, homeName, awayName)
+                    Spacer(Modifier.height(8.dp))
+                }
                 ProbabilityBar(
                     homeWin = prediction.homeWin,
                     draw = prediction.draw,

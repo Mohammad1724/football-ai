@@ -56,7 +56,7 @@
     <string name="empty_match_title">بازی پیدا نشد</string>
     <string name="empty_matches_message">برای شروع، بازی‌ها را از یک منبع داده همگام‌سازی کنید.</string>
     <string name="empty_matches_title">هنوز بازی‌ای نیست</string>
-    <string name="empty_predictions_message">یک بازی را باز کنید و تحلیل بگیرید؛ نتیجه اینجا ذخیره می‌شود.</string>
+    <string name="empty_predictions_message">از صفحه خانه «همین حالا همگام‌سازی کن» را بزنید. برای بازی‌های امروز و فردا با تاریخچه کافی، پیش‌بینی قبل از شروع ساخته می‌شود. اگر بازی یا سابقه کافی نباشد، گزارش صفحه خانه دلیل را نشان می‌دهد.</string>
     <string name="empty_predictions_title">پیش‌بینی‌ای ذخیره نشده</string>
     <string name="empty_recent_message">پس از همگام‌سازی، بازی‌های پایان‌یافته نمایش داده می‌شوند.</string>
     <string name="empty_recent_title">نتیجه اخیری موجود نیست</string>
@@ -250,7 +250,7 @@
     <string name="selection_under">کمتر از</string>
     <string name="selection_yes">بله</string>
     <string name="setting_background_sync">همگام‌سازی پس‌زمینه</string>
-    <string name="setting_background_sync_body">بازآوری بازی‌ها حداکثر هر شش ساعت و فقط با اتصال شبکه.</string>
+    <string name="setting_background_sync_body">تحلیل روزانه در صورت اتصال به اینترنت. اندروید ممکن است اجرای پس‌زمینه را به تأخیر بیندازد؛ برای بازی نزدیک به شروع، دستی به‌روزرسانی کنید.</string>
     <string name="setting_live_polling">ردیابی زنده</string>
     <string name="setting_live_polling_body">به‌روزرسانی داده زنده تا وقتی صفحه بازی باز است. حدود ۲۰ درخواست در ساعت مصرف می‌کند.</string>
     <string name="stat_corners">کرنر</string>
@@ -314,7 +314,7 @@
     <string name="onboarding_back">بازگشت</string>
     <string name="onboarding_finish">شروع استفاده</string>
     <string name="ob_welcome_title">احتمال، نه وعده</string>
-    <string name="ob_welcome_body">FootballAI مدل آماری خودش را روی همین گوشی اجرا می‌کند. هیچ پیش‌بینی آماده‌ای دانلود نمی‌شود و هیچ تخمینی به‌جای واقعیت جا زده نمی‌شود.</string>
+    <string name="ob_welcome_body">حالت پیش‌فرض بدون کلید است: برنامه مسابقات و تاریخچه لیگ‌های قابل‌پوشش از CSV دریافت می‌شود و احتمال برد، مساوی و باخت روی گوشی محاسبه می‌شود. نتیجه زنده دریافت نمی‌کنیم و پوشش همه لیگ‌های دنیا را تضمین نمی‌کنیم.</string>
     <string name="ob_welcome_point_model">پواسون، سپس Dixon-Coles، سپس تیلت Elo، با ارزیابی Brier و منحنی کالیبراسیون</string>
     <string name="ob_welcome_point_offline">پس از ذخیره داده‌ها، پیش‌بینی آفلاین محاسبه می‌شود</string>
     <string name="ob_welcome_point_honest">نبود آمار ترکیب، مصدومیت یا شانس باگزار اعلام می‌شود، نه ساخته‌شدن</string>
@@ -377,4 +377,16 @@
     <string name="key_verified_notice">کلید و فعال‌بودن حساب با درخواست واقعی تأیید شد. این تأیید، دسترسی به همه فصل‌ها یا داده زنده را تضمین نمی‌کند.</string>
     <string name="api_trial_action">آزمایش دسترسی: دو لیگ، ۷ روز آینده</string>
     <string name="api_trial_hint">این آزمایش وضعیت حساب و بازی‌های لیگ برتر انگلیس و لالیگا را بررسی می‌کند (معمولاً ۳ درخواست). تنظیم لیگ‌های انتخابی تغییر نمی‌کند و به CSV جایگزین نمی‌شود؛ خطای واقعی API نمایش داده می‌شود.</string>
+    <string name="daily_mode_title">تحلیل روزانه بدون کلید</string>
+    <string name="daily_mode_hint">برنامه بازی‌ها و تاریخچه از CSV؛ پیش‌بینی قبل بازی، بدون دریافت زنده. با خاموش‌کردن این گزینه می‌توانید از منابع API اختیاری استفاده کنید.</string>
+    <string name="daily_dashboard_hint">امروز و فردا را تحلیل می‌کنیم؛ همه لیگ‌های قابل‌پوشش منبع CSV، نه همه لیگ‌های دنیا. اولین اجرا تاریخچه را دانلود می‌کند و ممکن است چند دقیقه طول بکشد. پیش‌بینی‌ها در زبانه «پیش‌بینی‌ها» ذخیره می‌شوند. ترکیب، مصدومیت و آب‌وهوا در این منبع موجود نیست و وارد مدل نمی‌شود.</string>
+    <string name="daily_report_title">گزارش آخرین تحلیل روزانه</string>
+    <string name="daily_report_body">لیگ‌های تحت بررسی: %1$s\nبازی‌های امروز و فردا: %2$s\nپیش‌بینی‌های موجود یا ساخته‌شده: %3$s\nبدون سابقه کافی: %4$s\nناموفق یا عبور از زمان شروع: %5$s\nزمان اجرا: %6$s</string>
+    <string name="error_insufficient_history">سابقه کافی برای پیش‌بینی نداریم: حداقل ۴۰ بازی در بازه آموزش لیگ و ۵ بازی برای هر تیم لازم است. از صفحه خانه تحلیل روزانه را اجرا کنید؛ اگر همچنان داده کافی نباشد، پیش‌بینی نمی‌سازیم.</string>
+    <string name="daily_pick_team">نتیجه محتمل‌تر: برد %1$s</string>
+    <string name="daily_pick_draw">نتیجه محتمل‌تر: مساوی</string>
+    <string name="daily_pick_unclear">احتمال‌ها نزدیک‌اند؛ برتری واضح نیست</string>
+    <string name="daily_pick_note">این نتیجه تضمینی نیست. فاصله کمتر از ۵ واحد درصد بین دو احتمال اول، «برتری نامشخص» نامیده می‌شود؛ این آستانه معیار اطمینان کالیبره‌شده نیست.</string>
+    <string name="action_daily_analysis">اجرای تحلیل روزانه</string>
+    <string name="action_daily_start">اجرای تحلیل روزانه</string>
 </resources>

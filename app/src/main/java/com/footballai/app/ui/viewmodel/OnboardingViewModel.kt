@@ -235,6 +235,13 @@ class OnboardingViewModel(private val container: AppContainer) : ViewModel() {
     }
 
     /** Persists the choices and flips the app out of the onboarding gate. */
+    fun finishDailySetup() {
+        viewModelScope.launch {
+            container.settingsRepository.setDailyAnalysis(true)
+            container.settingsRepository.setOnboarded()
+        }
+    }
+
     fun finish() {
         if (_state.value.isFinishing) return
         _state.update { it.copy(isFinishing = true) }

@@ -12,6 +12,7 @@ import com.footballai.app.domain.model.TeamProfile
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -91,7 +92,12 @@ class PredictionsViewModel(private val container: AppContainer) : ViewModel() {
 
     init {
         viewModelScope.launch {
-            container.predictionRepository.observeRecent(100).collect { items ->
+            combine(container.predictionRepository.observeRecent(500), container.settingsRepository.settings) { items, settings ->
+                if (settings.dailyAnalysisEnabled) items.filter {
+                    it.match.id.startsWith("football-data-co-uk:") && it.prediction.kind == com.footballai.app.domain.model.PredictionKind.PRE_MATCH &&
+                        it.prediction.modelVersion == com.footballai.app.data.repository.PredictionRepository.MODEL_VERSION
+                } else items
+            }.collect { items ->
                 _state.update { it.copy(items = items, isLoading = false) }
             }
         }

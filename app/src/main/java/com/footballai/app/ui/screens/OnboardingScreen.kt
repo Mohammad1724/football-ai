@@ -109,8 +109,8 @@ fun OnboardingScreen() {
         ) {
             StepProgress(
                 current = state.stepIndex,
-                total = state.stepCount,
-                label = stringResource(R.string.onboarding_step, state.stepIndex, state.stepCount),
+                total = if (state.step == OnboardingStep.WELCOME) 1 else state.stepCount,
+                label = if (state.step == OnboardingStep.WELCOME) stringResource(R.string.daily_mode_title) else stringResource(R.string.onboarding_step, state.stepIndex, state.stepCount),
             )
             Column(
                 modifier = Modifier
@@ -158,7 +158,7 @@ fun OnboardingScreen() {
                 onBack = viewModel::back,
                 onNext = {
                     when (state.step) {
-                        OnboardingStep.WELCOME -> viewModel.goTo(OnboardingStep.PROVIDER)
+                        OnboardingStep.WELCOME -> viewModel.finishDailySetup()
                         OnboardingStep.PROVIDER -> viewModel.goTo(OnboardingStep.COMPETITIONS)
                         OnboardingStep.COMPETITIONS -> viewModel.continueFromCompetitions()
                         OnboardingStep.HISTORY -> viewModel.finish()
@@ -539,7 +539,9 @@ private fun ActionBar(state: OnboardingUiState, onBack: () -> Unit, onNext: () -
         ) {
             Text(
                 stringResource(
-                    if (state.step == OnboardingStep.HISTORY) {
+                    if (state.step == OnboardingStep.WELCOME) {
+                        R.string.action_daily_start
+                    } else if (state.step == OnboardingStep.HISTORY) {
                         R.string.onboarding_finish
                     } else {
                         R.string.onboarding_next

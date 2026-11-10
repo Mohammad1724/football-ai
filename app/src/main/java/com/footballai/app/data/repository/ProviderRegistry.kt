@@ -45,6 +45,7 @@ class ProviderRegistry(
      */
     suspend fun activeProvider(): FootballDataProvider? {
         val settings = settingsRepository.current()
+        if (settings.dailyAnalysisEnabled) return historicalProvider
         val selected = provider(settings.activeProviderId)
         if (selected != null && (!selected.info.requiresApiKey || hasCredentials(selected.info.id))) {
             return selected

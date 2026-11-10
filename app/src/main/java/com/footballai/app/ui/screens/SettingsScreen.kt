@@ -78,6 +78,11 @@ fun SettingsScreen(onBack: () -> Unit) {
         },
     ) { padding ->
         LazyColumn(modifier = Modifier.fillMaxSize().padding(padding)) {
+            item {
+                ToggleRow(title = stringResource(R.string.daily_mode_title),
+                    subtitle = stringResource(R.string.daily_mode_hint),
+                    checked = state.settings.dailyAnalysisEnabled, onCheckedChange = viewModel::setDailyAnalysis)
+            }
             item { SectionHeader(title = stringResource(R.string.section_language)) }
             item {
                 com.footballai.app.ui.components.LanguageSelector(
@@ -123,7 +128,7 @@ fun SettingsScreen(onBack: () -> Unit) {
             }
 
             item { SectionHeader(title = stringResource(R.string.section_data_behaviour)) }
-            item {
+            if (!state.settings.dailyAnalysisEnabled) item {
                 ToggleRow(
                     title = stringResource(R.string.setting_live_polling),
                     subtitle = stringResource(R.string.setting_live_polling_body),

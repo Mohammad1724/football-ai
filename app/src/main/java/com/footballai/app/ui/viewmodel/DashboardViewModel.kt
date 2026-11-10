@@ -25,6 +25,8 @@ import kotlinx.coroutines.launch
 
 data class DashboardUiState(
     val isLoading: Boolean = true,
+    val dailyMode: Boolean = true,
+    val dailyReport: com.footballai.app.data.repository.DailyAnalysisReport? = null,
     val isSyncing: Boolean = false,
     val liveMatches: List<MatchSummary> = emptyList(),
     val todayMatches: List<MatchSummary> = emptyList(),
@@ -69,6 +71,9 @@ class DashboardViewModel(private val container: AppContainer) : ViewModel() {
     }
 
     init {
+        viewModelScope.launch {
+            container.dailyAnalysisRepository.reports.collect { report -> _state.update { it.copy(dailyReport = report) } }
+        }
         observeMatches()
         observeProvider()
         refreshCounts()
@@ -83,7 +88,7 @@ class DashboardViewModel(private val container: AppContainer) : ViewModel() {
         viewModelScope.launch {
             container.settingsRepository.settings.collect {
                 val provider = container.providerRegistry.activeProvider()
-                _state.update { state -> state.copy(providerName = provider?.info?.displayName) }
+                _state.update { state -> state.copy(providerName = provider?.info?.displayName, dailyMode = it.dailyAnalysisEnabled) }
             }
         }
     }
@@ -95,6 +100,14 @@ class DashboardViewModel(private val container: AppContainer) : ViewModel() {
                 it.copy(isSyncing = true, isLoading = false, lastError = null, syncDone = 0, syncTotal = 0)
             }
             try {
+                if (container.settingsRepository.current().dailyAnalysisEnabled) {
+                    val report = container.dailyAnalysisRepository.run { done, total ->
+                        _state.update { it.copy(syncDone = done, syncTotal = total) }
+                    }
+                    _state.update { it.copy(dailyReport = report, syncWarnings = report.errors,
+                        fallbackProviderName = null, fallbackProviderId = null) }
+                    return@launch
+                }
                 val providerId = container.providerRegistry.activeProviderId()
                 if (providerId == null) {
                     _state.update { it.copy(lastError = AppError(ErrorCode.MISSING_API_KEY)) }
@@ -161,32 +174,27 @@ class DashboardViewModel(private val container: AppContainer) : ViewModel() {
 
     private fun observeMatches() {
         viewModelScope.launch {
-            ticker.flatMapLatest { now ->
-                val (dayStart, dayEnd) = container.matchRepository.dayWindow(now)
-                combine(
-                    container.matchRepository.observeLive(),
-                    container.matchRepository.observeBetween(now - 6 * TimeConstants.HOUR_MS, dayEnd),
-                    container.matchRepository.observeUpcoming(12),
-                ) { live, today, upcoming ->
-                    // A live match must not be listed twice.
-                    val liveIds = live.map { it.id }.toSet()
-                    Triple(
-                        live,
-                        today.filterNot { liveIds.contains(it.id) && it.status.isFinished },
-                        upcoming.filterNot { liveIds.contains(it.id) },
-                    )
+            combine(ticker, container.settingsRepository.settings) { now, settings -> now to settings.dailyAnalysisEnabled }
+                .flatMapLatest { (now, daily) ->
+                    val (dayStart, dayEnd) = container.matchRepository.dayWindow(now)
+                    combine(
+                        container.matchRepository.observeLive(),
+                        container.matchRepository.observeBetween(dayStart, dayEnd),
+                        container.matchRepository.observeBetween(now, now + 7 * TimeConstants.DAY_MS),
+                    ) { live, today, upcoming ->
+                        fun visible(list: List<MatchSummary>) = if (daily) list.filter { it.id.startsWith("football-data-co-uk:") } else list
+                        val shownLive = if (daily) emptyList() else live
+                        val liveIds = shownLive.map { it.id }.toSet()
+                        val shownToday = visible(today).filterNot { it.id in liveIds }
+                        val todayIds = shownToday.map { it.id }.toSet()
+                        Triple(shownLive, shownToday, visible(upcoming).filter {
+                            it.id !in liveIds && it.id !in todayIds && it.status == com.footballai.app.domain.model.MatchStatus.SCHEDULED
+                        }.take(12))
+                    }
+                }.collect { (live, today, upcoming) ->
+                    _state.update { it.copy(liveMatches = live, todayMatches = today, upcomingMatches = upcoming,
+                        isLoading = false, hasAnyData = live.isNotEmpty() || today.isNotEmpty() || upcoming.isNotEmpty()) }
                 }
-            }.collect { (live, today, upcoming) ->
-                _state.update {
-                    it.copy(
-                        liveMatches = live,
-                        todayMatches = today,
-                        upcomingMatches = upcoming,
-                        isLoading = false,
-                        hasAnyData = live.isNotEmpty() || today.isNotEmpty() || upcoming.isNotEmpty(),
-                    )
-                }
-            }
         }
     }
 
@@ -215,6 +223,10 @@ class DashboardViewModel(private val container: AppContainer) : ViewModel() {
         if (autoSyncAttempted) return
         autoSyncAttempted = true
         viewModelScope.launch {
+            if (container.settingsRepository.current().dailyAnalysisEnabled) {
+                if (container.dailyAnalysisRepository.needsRefresh()) refresh()
+                return@launch
+            }
             val providerId = container.providerRegistry.activeProviderId() ?: return@launch
             val (fixtures, _, _) = container.matchRepository.countsTriple()
             if (fixtures == 0) refresh()

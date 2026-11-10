@@ -122,8 +122,25 @@ fun DashboardScreen(
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
+                if (state.dailyMode) {
+                    item { InfoCard(title = stringResource(R.string.daily_mode_title), body = stringResource(R.string.daily_dashboard_hint)) }
+                    state.dailyReport?.let { report ->
+                        item {
+                            InfoCard(title = stringResource(R.string.daily_report_title), body = stringResource(
+                                R.string.daily_report_body,
+                                Formatters.integer(report.coveredLeagues, languageTag),
+                                Formatters.integer(report.candidates, languageTag),
+                                Formatters.integer(report.predicted + report.alreadySaved, languageTag),
+                                Formatters.integer(report.insufficientHistory, languageTag),
+                                Formatters.integer(report.failed, languageTag),
+                                Formatters.kickoffDateTime(report.attemptedAt, languageTag),
+                            ))
+                        }
+                    }
+                }
                 item {
                     SyncCard(
+                        dailyMode = state.dailyMode,
                         providerName = state.providerName,
                         lastSyncEpochMs = state.sync.lastSuccessfulSyncEpochMs,
                         fixtures = state.sync.fixturesCount,
@@ -215,7 +232,7 @@ fun DashboardScreen(
                     }
                 }
 
-                if (!state.hasAnyData && state.lastError == null) {
+                if (!state.dailyMode && !state.hasAnyData && state.lastError == null) {
                     item {
                         GettingStartedCard(
                             hasProvider = state.providerName != null,
@@ -248,6 +265,7 @@ fun DashboardScreen(
 
 @Composable
 private fun SyncCard(
+    dailyMode: Boolean,
     providerName: String?,
     lastSyncEpochMs: Long?,
     fixtures: Int,
@@ -345,7 +363,7 @@ private fun SyncCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 TextButton(onClick = onSync) {
-                    Text(text = stringResource(R.string.action_sync_now))
+                    Text(text = stringResource(if (dailyMode) R.string.action_daily_analysis else R.string.action_sync_now))
                 }
             }
         }
