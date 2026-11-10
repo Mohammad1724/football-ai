@@ -231,34 +231,7 @@ private fun WelcomeStep(language: AppLanguage, onLanguageChange: (AppLanguage) -
         style = MaterialTheme.typography.titleMedium,
     )
     Spacer(Modifier.height(8.dp))
-    // Equal weights plus a reserved icon slot keep the control the same size in every
-    // language, so switching between English and Persian does not reflow the layout.
-    val options = listOf(
-        AppLanguage.SYSTEM to stringResource(R.string.language_system),
-        AppLanguage.PERSIAN to stringResource(R.string.language_persian),
-        AppLanguage.ENGLISH to stringResource(R.string.language_english),
-    )
-    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-        options.forEachIndexed { index, (value, label) ->
-            SegmentedButton(
-                selected = language == value,
-                onClick = { onLanguageChange(value) },
-                shape = SegmentedButtonDefaults.itemShape(index = index, count = options.size),
-                modifier = Modifier.weight(1f),
-                icon = {
-                    Icon(
-                        imageVector = Icons.Default.Check,
-                        contentDescription = null,
-                        modifier = Modifier
-                            .size(18.dp)
-                            .alpha(if (language == value) 1f else 0f),
-                    )
-                },
-            ) {
-                Text(text = label, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-        }
-    }
+    com.footballai.app.ui.components.LanguageSelector(language, onLanguageChange)
     Spacer(Modifier.height(6.dp))
     Text(
         text = stringResource(R.string.ob_language_hint),

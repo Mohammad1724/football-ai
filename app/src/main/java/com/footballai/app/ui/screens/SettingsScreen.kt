@@ -80,37 +80,11 @@ fun SettingsScreen(onBack: () -> Unit) {
         LazyColumn(modifier = Modifier.fillMaxSize().padding(padding)) {
             item { SectionHeader(title = stringResource(R.string.section_language)) }
             item {
-                SingleChoiceSegmentedButtonRow(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                ) {
-                    AppLanguage.entries.forEachIndexed { index, language ->
-                        SegmentedButton(
-                            selected = state.settings.language == language,
-                            onClick = { viewModel.setLanguage(language) },
-                            shape = SegmentedButtonDefaults.itemShape(index = index, count = AppLanguage.entries.size),
-                            modifier = Modifier.weight(1f),
-                            icon = {
-                                Icon(
-                                    imageVector = Icons.Default.Check,
-                                    contentDescription = null,
-                                    modifier = Modifier
-                                        .size(18.dp)
-                                        .alpha(if (state.settings.language == language) 1f else 0f),
-                                )
-                            },
-                        ) {
-                            Text(
-                                text = when (language) {
-                                    AppLanguage.SYSTEM -> stringResource(R.string.language_system)
-                                    AppLanguage.PERSIAN -> stringResource(R.string.language_persian)
-                                    AppLanguage.ENGLISH -> stringResource(R.string.language_english)
-                                },
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        }
-                    }
-                }
+                com.footballai.app.ui.components.LanguageSelector(
+                    selected = state.settings.language,
+                    onSelect = viewModel::setLanguage,
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                )
             }
 
             item { SectionHeader(title = stringResource(R.string.section_theme)) }

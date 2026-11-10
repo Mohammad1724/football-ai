@@ -2,11 +2,15 @@ package com.footballai.app.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.footballai.app.core.AppError
+import com.footballai.app.core.ErrorCode
+import com.footballai.app.core.Outcome
 import com.footballai.app.di.AppContainer
 import com.footballai.app.domain.model.Competition
 import com.footballai.app.domain.model.MatchSummary
 import java.time.Instant
 import java.time.ZoneId
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -27,6 +31,7 @@ private data class MatchSelection(
 data class MatchesUiState(
     val isLoading: Boolean = true,
     val isSyncing: Boolean = false,
+    val lastError: AppError? = null,
     val selectedDayOffset: Int = 0,
     val competitionId: String? = null,
     val followedOnly: Boolean = false,
@@ -42,38 +47,40 @@ class MatchesViewModel(private val container: AppContainer) : ViewModel() {
     val state: StateFlow<MatchesUiState> = _state.asStateFlow()
 
     private val selection = MutableStateFlow(MatchSelection())
+    private val refreshVersion = MutableStateFlow(0)
 
     init {
         viewModelScope.launch {
-            selection.flatMapLatest { selected ->
-                val now = container.clock.nowEpochMs()
-                val (from, to) = localDayWindow(now, selected.dayOffset)
-                combine(
-                    container.matchRepository.observeBetween(from, to),
-                    container.matchRepository.observeCompetitions(),
-                ) { matches, competitions ->
-                    val followedIds = competitions.filter { it.isFollowed }.map { it.id }.toSet()
-                    val visible = matches.filter { match ->
-                        (selected.competitionId == null || match.competitionId == selected.competitionId) &&
-                            (!selected.followedOnly || match.competitionId in followedIds) &&
-                            (!selected.liveOnly || match.status.isLive)
-                    }.sortedBy { it.kickoffEpochMs }
-                    visible to competitions
+            combine(selection, refreshVersion) { selected, _ -> selected }
+                .flatMapLatest { selected ->
+                    val now = container.clock.nowEpochMs()
+                    val (from, to) = localDayWindow(now, selected.dayOffset)
+                    combine(
+                        container.matchRepository.observeBetween(from, to),
+                        container.matchRepository.observeCompetitions(),
+                    ) { matches, competitions ->
+                        val followedIds = competitions.filter { it.isFollowed }.map { it.id }.toSet()
+                        val visible = matches.filter { match ->
+                            (selected.competitionId == null || match.competitionId == selected.competitionId) &&
+                                (!selected.followedOnly || match.competitionId in followedIds) &&
+                                (!selected.liveOnly || match.status.isLive)
+                        }.sortedBy { it.kickoffEpochMs }
+                        visible to competitions
+                    }
+                }.collect { (matches, competitions) ->
+                    val selected = selection.value
+                    _state.update {
+                        it.copy(
+                            matches = matches,
+                            competitions = competitions,
+                            isLoading = false,
+                            selectedDayOffset = selected.dayOffset,
+                            competitionId = selected.competitionId,
+                            followedOnly = selected.followedOnly,
+                            liveOnly = selected.liveOnly,
+                        )
+                    }
                 }
-            }.collect { (matches, competitions) ->
-                val selected = selection.value
-                _state.update {
-                    it.copy(
-                        matches = matches,
-                        competitions = competitions,
-                        isLoading = false,
-                        selectedDayOffset = selected.dayOffset,
-                        competitionId = selected.competitionId,
-                        followedOnly = selected.followedOnly,
-                        liveOnly = selected.liveOnly,
-                    )
-                }
-            }
         }
     }
 
@@ -96,18 +103,36 @@ class MatchesViewModel(private val container: AppContainer) : ViewModel() {
 
     fun refresh() {
         if (_state.value.isSyncing) return
+        _state.update { it.copy(isSyncing = true, lastError = null) }
         viewModelScope.launch {
-            _state.update { it.copy(isSyncing = true) }
             try {
-                val providerId = container.providerRegistry.activeProviderId() ?: return@launch
-                // Include the whole of today and the two previous days. The UI still hides
-                // tomorrow if a provider returns it as part of its normal response window.
-                container.syncRepository.syncFixtures(
-                    providerId = providerId,
-                    daysBack = 3,
-                    daysAhead = 1,
-                )
+                val providerId = container.providerRegistry.activeProviderId()
+                val result = if (providerId == null) {
+                    Outcome.Failure(AppError(ErrorCode.NOT_FOUND))
+                } else {
+                    // Include all of today and the previous days. Tomorrow may be returned
+                    // by the provider, but the recent-day UI never presents it.
+                    container.syncRepository.syncFixtures(
+                        providerId = providerId,
+                        daysBack = 3,
+                        daysAhead = 1,
+                    )
+                }
+                val error = when (result) {
+                    is Outcome.Failure -> result.error
+                    is Outcome.Success -> if (result.value.errors.isEmpty()) {
+                        null
+                    } else {
+                        AppError(ErrorCode.REQUEST_FAILED, detail = result.value.errors.joinToString())
+                    }
+                }
+                _state.update { it.copy(lastError = error) }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                _state.update { it.copy(lastError = AppError(ErrorCode.UNKNOWN, cause = error)) }
             } finally {
+                refreshVersion.value += 1
                 _state.update { it.copy(isSyncing = false) }
             }
         }

@@ -122,12 +122,28 @@ fun MatchesScreen(onMatchClick: (String) -> Unit) {
             )
             MatchFilters(state = state, viewModel = viewModel)
 
+            state.lastError?.let { error ->
+                Text(
+                    text = com.footballai.app.ui.errorLabel(error),
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                )
+            }
             if (state.isLoading) {
                 LoadingState()
             } else if (state.matches.isEmpty()) {
                 EmptyState(
-                    title = stringResource(R.string.empty_matches_title),
-                    message = stringResource(R.string.empty_matches_message),
+                    title = stringResource(R.string.empty_filtered_matches_title),
+                    message = stringResource(
+                        if (state.selectedDayOffset < 0) {
+                            R.string.empty_recent_results_message
+                        } else {
+                            R.string.empty_upcoming_message
+                        },
+                    ),
+                    actionLabel = if (state.isSyncing) null else stringResource(R.string.action_sync),
+                    onAction = if (state.isSyncing) null else ({ viewModel.refresh() }),
                 )
             } else {
                 GroupedMatchList(
