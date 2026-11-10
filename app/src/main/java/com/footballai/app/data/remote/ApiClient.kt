@@ -6,6 +6,7 @@ import com.footballai.app.core.ErrorCode
 import com.footballai.app.core.Outcome
 import com.footballai.app.core.TimeConstants
 import com.footballai.app.domain.model.QuotaPolicy
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -56,6 +57,8 @@ class ApiClient(
                 Outcome.Failure(AppError(ErrorCode.REQUEST_FAILED, detail = "Timeout", cause = error))
             } catch (error: IOException) {
                 Outcome.Failure(AppError(ErrorCode.NETWORK_UNAVAILABLE, cause = error))
+            } catch (error: CancellationException) {
+                throw error
             } catch (error: Exception) {
                 Outcome.Failure(AppError(ErrorCode.UNKNOWN, detail = error.message, cause = error))
             }
@@ -103,6 +106,8 @@ class ApiClient(
                         )
                     }
                 }
+            } catch (error: CancellationException) {
+                throw error
             } catch (error: Exception) {
                 Outcome.Failure(AppError(ErrorCode.REQUEST_FAILED, detail = error.message, cause = error))
             }

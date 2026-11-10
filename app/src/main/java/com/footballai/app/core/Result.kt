@@ -2,6 +2,9 @@ package com.footballai.app.core
 
 /** Error taxonomy shown to the user; every branch has a localised message. */
 enum class ErrorCode {
+    STALE_DATA,
+    INVALID_MATCH_STATE,
+    UNKNOWN_MATCH_TIME,
     NETWORK_UNAVAILABLE,
     REQUEST_FAILED,
     RATE_LIMITED,

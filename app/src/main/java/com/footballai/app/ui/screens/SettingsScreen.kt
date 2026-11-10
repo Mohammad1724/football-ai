@@ -39,6 +39,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.footballai.app.ui.errorLabel
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
@@ -208,6 +209,9 @@ fun SettingsScreen(onBack: () -> Unit) {
                     body = stringResource(R.string.about_data_body),
                     containerColor = MaterialTheme.colorScheme.surfaceVariant,
                 )
+            }
+            state.lastError?.let { error ->
+                item { Text(text = errorLabel(error), color = MaterialTheme.colorScheme.error) }
             }
             item { Spacer(Modifier.height(24.dp)) }
         }

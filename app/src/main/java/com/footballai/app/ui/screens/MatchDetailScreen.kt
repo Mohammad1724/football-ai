@@ -50,6 +50,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.compose.runtime.DisposableEffect
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
@@ -100,8 +104,21 @@ fun MatchDetailScreen(
     val languageTag = LocalLanguageTag.current
     var selectedTab by remember { mutableIntStateOf(0) }
 
-    LaunchedEffect(matchId) {
-        viewModel.onScreenVisible()
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, viewModel) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_START -> viewModel.onScreenVisible()
+                Lifecycle.Event.ON_STOP -> viewModel.onScreenHidden()
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        if (lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) viewModel.onScreenVisible()
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            viewModel.onScreenHidden()
+        }
     }
 
     val detail = state.detail

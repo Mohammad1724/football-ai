@@ -52,6 +52,8 @@ data class BacktestConfig(
     val elo: EloConfig = EloConfig(),
     val engine: EngineConfig = EngineConfig(),
     val binCount: Int = 10,
+    /** Conservative result availability when historic completion timestamps are absent. */
+    val resultAvailabilityDelayMinutes: Int = 120,
 )
 
 data class BacktestSample(
@@ -77,6 +79,7 @@ data class BacktestReport(
     val model: MetricSummary,
     val baseRate: Double,
     val market: MetricSummary?,
+    val modelOnMarketSubset: MetricSummary?,
     val over25: MetricSummary,
     val btts: MetricSummary,
     val calibration: List<CalibrationBin>,
@@ -87,7 +90,7 @@ data class BacktestReport(
     val periodEndEpochMs: Long,
 ) {
     val beatsBaseRate: Boolean get() = !model.brier.isNaN() && !baseRate.isNaN() && model.brier < baseRate
-    val beatsMarket: Boolean? get() = market?.let { m -> !model.brier.isNaN() && !m.brier.isNaN() && model.brier < m.brier }
+    val beatsMarket: Boolean? get() = market?.let { m -> modelOnMarketSubset?.let { paired -> !paired.brier.isNaN() && !m.brier.isNaN() && paired.brier < m.brier } }
 }
 
 /**
@@ -99,6 +102,11 @@ data class BacktestReport(
  * runtime acceptable on a phone.
  */
 class Backtester(private val config: BacktestConfig = BacktestConfig()) {
+
+    init {
+        require(config.refitEveryMatches > 0)
+        require(config.resultAvailabilityDelayMinutes >= 120)
+    }
 
     private val engine = MatchPredictionEngine(config.engine)
 
@@ -112,8 +120,8 @@ class Backtester(private val config: BacktestConfig = BacktestConfig()) {
         return buildReport(samples)
     }
 
-    private fun evaluateCompetition(competitionId: String, records: List<HistoricalRecord>): List<BacktestSample> {
-        val ordered = records.sortedWith(compareBy({ it.kickoffEpochMs }, { it.matchId }))
+    internal fun evaluateCompetition(competitionId: String, records: List<HistoricalRecord>): List<BacktestSample> {
+        val ordered = records.sortedWith(compareBy({ it.kickoffEpochMs }, { it.homeTeamId }, { it.awayTeamId }, { it.matchId }))
         if (ordered.size <= config.minPriorMatchesForCompetition) return emptyList()
 
         val prior = ArrayList<RatingMatch>(ordered.size)
@@ -123,10 +131,36 @@ class Backtester(private val config: BacktestConfig = BacktestConfig()) {
         val samples = ArrayList<BacktestSample>()
 
         var index = 0
+        var lastFitAt = 0
+        var availableIndex = 0
         while (index < ordered.size) {
-            val chunkEnd = minOf(index + config.refitEveryMatches, ordered.size)
-            // Refit on everything that happened strictly before this chunk.
-            if (prior.size >= config.minPriorMatchesForCompetition) {
+            // Predict an entire simultaneous kickoff group before admitting any result.
+            var chunkEnd = index + 1
+            while (chunkEnd < ordered.size && ordered[chunkEnd].kickoffEpochMs == ordered[index].kickoffEpochMs) chunkEnd++
+            val predictionTime = ordered[index].kickoffEpochMs
+            while (availableIndex < index &&
+                ordered[availableIndex].kickoffEpochMs + config.resultAvailabilityDelayMinutes * 60_000L <= predictionTime) {
+                val record = ordered[availableIndex++]
+                prior.add(
+                    RatingMatch(
+                        homeTeamId = record.homeTeamId,
+                        awayTeamId = record.awayTeamId,
+                        homeGoals = record.homeGoals,
+                        awayGoals = record.awayGoals,
+                        kickoffEpochMs = record.kickoffEpochMs,
+                    ),
+                )
+                elo.update(
+                    homeTeamId = record.homeTeamId,
+                    awayTeamId = record.awayTeamId,
+                    homeGoals = record.homeGoals,
+                    awayGoals = record.awayGoals,
+                    kickoffEpochMs = record.kickoffEpochMs,
+                )
+            }
+            if (prior.size >= config.minPriorMatchesForCompetition &&
+                (fit == null || prior.size - lastFitAt >= config.refitEveryMatches)) {
+                lastFitAt = prior.size
                 fit = fitModel(prior, ordered[index].kickoffEpochMs)
                 baseline = computeBaseline(prior, ordered[index].kickoffEpochMs)
             }
@@ -199,23 +233,6 @@ class Backtester(private val config: BacktestConfig = BacktestConfig()) {
                     )
                 }
 
-                // The match is only added to the training set *after* being evaluated.
-                prior.add(
-                    RatingMatch(
-                        homeTeamId = record.homeTeamId,
-                        awayTeamId = record.awayTeamId,
-                        homeGoals = record.homeGoals,
-                        awayGoals = record.awayGoals,
-                        kickoffEpochMs = record.kickoffEpochMs,
-                    ),
-                )
-                elo.update(
-                    homeTeamId = record.homeTeamId,
-                    awayTeamId = record.awayTeamId,
-                    homeGoals = record.homeGoals,
-                    awayGoals = record.awayGoals,
-                    kickoffEpochMs = record.kickoffEpochMs,
-                )
             }
             index = chunkEnd
         }
@@ -226,7 +243,7 @@ class Backtester(private val config: BacktestConfig = BacktestConfig()) {
         val windowMs = config.windowDays.toLong() * 86_400_000L
         val decayed = prior.mapNotNull { match ->
             val ageMs = asOfEpochMs - match.kickoffEpochMs
-            if (ageMs < 0L || ageMs > windowMs) return@mapNotNull null
+            if (ageMs <= 0L || ageMs > windowMs) return@mapNotNull null
             val weight = EloRatingSystem.timeDecayWeight(ageMs / 86_400_000.0, config.halfLifeDays)
             match.copy(weight = weight)
         }
@@ -245,7 +262,7 @@ class Backtester(private val config: BacktestConfig = BacktestConfig()) {
         var count = 0
         for (match in prior) {
             val ageMs = asOfEpochMs - match.kickoffEpochMs
-            if (ageMs < 0L || ageMs > windowMs) continue
+            if (ageMs <= 0L || ageMs > windowMs) continue
             val weight = EloRatingSystem.timeDecayWeight(ageMs / 86_400_000.0, config.halfLifeDays)
             weightSum += weight
             homeGoals += weight * match.homeGoals
@@ -268,6 +285,8 @@ class Backtester(private val config: BacktestConfig = BacktestConfig()) {
             val away = sample.marketAway ?: return@mapNotNull null
             OutcomeSample(home, draw, away, sample.actual)
         }
+        val pairedModel = samples.filter { it.marketHome != null && it.marketDraw != null && it.marketAway != null }
+            .map { OutcomeSample(it.homeWin, it.draw, it.awayWin, it.actual) }
         val overSamples = samples.filter { !it.over25.isNaN() }
             .map { BinarySample(it.over25, it.actualOver25) }
         val bttsSamples = samples.map { BinarySample(it.btts, it.actualBtts) }
@@ -286,6 +305,7 @@ class Backtester(private val config: BacktestConfig = BacktestConfig()) {
             model = Metrics.summary(outcomeSamples),
             baseRate = Metrics.baseRateBrier(outcomeSamples),
             market = if (marketSamples.isEmpty()) null else Metrics.summary(marketSamples),
+            modelOnMarketSubset = if (pairedModel.isEmpty()) null else Metrics.summary(pairedModel),
             over25 = Metrics.binarySummary(overSamples),
             btts = Metrics.binarySummary(bttsSamples),
             calibration = calibration,

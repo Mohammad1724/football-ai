@@ -294,6 +294,8 @@ data class PerformanceReport(
     val accuracy: Double,
     val baseRateBrier: Double,
     val marketBrier: Double?,
+    val pairedModelBrier: Double? = null,
+    val marketSampleCount: Int = 0,
     val over25Brier: Double,
     val bttsBrier: Double,
     val calibration: List<CalibrationPoint>,

@@ -42,7 +42,7 @@
     <string name="badge_data_rich">داده کامل</string>
     <string name="badge_odds">ضریب</string>
     <string name="calibration_hint">نقطه‌های نزدیک به قطر یعنی احتمال‌ها با فراوانی مشاهده‌شده هم‌خوان‌اند. خطای کالیبراسیون مورد انتظار: %1$s</string>
-    <string name="clear_data_warning">همه بازی‌ها، پیش‌بینی‌ها و نتایج تاریخی این دستگاه پاک می‌شود. کلیدهای API حفظ می‌شوند.</string>
+    <string name="clear_data_warning">همه بازی‌ها، پیش‌بینی‌ها و نتایج تاریخی این دستگاه پاک می‌شود. کلیدهای API حفظ می‌شوند. همگام‌سازی پس‌زمینه خاموش می‌شود؛ در صورت نیاز دوباره آن را در تنظیمات فعال کنید.</string>
     <string name="competition_matches">%1$s بازی</string>
     <string name="disclaimer_body">احتمال‌ها برآورد مدل از داده‌های ناقص هستند و تضمین نتیجه نیستند. بدون شواهد قابل اندازه‌گیری، ادعای برتری نسبت به بازار نمی‌شود.</string>
     <string name="disclaimer_title">محدودیت‌های صادقانه</string>
@@ -230,7 +230,7 @@
     <string name="section_storage">فضای ذخیره‌سازی</string>
     <string name="section_stored_history">تاریخچه ذخیره‌شده</string>
     <string name="section_stored_predictions">پیش‌بینی‌های ذخیره‌شده</string>
-    <string name="section_stored_predictions_subtitle">فقط بازی‌های پایان‌یافته ارزیابی می‌شوند</string>
+    <string name="section_stored_predictions_subtitle">فقط نسخه فعلی مدل و اولین پیش‌بینی قبل از هر بازی؛ پیش‌بینی‌های زنده و قدیمی در این آمار نیستند.</string>
     <string name="section_sync_actions">همگام‌سازی دستی</string>
     <string name="section_team_strength">قدرت تیم</string>
     <string name="section_theme">پوسته</string>
@@ -360,4 +360,9 @@
     <string name="sync_partial_title">همگام‌سازی با نقص تمام شد</string>
     <string name="sync_partial_body">%1$s از %2$s لیگ همگام‌سازی نشد (%3$s). بعداً دوباره تلاش کن یا لیگ‌های کمتری را دنبال کن تا سهمیه رایگان بیشتر بماند.</string>
     <string name="sync_fallback_use">این منبع را منبع اصلی کن</string>
+    <string name="error_stale_data">نتیجه زنده موجود نیست یا قدیمی است. ابتدا به‌روزرسانی کنید.</string>
+    <string name="error_match_state">پیش‌بینی جدید قبل بازی فقط پیش از شروع مجاز است. این وضعیت مسابقه قابل تحلیل نیست.</string>
+    <string name="error_match_time">دقیقه معتبر یا زمان باقی‌مانده مشخص نیست. پیش‌بینی زنده متوقف شد.</string>
+    <string name="market_paired_comparison">بریر مدل روی همان بازی‌های دارای ضریب: %1$s (%2$s بازی)</string>
+    <string name="history_upgrade_notice">پس از ارتقا از نسخه ۰٫۲، تاریخچه API را دوباره وارد کنید. نتایج قدیمی API که امتیاز ۹۰ دقیقه آن‌ها مشخص نیست حفظ شده‌اند، اما در آموزش استفاده نمی‌شوند. شناسه‌های CSV خودکار اصلاح می‌شوند. تاریخچه هر منبع فقط برای مسابقات همان منبع استفاده می‌شود.</string>
 </resources>

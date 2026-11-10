@@ -151,7 +151,17 @@ class FootballDataCoUkProvider(
 
     override suspend fun match(matchKey: String): Outcome<RemoteMatch?> = when (val all = fixtures()) {
         is Outcome.Failure -> all
-        is Outcome.Success -> Outcome.Success(all.value.firstOrNull { it.providerKey == matchKey })
+        is Outcome.Success -> {
+            val parts = matchKey.split(':')
+            Outcome.Success(all.value.firstOrNull { candidate ->
+                candidate.providerKey == matchKey || (parts.size == 4 &&
+                    candidate.competitionKey == parts[0] && candidate.home.providerKey == parts[1] &&
+                    candidate.away.providerKey == parts[2] && parts[3].toLongOrNull()?.let { stamp ->
+                        // Backwards compatibility for kickoff-based v1 fixture IDs.
+                        stamp > 10000 && CsvFixtureIdentity.sameDate(candidate.kickoffEpochMs, stamp)
+                    } == true)
+            })
+        }
     }
 
     override suspend fun matchStatistics(matchKey: String): Outcome<List<RemoteTeamStatistics>> =
@@ -412,7 +422,8 @@ object CsvFixturesParser {
 
             val homeKey = CsvHistoryParser.slug(homeTeam)
             val awayKey = CsvHistoryParser.slug(awayTeam)
-            val providerKey = "$division:$homeKey:$awayKey:$kickoff"
+            val fixtureDate = Instant.ofEpochMilli(kickoff).atZone(LONDON).toLocalDate()
+            val providerKey = "$division:$homeKey:$awayKey:$fixtureDate"
             if (!seen.add(providerKey)) continue
 
             matches.add(
@@ -443,4 +454,15 @@ object CsvFixturesParser {
         val date = Instant.ofEpochMilli(epochMs).atZone(LONDON).toLocalDate()
         return if (date.monthValue >= 7) date.year else date.year - 1
     }
+}
+
+/** CSV has no immutable match ID. Only reconcile the same dated home/away fixture.
+ * Some leagues meet more than once at the same venue in one season, so season-only
+ * matching is unsafe. A postponement to another day requires explicit reconciliation.
+ */
+object CsvFixtureIdentity {
+    private val zone = ZoneId.of("Europe/London")
+    fun sameDate(first: Long, second: Long): Boolean =
+        Instant.ofEpochMilli(first).atZone(zone).toLocalDate() ==
+            Instant.ofEpochMilli(second).atZone(zone).toLocalDate()
 }

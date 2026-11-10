@@ -60,7 +60,7 @@ class PerformanceRepository(
 
     suspend fun historicalSources(): List<HistoricalSourceOption> = withContext(Dispatchers.IO) {
         val rows = db.historicalDao().all()
-        rows.groupBy { it.source }.map { (source, matches) ->
+        rows.filterNot { it.source.startsWith("legacy-unverified:") }.groupBy { it.source }.map { (source, matches) ->
             HistoricalSourceOption(
                 source = source,
                 displayName = sourceName(source),
@@ -139,6 +139,8 @@ class PerformanceRepository(
                 accuracy = report.model.accuracy,
                 baseRateBrier = report.baseRate,
                 marketBrier = report.market?.brier,
+                pairedModelBrier = report.modelOnMarketSubset?.brier,
+                marketSampleCount = report.market?.count ?: 0,
                 over25Brier = report.over25.brier,
                 bttsBrier = report.btts.brier,
                 calibration = report.calibration.map {
@@ -160,7 +162,7 @@ class PerformanceRepository(
     }
 
     suspend fun storedPredictionStats(): StoredPredictionStats = withContext(Dispatchers.IO) {
-        val resolved = db.predictionDao().resolved(500)
+        val resolved = db.predictionDao().evaluatedPreMatch(PredictionRepository.MODEL_VERSION)
         if (resolved.isEmpty()) return@withContext StoredPredictionStats.EMPTY
         val samples = resolved.map { entity ->
             OutcomeSample(

@@ -267,6 +267,12 @@ private fun BacktestSummary(report: PerformanceReport, languageTag: String) {
             }
             Spacer(Modifier.height(8.dp))
             Text(
+                text = stringResource(R.string.market_paired_comparison,
+                    report.pairedModelBrier?.let { Formatters.decimal(it, languageTag, 4) } ?: "—",
+                    Formatters.integer(report.marketSampleCount, languageTag)),
+                style = MaterialTheme.typography.bodySmall,
+            )
+            Text(
                 text = if (report.brier < report.baseRateBrier) {
                     stringResource(R.string.backtest_beats_base_rate)
                 } else {

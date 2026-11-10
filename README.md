@@ -80,3 +80,21 @@ Details: [docs/architecture.md](docs/architecture.md), [docs/model.md](docs/mode
 Model code is original. Data belongs to the respective providers and is subject to
 their terms; the app caches it locally for personal use, and attribution is displayed
 on the Data sources screen.
+
+## 0.3.0 correctness safeguards
+
+See [the implementation and verification report (Persian)](docs/fixes-fa-2026-11-10.md).
+This version migrates CSV history IDs, blocks post-kickoff pre-match forecasts,
+checks live snapshot freshness, and separates regulation-time data from unsupported
+extra-time/administrative results. Unknown live time (including an unknown 90+
+stoppage-time horizon) pauses predictions instead of guessing. Stored performance
+now uses one pre-match forecast per match from the current model version only.
+
+After upgrading from 0.2, re-import API-provider history: old API scores without a
+verified regulation-time scope are retained in a quarantined historical source,
+not used to train the model. CSV history is migrated automatically. Providers are
+not automatically cross-matched. CSV postponements to a different date still need
+explicit identity reconciliation; matching by team pair and season alone is unsafe.
+
+Additional checks: `python3 scripts/check_review_sql.py`; device regressions:
+`gradle :app:connectedDebugAndroidTest`. These complement the existing CI unit tests.

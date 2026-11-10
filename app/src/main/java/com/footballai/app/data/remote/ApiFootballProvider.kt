@@ -269,6 +269,13 @@ class ApiFootballProvider(
                 awayHalfTimeGoals = entry.score?.halftime?.away,
                 venue = fixture.venue?.name ?: fixture.venue?.city,
                 odds = null,
+                scoreScope = when (fixture.status?.short?.uppercase()) {
+                    "ET", "BT", "P", "AET", "PEN" -> "EXTRA_TIME_OR_PENALTIES"
+                    "AWD", "WO" -> "ADMINISTRATIVE"
+                    "ABD" -> "ABANDONED"
+                    "NS", "TBD", "1H", "2H", "HT", "FT" -> "REGULATION"
+                    else -> "UNKNOWN"
+                },
             )
         }
     }
@@ -384,7 +391,8 @@ class ApiFootballProvider(
             "TBD", "NS" -> MatchStatus.SCHEDULED
             "1H", "2H", "ET", "BT", "P", "LIVE", "INT" -> MatchStatus.LIVE
             "HT" -> MatchStatus.HALF_TIME
-            "FT", "AET", "PEN", "AWD", "WO", "ABD" -> MatchStatus.FINISHED
+            "FT", "AET", "PEN" -> MatchStatus.FINISHED
+            "AWD", "WO", "ABD" -> MatchStatus.CANCELLED
             "PST" -> MatchStatus.POSTPONED
             "SUSP" -> MatchStatus.SUSPENDED
             "CANC" -> MatchStatus.CANCELLED

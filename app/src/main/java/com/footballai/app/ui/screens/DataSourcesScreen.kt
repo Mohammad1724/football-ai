@@ -95,6 +95,13 @@ fun DataSourcesScreen(onBack: () -> Unit) {
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
             LazyColumn(modifier = Modifier.fillMaxSize()) {
                 item {
+                    Text(
+                        text = stringResource(R.string.history_upgrade_notice),
+                        modifier = Modifier.padding(16.dp),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+                item {
                     SectionHeader(
                         title = stringResource(R.string.section_providers),
                         subtitle = stringResource(R.string.section_providers_subtitle),

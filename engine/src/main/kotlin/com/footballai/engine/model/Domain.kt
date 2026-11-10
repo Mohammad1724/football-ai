@@ -229,7 +229,7 @@ data class PreMatchInput(
     val dixonColesRho: Double? = null,
     val quality: DataQuality,
     val asOfEpochMs: Long,
-    val modelVersion: String = "engine-1.0.0",
+    val modelVersion: String = "football-ai/engine-1.1.0",
     val fittedMatches: Int = 0,
 )
 

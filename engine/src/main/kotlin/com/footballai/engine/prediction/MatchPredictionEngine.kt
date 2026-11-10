@@ -24,8 +24,6 @@ data class EngineConfig(
     val maxLambda: Double = 6.0,
     val firstHalfShare: Double = 0.44,
     val matchLengthMinutes: Int = 90,
-    /** Lower bound for the remaining share of the match so late predictions stay finite. */
-    val minimumRemainingShare: Double = 0.035,
     /** Scoring multiplier for a team that received a red card. */
     val redCardOwnFactor: Double = 0.88,
     /** Scoring multiplier for the opponent of a team that received a red card. */
@@ -118,7 +116,7 @@ class MatchPredictionEngine(private val config: EngineConfig = EngineConfig()) {
         val minutesPlayed = input.minute.coerceIn(0, totalMinutes)
         val remainingMinutes = totalMinutes - minutesPlayed
         val remainingShare = (remainingMinutes.toDouble() / config.matchLengthMinutes)
-            .coerceIn(config.minimumRemainingShare, 1.0)
+            .coerceIn(0.0, 1.0)
 
         var lambdaHome = fullHome * remainingShare
         var lambdaAway = fullAway * remainingShare
@@ -147,12 +145,12 @@ class MatchPredictionEngine(private val config: EngineConfig = EngineConfig()) {
         if (minutesPlayed >= config.liveIntensityMinMinute) {
             val intensityHome = shotIntensity(
                 observed = input.homeShotsOnTarget ?: input.homeShots,
-                expectedTotal = config.averageShotsOnTargetPerTeam,
+                expectedTotal = if (input.homeShotsOnTarget != null) config.averageShotsOnTargetPerTeam else config.averageShotsPerTeam,
                 minutesPlayed = minutesPlayed,
             )
             val intensityAway = shotIntensity(
                 observed = input.awayShotsOnTarget ?: input.awayShots,
-                expectedTotal = config.averageShotsOnTargetPerTeam,
+                expectedTotal = if (input.awayShotsOnTarget != null) config.averageShotsOnTargetPerTeam else config.averageShotsPerTeam,
                 minutesPlayed = minutesPlayed,
             )
             if (intensityHome != null || intensityAway != null) {
@@ -166,8 +164,8 @@ class MatchPredictionEngine(private val config: EngineConfig = EngineConfig()) {
             }
         }
 
-        lambdaHome = lambdaHome.coerceIn(config.minLambda, config.maxLambda)
-        lambdaAway = lambdaAway.coerceIn(config.minLambda, config.maxLambda)
+        lambdaHome = lambdaHome.coerceIn(0.0, config.maxLambda)
+        lambdaAway = lambdaAway.coerceIn(0.0, config.maxLambda)
 
         val remainingMatrix = ScoreMatrix(
             homeLambda = lambdaHome,

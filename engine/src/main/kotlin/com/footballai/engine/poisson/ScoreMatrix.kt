@@ -25,8 +25,8 @@ class ScoreMatrix(
     private val cells: DoubleArray = DoubleArray(size * size)
 
     init {
-        require(homeLambda > 0.0 && homeLambda.isFinite()) { "homeLambda must be positive and finite" }
-        require(awayLambda > 0.0 && awayLambda.isFinite()) { "awayLambda must be positive and finite" }
+        require(homeLambda >= 0.0 && homeLambda.isFinite()) { "homeLambda must be non-negative and finite" }
+        require(awayLambda >= 0.0 && awayLambda.isFinite()) { "awayLambda must be non-negative and finite" }
         require(maxGoals in 2..20) { "maxGoals must be within 2..20" }
 
         var sum = 0.0

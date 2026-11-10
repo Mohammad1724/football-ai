@@ -69,6 +69,25 @@ interface MatchDao {
     @Upsert
     suspend fun upsertAll(matches: List<MatchEntity>)
 
+    @Transaction
+    suspend fun mergeFixtures(matches: List<MatchEntity>) {
+        upsertAll(matches.map { incoming ->
+            val old = byId(incoming.id)
+            incoming.copy(
+                hasStatistics = old?.hasStatistics ?: false,
+                hasEvents = old?.hasEvents ?: false,
+                hasLineups = old?.hasLineups ?: false,
+                statisticsSyncedAt = old?.statisticsSyncedAt,
+            )
+        })
+    }
+
+    @Query("SELECT * FROM matches WHERE providerId = :provider AND competitionId = :competition AND season = :season AND homeTeamId = :home AND awayTeamId = :away")
+    suspend fun csvCandidates(provider: String, competition: String, season: Int, home: String, away: String): List<MatchEntity>
+
+    @Query("SELECT * FROM matches WHERE providerId = :provider AND kickoffEpochMs <= :now AND status = 'SCHEDULED'")
+    suspend fun pendingResults(provider: String, now: Long): List<MatchEntity>
+
     @Query("SELECT * FROM matches WHERE id = :id")
     suspend fun byId(id: String): MatchEntity?
 
@@ -248,9 +267,16 @@ interface PredictionDao {
 
     @Transaction
     suspend fun save(prediction: PredictionEntity, markets: List<PredictionMarketEntity>) {
+        if (prediction.kind == "PRE_MATCH" && firstPreMatch(prediction.matchId, prediction.modelVersion) != null) return
         upsert(prediction)
         insertMarkets(markets)
     }
+
+    @Query("SELECT * FROM predictions WHERE matchId = :matchId AND modelVersion = :version AND kind = 'PRE_MATCH' ORDER BY createdAtEpochMs ASC LIMIT 1")
+    suspend fun firstPreMatch(matchId: String, version: String): PredictionEntity?
+
+    @Query("SELECT p.* FROM predictions p INNER JOIN matches m ON m.id = p.matchId WHERE p.resolvedAtEpochMs IS NOT NULL AND p.kind = 'PRE_MATCH' AND p.modelVersion = :version AND p.createdAtEpochMs < m.kickoffEpochMs AND m.scoreScope = 'REGULATION' AND p.id = (SELECT p2.id FROM predictions p2 WHERE p2.matchId = p.matchId AND p2.kind = 'PRE_MATCH' AND p2.modelVersion = :version AND p2.createdAtEpochMs < m.kickoffEpochMs ORDER BY p2.createdAtEpochMs ASC, p2.id ASC LIMIT 1) ORDER BY p.createdAtEpochMs DESC LIMIT 500")
+    suspend fun evaluatedPreMatch(version: String): List<PredictionEntity>
 
     @Query("SELECT * FROM predictions WHERE id = :id")
     suspend fun byId(id: String): PredictionEntity?
@@ -310,7 +336,7 @@ interface PredictionDao {
 
 @Dao
 interface HistoricalDao {
-    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(matches: List<HistoricalMatchEntity>): List<Long>
 
     @Query("SELECT * FROM historical_matches WHERE source = :source AND competitionId = :competitionId AND kickoffEpochMs <= :asOfEpochMs ORDER BY kickoffEpochMs ASC")

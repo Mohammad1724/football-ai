@@ -64,6 +64,8 @@ data class MatchEntity(
     val hasLineups: Boolean,
     val statisticsSyncedAt: Long?,
     val lastSyncedAt: Long,
+    @androidx.room.ColumnInfo(defaultValue = "'REGULATION'")
+    val scoreScope: String = "REGULATION",
 )
 
 @Entity(tableName = "match_statistics", primaryKeys = ["matchId"])
@@ -157,7 +159,7 @@ data class PredictionEntity(
 
 @Entity(
     tableName = "prediction_markets",
-    primaryKeys = ["predictionId", "marketType", "selectionKey"],
+    primaryKeys = ["predictionId", "sortOrder"],
     indices = [Index("predictionId")],
     foreignKeys = [
         ForeignKey(

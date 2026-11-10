@@ -34,12 +34,14 @@ class RatingBook(private val config: RatingBookConfig = RatingBookConfig()) {
     private var eloAsOfBucket = Long.MIN_VALUE
     private var totalMatches = 0
 
+    @Synchronized
     fun add(competitionId: String, match: RatingMatch) {
         history.getOrPut(competitionId) { mutableListOf() }.add(match)
         version++
         totalMatches++
     }
 
+    @Synchronized
     fun addAll(competitionId: String, matches: List<RatingMatch>) {
         val bucket = history.getOrPut(competitionId) { mutableListOf() }
         bucket.addAll(matches)
@@ -47,6 +49,7 @@ class RatingBook(private val config: RatingBookConfig = RatingBookConfig()) {
         totalMatches += matches.size
     }
 
+    @Synchronized
     fun clear() {
         history.clear()
         fitCache.clear()
@@ -55,13 +58,16 @@ class RatingBook(private val config: RatingBookConfig = RatingBookConfig()) {
         eloVersion = -1
     }
 
+    @Synchronized
     fun competitionIds(): Set<String> = history.keys.toSet()
 
+    @Synchronized
     fun matchCount(competitionId: String): Int = history[competitionId]?.size ?: 0
 
     val totalMatchCount: Int get() = totalMatches
 
     /** Rated teams ordered by rating, used by the model-performance and team screens. */
+    @Synchronized
     fun rankedTeams(competitionId: String, asOfEpochMs: Long, limit: Int = 0): List<TeamStrength> {
         ensureElo(asOfEpochMs)
         val teams = history[competitionId]?.flatMap { listOf(it.homeTeamId, it.awayTeamId) }?.distinct().orEmpty()
@@ -78,6 +84,7 @@ class RatingBook(private val config: RatingBookConfig = RatingBookConfig()) {
         return if (limit > 0) list.take(limit) else list
     }
 
+    @Synchronized
     fun strengths(
         competitionId: String,
         homeTeamId: String,
@@ -103,6 +110,7 @@ class RatingBook(private val config: RatingBookConfig = RatingBookConfig()) {
         return Pair(home, away)
     }
 
+    @Synchronized
     fun baseline(competitionId: String, asOfEpochMs: Long): LeagueBaseline {
         val windowed = windowedMatches(competitionId, asOfEpochMs)
         if (windowed.isEmpty()) return LeagueBaseline.FALLBACK
@@ -122,8 +130,9 @@ class RatingBook(private val config: RatingBookConfig = RatingBookConfig()) {
         )
     }
 
+    @Synchronized
     fun fit(competitionId: String, asOfEpochMs: Long): DixonColesFit? {
-        val bucket = (asOfEpochMs / CACHE_BUCKET_MS) * CACHE_BUCKET_MS
+        val bucket = asOfEpochMs
         val cached = fitCache[competitionId]
         if (cached != null && cached.version == version && cached.asOfBucket == bucket) return cached.fit
 
@@ -137,6 +146,7 @@ class RatingBook(private val config: RatingBookConfig = RatingBookConfig()) {
         return result
     }
 
+    @Synchronized
     fun eloRating(teamId: String, asOfEpochMs: Long): Double {
         ensureElo(asOfEpochMs)
         return elo.rating(teamId, asOfEpochMs)
@@ -159,7 +169,7 @@ class RatingBook(private val config: RatingBookConfig = RatingBookConfig()) {
 
     /** Replays every known match chronologically so Elo ratings reflect the requested instant. */
     private fun ensureElo(asOfEpochMs: Long) {
-        val bucket = (asOfEpochMs / CACHE_BUCKET_MS) * CACHE_BUCKET_MS
+        val bucket = asOfEpochMs
         if (eloVersion == version && eloAsOfBucket == bucket) return
         val fresh = EloRatingSystem(config.elo)
         val ordered = history.entries
@@ -181,7 +191,4 @@ class RatingBook(private val config: RatingBookConfig = RatingBookConfig()) {
         eloAsOfBucket = bucket
     }
 
-    companion object {
-        private const val CACHE_BUCKET_MS = 6 * 3_600_000L
-    }
 }
