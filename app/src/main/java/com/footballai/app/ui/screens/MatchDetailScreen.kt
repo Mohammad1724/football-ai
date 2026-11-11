@@ -169,6 +169,8 @@ fun MatchDetailScreen(
                     isPredicting = state.isPredicting,
                     error = state.lastError?.let { errorLabel(it) },
                     isLiveMatch = detail.summary.status.isLive,
+                    homeTeamName = detail.summary.home.name,
+                    awayTeamName = detail.summary.away.name,
                     onPredict = { viewModel.predict(forcePersist = true) },
                     liveTrackingEnabled = state.liveTrackingEnabled,
                     isLiveTracking = state.isLiveTracking,
@@ -324,6 +326,8 @@ private fun AnalysisTab(
     isPredicting: Boolean,
     error: String?,
     isLiveMatch: Boolean,
+    homeTeamName: String,
+    awayTeamName: String,
     onPredict: () -> Unit,
     liveTrackingEnabled: Boolean,
     isLiveTracking: Boolean,
@@ -381,6 +385,15 @@ private fun AnalysisTab(
         }
 
         item {
+            PredictionVerdictCard(
+                prediction = prediction,
+                homeTeamName = homeTeamName,
+                awayTeamName = awayTeamName,
+                languageTag = languageTag,
+            )
+        }
+
+        item {
             Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -403,6 +416,8 @@ private fun AnalysisTab(
                     draw = prediction.draw,
                     awayWin = prediction.awayWin,
                     languageTag = languageTag,
+                    homeLabel = homeTeamName,
+                    awayLabel = awayTeamName,
                 )
                 Spacer(Modifier.height(12.dp))
                 Row(
@@ -535,6 +550,119 @@ private fun AnalysisTab(
             }
         }
         item { Spacer(Modifier.height(24.dp)) }
+    }
+}
+
+/** How clearly the model's top pick separates from the runner-up outcome. */
+private enum class VerdictConfidence { HIGH, MEDIUM, LOW }
+
+private enum class VerdictOutcome { HOME, DRAW, AWAY }
+
+private data class MatchVerdict(
+    val outcome: VerdictOutcome,
+    val probability: Double,
+    val confidence: VerdictConfidence,
+)
+
+/**
+ * Turns the three 1X2 probabilities into a single headline pick plus a confidence
+ * label. Confidence is based on the gap between the top and second outcome rather
+ * than the raw probability, because a draw rarely clears 40% even when it is clearly
+ * the most likely result — the margin is what tells a bettor how lopsided the model
+ * actually thinks the match is.
+ */
+private fun computeVerdict(prediction: PredictionView): MatchVerdict {
+    val ranked = listOf(
+        VerdictOutcome.HOME to prediction.homeWin,
+        VerdictOutcome.DRAW to prediction.draw,
+        VerdictOutcome.AWAY to prediction.awayWin,
+    ).sortedByDescending { it.second }
+    val top = ranked[0]
+    val runnerUp = ranked[1]
+    val margin = top.second - runnerUp.second
+    val confidence = when {
+        margin >= 0.20 -> VerdictConfidence.HIGH
+        margin >= 0.08 -> VerdictConfidence.MEDIUM
+        else -> VerdictConfidence.LOW
+    }
+    return MatchVerdict(outcome = top.first, probability = top.second, confidence = confidence)
+}
+
+/**
+ * Headline pick shown above the full probability breakdown: which side the model
+ * favours, how likely that is, and how decisive the gap to the next outcome is. It
+ * never claims a betting edge (see docs/limitations.md) — it states what the model's
+ * own numbers say and leaves the decision to the user.
+ */
+@Composable
+private fun PredictionVerdictCard(
+    prediction: PredictionView,
+    homeTeamName: String,
+    awayTeamName: String,
+    languageTag: String,
+) {
+    val colors = FootballAiThemeExtra.colors
+    val verdict = remember(prediction) { computeVerdict(prediction) }
+    val outcomeColor = when (verdict.outcome) {
+        VerdictOutcome.HOME -> colors.homeSeries
+        VerdictOutcome.DRAW -> colors.drawSeries
+        VerdictOutcome.AWAY -> colors.awaySeries
+    }
+    val outcomeLabel = when (verdict.outcome) {
+        VerdictOutcome.HOME -> stringResource(R.string.verdict_home_win, homeTeamName)
+        VerdictOutcome.DRAW -> stringResource(R.string.verdict_draw)
+        VerdictOutcome.AWAY -> stringResource(R.string.verdict_away_win, awayTeamName)
+    }
+    val confidenceLabel = stringResource(
+        when (verdict.confidence) {
+            VerdictConfidence.HIGH -> R.string.confidence_high
+            VerdictConfidence.MEDIUM -> R.string.confidence_medium
+            VerdictConfidence.LOW -> R.string.confidence_low
+        },
+    )
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        colors = CardDefaults.cardColors(containerColor = outcomeColor.copy(alpha = 0.12f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = stringResource(R.string.prediction_verdict_title),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(6.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = outcomeLabel,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = outcomeColor,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(
+                    text = Formatters.percent(verdict.probability, languageTag),
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = outcomeColor,
+                )
+            }
+            Spacer(Modifier.height(8.dp))
+            StatusChip(text = confidenceLabel, color = outcomeColor, filled = true)
+            Spacer(Modifier.height(10.dp))
+            Text(
+                text = stringResource(R.string.verdict_disclaimer),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
 

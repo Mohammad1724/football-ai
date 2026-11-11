@@ -79,6 +79,7 @@ fun MatchesScreen(onMatchClick: (String) -> Unit) {
                             Text(
                                 stringResource(
                                     when (filter) {
+                                        MatchListFilter.RANGE -> R.string.filter_range
                                         MatchListFilter.TODAY -> R.string.filter_today
                                         MatchListFilter.TOMORROW -> R.string.filter_tomorrow
                                         MatchListFilter.WEEK -> R.string.filter_week
