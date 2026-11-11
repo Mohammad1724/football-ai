@@ -301,6 +301,11 @@
     <string name="filter_today">Today</string>
     <string name="filter_tomorrow">Tomorrow</string>
     <string name="filter_week">Next 7 days</string>
+    <string name="filter_yesterday">Yesterday</string>
+    <string name="filter_country_continent">Country/continent</string>
+    <string name="filter_my_matches">My matches</string>
+    <string name="filter_live_results">Live results</string>
+    <string name="status_full_time_short">FT</string>
 
     <!-- First-run onboarding -->
     <string name="onboarding_step">Step %1$d of %2$d</string>

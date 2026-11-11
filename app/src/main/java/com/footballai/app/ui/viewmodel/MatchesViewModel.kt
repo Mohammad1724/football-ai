@@ -2,10 +2,11 @@ package com.footballai.app.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.footballai.app.core.TimeConstants
 import com.footballai.app.di.AppContainer
 import com.footballai.app.domain.model.Competition
 import com.footballai.app.domain.model.MatchSummary
+import java.time.Instant
+import java.time.ZoneId
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -15,12 +16,21 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-enum class MatchListFilter { TODAY, TOMORROW, WEEK, FINISHED }
+/** Only recent football is shown here; future fixture filters deliberately do not exist. */
+private data class MatchSelection(
+    val dayOffset: Int = 0,
+    val competitionId: String? = null,
+    val followedOnly: Boolean = false,
+    val liveOnly: Boolean = false,
+)
 
 data class MatchesUiState(
     val isLoading: Boolean = true,
-    val filter: MatchListFilter = MatchListFilter.TODAY,
+    val isSyncing: Boolean = false,
+    val selectedDayOffset: Int = 0,
     val competitionId: String? = null,
+    val followedOnly: Boolean = false,
+    val liveOnly: Boolean = false,
     val matches: List<MatchSummary> = emptyList(),
     val competitions: List<Competition> = emptyList(),
 )
@@ -31,60 +41,91 @@ class MatchesViewModel(private val container: AppContainer) : ViewModel() {
     private val _state = MutableStateFlow(MatchesUiState())
     val state: StateFlow<MatchesUiState> = _state.asStateFlow()
 
-    private val selection = MutableStateFlow(MatchListFilter.TODAY to null as String?)
+    private val selection = MutableStateFlow(MatchSelection())
 
     init {
         viewModelScope.launch {
-            container.matchRepository.observeCompetitions().collect { competitions ->
-                _state.update { it.copy(competitions = competitions) }
-            }
-        }
-        viewModelScope.launch {
-            selection.flatMapLatest { (filter, competitionId) ->
+            selection.flatMapLatest { selected ->
                 val now = container.clock.nowEpochMs()
-                val dayStart = now - (now % TimeConstants.DAY_MS)
-                val (from, to) = when (filter) {
-                    MatchListFilter.TODAY -> dayStart to dayStart + TimeConstants.DAY_MS
-                    MatchListFilter.TOMORROW -> dayStart + TimeConstants.DAY_MS to dayStart + 2 * TimeConstants.DAY_MS
-                    MatchListFilter.WEEK -> dayStart to dayStart + 7 * TimeConstants.DAY_MS
-                    MatchListFilter.FINISHED -> now - 14 * TimeConstants.DAY_MS to now
+                val (from, to) = localDayWindow(now, selected.dayOffset)
+                combine(
+                    container.matchRepository.observeBetween(from, to),
+                    container.matchRepository.observeCompetitions(),
+                ) { matches, competitions ->
+                    val followedIds = competitions.filter { it.isFollowed }.map { it.id }.toSet()
+                    val visible = matches.filter { match ->
+                        (selected.competitionId == null || match.competitionId == selected.competitionId) &&
+                            (!selected.followedOnly || match.competitionId in followedIds) &&
+                            (!selected.liveOnly || match.status.isLive)
+                    }.sortedBy { it.kickoffEpochMs }
+                    visible to competitions
                 }
-                container.matchRepository.observeBetween(from, to).let { flow ->
-                    if (competitionId == null) {
-                        flow
-                    } else {
-                        kotlinx.coroutines.flow.flow {
-                            flow.collect { list ->
-                                emit(list.filter { it.competitionId == competitionId })
-                            }
-                        }
-                    }
-                }
-            }.collect { matches ->
+            }.collect { (matches, competitions) ->
+                val selected = selection.value
                 _state.update {
                     it.copy(
                         matches = matches,
+                        competitions = competitions,
                         isLoading = false,
-                        filter = selection.value.first,
-                        competitionId = selection.value.second,
+                        selectedDayOffset = selected.dayOffset,
+                        competitionId = selected.competitionId,
+                        followedOnly = selected.followedOnly,
+                        liveOnly = selected.liveOnly,
                     )
                 }
             }
         }
     }
 
-    fun setFilter(filter: MatchListFilter) {
-        selection.value = filter to selection.value.second
+    fun selectDay(dayOffset: Int) {
+        if (dayOffset !in OLDEST_DAY_OFFSET..0) return
+        selection.update { it.copy(dayOffset = dayOffset) }
     }
 
     fun setCompetition(competitionId: String?) {
-        selection.value = selection.value.first to competitionId
+        selection.update { it.copy(competitionId = competitionId) }
+    }
+
+    fun toggleFollowedOnly() {
+        selection.update { it.copy(followedOnly = !it.followedOnly) }
+    }
+
+    fun toggleLiveOnly() {
+        selection.update { it.copy(liveOnly = !it.liveOnly) }
     }
 
     fun refresh() {
+        if (_state.value.isSyncing) return
         viewModelScope.launch {
-            val providerId = container.providerRegistry.activeProviderId() ?: return@launch
-            container.syncRepository.syncFixtures(providerId)
+            _state.update { it.copy(isSyncing = true) }
+            try {
+                val providerId = container.providerRegistry.activeProviderId() ?: return@launch
+                // Include the whole of today and the two previous days. The UI still hides
+                // tomorrow if a provider returns it as part of its normal response window.
+                container.syncRepository.syncFixtures(
+                    providerId = providerId,
+                    daysBack = 3,
+                    daysAhead = 1,
+                )
+            } finally {
+                _state.update { it.copy(isSyncing = false) }
+            }
+        }
+    }
+
+    companion object {
+        const val OLDEST_DAY_OFFSET = -2
+
+        /** Calendar-day boundaries, including DST changes, in the device's time zone. */
+        internal fun localDayWindow(
+            nowEpochMs: Long,
+            dayOffset: Int,
+            zoneId: ZoneId = ZoneId.systemDefault(),
+        ): Pair<Long, Long> {
+            val date = Instant.ofEpochMilli(nowEpochMs).atZone(zoneId).toLocalDate().plusDays(dayOffset.toLong())
+            val start = date.atStartOfDay(zoneId).toInstant().toEpochMilli()
+            val end = date.plusDays(1).atStartOfDay(zoneId).toInstant().toEpochMilli()
+            return start to end
         }
     }
 }

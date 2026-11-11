@@ -88,6 +88,15 @@ object Formatters {
         return formatter.format(java.time.Instant.ofEpochMilli(epochMs))
     }
 
+    /** Compact date for day tabs: weekday, day and month, without the year. */
+    fun dateOnlyShort(epochMs: Long, languageTag: String): String {
+        if (epochMs <= 0L) return "—"
+        if (isPersian(languageTag)) return PersianDates.format(epochMs, includeWeekday = true, includeYear = false)
+        return java.time.format.DateTimeFormatter.ofPattern("EEE d MMM", Locale.ENGLISH)
+            .withZone(java.time.ZoneId.systemDefault())
+            .format(java.time.Instant.ofEpochMilli(epochMs))
+    }
+
     fun timeOnly(epochMs: Long, languageTag: String): String {
         if (epochMs <= 0L) return "—"
         if (isPersian(languageTag)) return PersianDates.formatTime(epochMs)

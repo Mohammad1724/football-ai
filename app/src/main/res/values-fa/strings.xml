@@ -301,6 +301,11 @@
     <string name="filter_today">امروز</string>
     <string name="filter_tomorrow">فردا</string>
     <string name="filter_week">۷ روز آینده</string>
+    <string name="filter_yesterday">دیروز</string>
+    <string name="filter_country_continent">کشور/قاره</string>
+    <string name="filter_my_matches">مسابقات من</string>
+    <string name="filter_live_results">نتایج زنده</string>
+    <string name="status_full_time_short">پایان</string>
 
     <!-- راه‌اندازی اولین اجرا -->
     <string name="onboarding_step">گام %1$d از %2$d</string>
