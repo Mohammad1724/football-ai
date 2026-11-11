@@ -78,9 +78,14 @@ class CompetitionViewModel(
 
 // ------------------------------------------------------------------ Predictions
 
+enum class PredictionListFilter { UPCOMING, RESOLVED, ALL }
+
 data class PredictionsUiState(
     val isLoading: Boolean = true,
     val items: List<PredictionWithMatch> = emptyList(),
+    val filter: PredictionListFilter = PredictionListFilter.UPCOMING,
+    val upcomingCount: Int = 0,
+    val resolvedCount: Int = 0,
     val resolving: Boolean = false,
     val resolvedNow: Int = 0,
 )
@@ -89,6 +94,7 @@ class PredictionsViewModel(private val container: AppContainer) : ViewModel() {
 
     private val _state = MutableStateFlow(PredictionsUiState())
     val state: StateFlow<PredictionsUiState> = _state.asStateFlow()
+    private var latestItems: List<PredictionWithMatch> = emptyList()
 
     init {
         viewModelScope.launch {
@@ -98,10 +104,22 @@ class PredictionsViewModel(private val container: AppContainer) : ViewModel() {
                         it.prediction.modelVersion == com.footballai.app.data.repository.PredictionRepository.MODEL_VERSION
                 } else items
             }.collect { items ->
-                _state.update { it.copy(items = items, isLoading = false) }
+                latestItems = items
+                _state.update { state ->
+                    state.copy(
+                        items = filterItems(items, state.filter),
+                        upcomingCount = items.count { it.prediction.resolution == null },
+                        resolvedCount = items.count { it.prediction.resolution != null },
+                        isLoading = false,
+                    )
+                }
             }
         }
         resolve()
+    }
+
+    fun setFilter(filter: PredictionListFilter) {
+        _state.update { it.copy(filter = filter, items = filterItems(latestItems, filter)) }
     }
 
     fun resolve() {
@@ -109,6 +127,19 @@ class PredictionsViewModel(private val container: AppContainer) : ViewModel() {
             _state.update { it.copy(resolving = true) }
             val resolved = container.predictionRepository.resolveFinishedPredictions()
             _state.update { it.copy(resolving = false, resolvedNow = resolved) }
+        }
+    }
+
+    companion object {
+        internal fun filterItems(
+            items: List<PredictionWithMatch>,
+            filter: PredictionListFilter,
+        ): List<PredictionWithMatch> = when (filter) {
+            PredictionListFilter.UPCOMING -> items.filter { it.prediction.resolution == null }
+                .sortedBy { it.match.kickoffEpochMs }
+            PredictionListFilter.RESOLVED -> items.filter { it.prediction.resolution != null }
+                .sortedByDescending { it.match.kickoffEpochMs }
+            PredictionListFilter.ALL -> items.sortedByDescending { it.match.kickoffEpochMs }
         }
     }
 }

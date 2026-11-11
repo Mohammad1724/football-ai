@@ -35,6 +35,9 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -72,6 +75,7 @@ fun DashboardScreen(
     )
     val state by viewModel.state.collectAsStateWithLifecycle()
     val languageTag = LocalLanguageTag.current
+    var showDataDetails by rememberSaveable { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -87,12 +91,6 @@ fun DashboardScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { viewModel.refresh() }) {
-                        Icon(
-                            imageVector = if (state.isSyncing) Icons.Default.CloudSync else Icons.Default.Refresh,
-                            contentDescription = stringResource(R.string.action_sync),
-                        )
-                    }
                     IconButton(onClick = onOpenDataSources) {
                         Icon(
                             imageVector = Icons.Default.CloudDownload,
@@ -122,10 +120,10 @@ fun DashboardScreen(
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
-                if (state.dailyMode) {
+                if (state.dailyMode && showDataDetails) {
                     item { InfoCard(title = stringResource(R.string.daily_mode_title), body = stringResource(R.string.daily_dashboard_hint)) }
                 }
-                state.dailyReport?.let { report ->
+                if (showDataDetails) state.dailyReport?.let { report ->
                         item {
                             InfoCard(title = stringResource(R.string.daily_report_title), body = stringResource(
                                 R.string.daily_report_body,
@@ -155,6 +153,25 @@ fun DashboardScreen(
                     )
                 }
 
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.Center,
+                    ) {
+                        TextButton(onClick = { showDataDetails = !showDataDetails }) {
+                            Text(
+                                if (showDataDetails) {
+                                    stringResource(R.string.hide_data_details)
+                                } else if (state.syncWarnings.isNotEmpty()) {
+                                    stringResource(R.string.show_data_details_with_warnings, state.syncWarnings.size)
+                                } else {
+                                    stringResource(R.string.show_data_details)
+                                },
+                            )
+                        }
+                    }
+                }
+
                 state.fallbackProviderName?.let { name ->
                     item {
                         Column(modifier = Modifier.padding(horizontal = 16.dp)) {
@@ -170,7 +187,7 @@ fun DashboardScreen(
                     }
                 }
 
-                if (state.syncWarnings.isNotEmpty()) {
+                if (state.syncWarnings.isNotEmpty() && showDataDetails) {
                     item {
                         val code = state.syncWarnings.first().substringAfter(": ").substringBefore(' ')
                         InfoCard(
@@ -225,8 +242,14 @@ fun DashboardScreen(
                 }
 
                 if (state.todayMatches.isNotEmpty()) {
-                    item { SectionHeader(title = stringResource(R.string.section_today)) }
-                    items(state.todayMatches, key = { it.id }) { match ->
+                    item {
+                        SectionHeader(
+                            title = stringResource(R.string.section_today),
+                            actionLabel = if (state.todayMatches.size > 6) stringResource(R.string.action_see_all) else null,
+                            onAction = if (state.todayMatches.size > 6) onOpenMatches else null,
+                        )
+                    }
+                    items(state.todayMatches.take(6), key = { it.id }) { match ->
                         MatchCard(match = match, languageTag = languageTag, onClick = { onMatchClick(match.id) })
                     }
                 }
@@ -239,7 +262,7 @@ fun DashboardScreen(
                             onAction = onOpenMatches,
                         )
                     }
-                    items(state.upcomingMatches, key = { it.id }) { match ->
+                    items(state.upcomingMatches.take(6), key = { it.id }) { match ->
                         MatchCard(match = match, languageTag = languageTag, onClick = { onMatchClick(match.id) })
                     }
                 }

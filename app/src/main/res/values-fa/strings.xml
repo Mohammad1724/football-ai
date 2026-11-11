@@ -402,6 +402,13 @@
     <string name="context_comparison_body">روی همان مسابقات و بدون استفاده از نتایج آینده:\nBrier: پایه %1$s ← با فرم و شرایط %2$s (کمتر بهتر)\nLog loss: پایه %3$s ← جدید %4$s (کمتر بهتر)\nAccuracy: پایه %5$s ← جدید %6$s\nتفاوت کوچک ممکن است تصادفی باشد؛ نمونه بیشتر و ارزیابی مداوم لازم است.</string>
     <string name="action_daily_analysis">اجرای تحلیل روزانه</string>
     <string name="action_daily_start">اجرای تحلیل روزانه</string>
+    <string name="show_data_details">نمایش وضعیت داده و گزارش فنی</string>
+    <string name="show_data_details_with_warnings">وضعیت داده و %1$d هشدار</string>
+    <string name="hide_data_details">پنهان‌کردن جزئیات فنی</string>
+    <string name="predictions_upcoming_filter">آینده (%1$s)</string>
+    <string name="predictions_resolved_filter">ارزیابی‌شده (%1$s)</string>
+    <string name="empty_upcoming_predictions_title">پیش‌بینی بازی آینده‌ای ندارید</string>
+    <string name="empty_upcoming_predictions_message">برای مشاهده ارزیابی پیش‌بینی‌های قبلی، فیلتر «ارزیابی‌شده» را انتخاب کنید.</string>
     <string name="search_matches">جست‌وجوی مسابقات</string>
     <string name="search_matches_hint">نام لیگ، تیم یا مسابقه…</string>
     <string name="search_local_description">در لیگ‌ها، تیم‌ها و مسابقات دریافت‌شده روی همین دستگاه جست‌وجو کنید.</string>

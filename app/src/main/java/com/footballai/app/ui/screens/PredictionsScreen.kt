@@ -9,12 +9,15 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -43,6 +46,7 @@ import com.footballai.app.ui.components.LoadingState
 import com.footballai.app.ui.components.ProbabilityBar
 import com.footballai.app.ui.components.StatusChip
 import com.footballai.app.ui.theme.FootballAiThemeExtra
+import com.footballai.app.ui.viewmodel.PredictionListFilter
 import com.footballai.app.ui.viewmodel.PredictionsViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -60,7 +64,7 @@ fun PredictionsScreen(onMatchClick: (String) -> Unit) {
             TopAppBar(
                 title = { Text(stringResource(R.string.title_predictions)) },
                 actions = {
-                    IconButton(onClick = { viewModel.resolve() }) {
+                    IconButton(onClick = { viewModel.resolve() }, enabled = !state.resolving) {
                         Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.action_resolve))
                     }
                 },
@@ -73,10 +77,25 @@ fun PredictionsScreen(onMatchClick: (String) -> Unit) {
                 LoadingState()
                 return@Column
             }
+            PredictionFilterRow(
+                selected = state.filter,
+                upcomingCount = state.upcomingCount,
+                resolvedCount = state.resolvedCount,
+                onSelect = viewModel::setFilter,
+            )
             if (state.items.isEmpty()) {
                 EmptyState(
-                    title = stringResource(R.string.empty_predictions_title),
-                    message = stringResource(R.string.empty_predictions_message),
+                    title = stringResource(
+                        if (state.filter == PredictionListFilter.UPCOMING) R.string.empty_upcoming_predictions_title
+                        else R.string.empty_predictions_title,
+                    ),
+                    message = stringResource(
+                        if (state.filter == PredictionListFilter.UPCOMING && state.resolvedCount > 0) {
+                            R.string.empty_upcoming_predictions_message
+                        } else {
+                            R.string.empty_predictions_message
+                        },
+                    ),
                 )
                 return@Column
             }
@@ -86,6 +105,42 @@ fun PredictionsScreen(onMatchClick: (String) -> Unit) {
                 }
                 item { Spacer(Modifier.height(24.dp)) }
             }
+        }
+    }
+}
+
+@Composable
+private fun PredictionFilterRow(
+    selected: PredictionListFilter,
+    upcomingCount: Int,
+    resolvedCount: Int,
+    onSelect: (PredictionListFilter) -> Unit,
+) {
+    val languageTag = LocalLanguageTag.current
+    LazyRow(
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        item {
+            FilterChip(
+                selected = selected == PredictionListFilter.UPCOMING,
+                onClick = { onSelect(PredictionListFilter.UPCOMING) },
+                label = { Text(stringResource(R.string.predictions_upcoming_filter, Formatters.integer(upcomingCount, languageTag))) },
+            )
+        }
+        item {
+            FilterChip(
+                selected = selected == PredictionListFilter.RESOLVED,
+                onClick = { onSelect(PredictionListFilter.RESOLVED) },
+                label = { Text(stringResource(R.string.predictions_resolved_filter, Formatters.integer(resolvedCount, languageTag))) },
+            )
+        }
+        item {
+            FilterChip(
+                selected = selected == PredictionListFilter.ALL,
+                onClick = { onSelect(PredictionListFilter.ALL) },
+                label = { Text(stringResource(R.string.search_all)) },
+            )
         }
     }
 }

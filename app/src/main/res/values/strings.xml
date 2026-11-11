@@ -402,6 +402,13 @@
     <string name="context_comparison_body">Same fixtures and pre-kickoff information only:\nBrier: base %1$s → contextual %2$s (lower is better)\nLog loss: base %3$s → contextual %4$s (lower is better)\nAccuracy: base %5$s → contextual %6$s\nSmall differences may be random; larger samples and ongoing evaluation are required.</string>
     <string name="action_daily_analysis">Run daily analysis</string>
     <string name="action_daily_start">Run daily analysis</string>
+    <string name="show_data_details">Show data status and technical report</string>
+    <string name="show_data_details_with_warnings">Data status and %1$d warnings</string>
+    <string name="hide_data_details">Hide technical details</string>
+    <string name="predictions_upcoming_filter">Upcoming (%1$s)</string>
+    <string name="predictions_resolved_filter">Resolved (%1$s)</string>
+    <string name="empty_upcoming_predictions_title">No upcoming predictions</string>
+    <string name="empty_upcoming_predictions_message">Choose the Resolved filter to review how earlier predictions performed.</string>
     <string name="search_matches">Search matches</string>
     <string name="search_matches_hint">League, team or match…</string>
     <string name="search_local_description">Search the leagues, teams and fixtures already downloaded on this device.</string>
