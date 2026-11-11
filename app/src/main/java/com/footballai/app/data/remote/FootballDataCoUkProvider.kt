@@ -57,7 +57,7 @@ class FootballDataCoUkProvider(
             historicalSeasons = 25,
         ),
         quota = QuotaPolicy(requestsPerMinute = 30, requestsPerDay = 0),
-        attribution = "Current fixtures/results: open-matchday (github.com/oladeeayo/open-matchday). Historical results and odds: football-data.co.uk. Personal, non-commercial use; upstream terms apply.",
+        attribution = "Current fixtures/results: open-matchday (github.com/oladeeayo/open-matchday). Historical results and odds: football-data.co.uk. Transport mirrors: TuncErdoganlar/futbol-veri-aynasi and huhao930422-debug/football-odds-mirror. Personal, non-commercial use; upstream terms apply.",
     )
 
     override fun availableCompetitions(): List<CsvCompetition> = COMPETITIONS
@@ -72,6 +72,18 @@ class FootballDataCoUkProvider(
                     OpenMatchdayParser.history(response.value, competition, seasonStartYear),
                 )
             }
+        }
+        val extraSource = ExpandedFootballCatalog.EXTRA_HISTORY_LEAGUES[competitionKey]
+        if (extraSource != null) {
+            return when (val response = extraHistoryCsv(extraSource)) {
+                is Outcome.Failure -> response
+                is Outcome.Success -> Outcome.Success(
+                    ExtraCsvHistoryParser.parse(response.value, competition!!, seasonStartYear),
+                )
+            }
+        }
+        if (competitionKey !in ExpandedFootballCatalog.MAIN_HISTORY_LEAGUES) {
+            return Outcome.Success(emptyList())
         }
         val season = seasonCode(seasonStartYear)
         val mirrorUrl = if (competitionKey in HISTORY_MIRROR_LEAGUES) {
@@ -155,6 +167,22 @@ class FootballDataCoUkProvider(
 
     private val openCacheMutex = Mutex()
     private val openCsvCache = HashMap<String, Pair<Long, String>>()
+    private val extraCsvCache = HashMap<String, Pair<Long, String>>()
+
+    /** One cumulative file contains every season; cache it across season import loops. */
+    private suspend fun extraHistoryCsv(source: ExtraLeagueSource): Outcome<String> = openCacheMutex.withLock {
+        val now = System.currentTimeMillis()
+        extraCsvCache[source.fileCode]?.takeIf { now - it.first < CACHE_TTL_MS }?.let {
+            return@withLock Outcome.Success(it.second)
+        }
+        val result = downloadCsv(
+            primaryUrl = "https://www.football-data.co.uk/new/${source.fileCode}.csv",
+            alternateUrl = "https://football-data.co.uk/new/${source.fileCode}.csv",
+            mirrorUrl = "$EXTRA_HISTORY_MIRROR_BASE_URL/${source.mirrorDirectory}/all-seasons.csv",
+        )
+        if (result is Outcome.Success) extraCsvCache[source.fileCode] = now to result.value
+        result
+    }
 
     private suspend fun openMatchdayCsv(
         directory: String,
@@ -284,28 +312,10 @@ class FootballDataCoUkProvider(
             "https://raw.githubusercontent.com/oladeeayo/open-matchday/master/data"
         internal const val HISTORY_MIRROR_BASE_URL =
             "https://raw.githubusercontent.com/TuncErdoganlar/futbol-veri-aynasi/main/data/fd"
-        internal val HISTORY_MIRROR_LEAGUES = setOf(
-            "T1", "E0", "E1", "SP1", "D1", "I1", "F1", "N1", "P1", "B1", "G1", "SC0",
-        )
-        internal val OPEN_MATCHDAY_LEAGUES = mapOf(
-            "E0" to "ENG_1_premier-league",
-            "E1" to "ENG_2_championship",
-            "E2" to "ENG_3_league-one",
-            "SC0" to "SCO_1_premiership",
-            "D1" to "GER_1_bundesliga",
-            "D2" to "GER_2_2-bundesliga",
-            "I1" to "ITA_1_serie-a",
-            "I2" to "ITA_2_serie-b",
-            "SP1" to "ESP_1_la-liga",
-            "SP2" to "ESP_2_segunda-division",
-            "F1" to "FRA_1_ligue-1",
-            "F2" to "FRA_2_ligue-2",
-            "N1" to "NED_1_eredivisie",
-            "B1" to "BEL_1_pro-league",
-            "P1" to "POR_1_primeira-liga",
-            "T1" to "TUR_1_super-lig",
-            "G1" to "GRE_1_super-league",
-        )
+        internal const val EXTRA_HISTORY_MIRROR_BASE_URL =
+            "https://raw.githubusercontent.com/huhao930422-debug/football-odds-mirror/main/data"
+        internal val HISTORY_MIRROR_LEAGUES = ExpandedFootballCatalog.MIRROR_HISTORY_LEAGUES
+        internal val OPEN_MATCHDAY_LEAGUES = ExpandedFootballCatalog.OPEN_MATCHDAY_LEAGUES
         private val CSV_HEADERS = mapOf(
             "User-Agent" to "FootballAI/0.4 (Android; personal football CSV reader)",
             "Accept" to "text/csv,text/plain;q=0.9,*/*;q=0.8",
@@ -322,26 +332,8 @@ class FootballDataCoUkProvider(
             (startYear + 1) % 100,
         )
 
-        /** The main European divisions published by football-data.co.uk. */
-        val COMPETITIONS: List<CsvCompetition> = listOf(
-            CsvCompetition("E0", "Premier League", "England"),
-            CsvCompetition("E1", "Championship", "England"),
-            CsvCompetition("E2", "League One", "England"),
-            CsvCompetition("SC0", "Premiership", "Scotland"),
-            CsvCompetition("D1", "Bundesliga", "Germany"),
-            CsvCompetition("D2", "2. Bundesliga", "Germany"),
-            CsvCompetition("I1", "Serie A", "Italy"),
-            CsvCompetition("I2", "Serie B", "Italy"),
-            CsvCompetition("SP1", "La Liga", "Spain"),
-            CsvCompetition("SP2", "Segunda Division", "Spain"),
-            CsvCompetition("F1", "Ligue 1", "France"),
-            CsvCompetition("F2", "Ligue 2", "France"),
-            CsvCompetition("N1", "Eredivisie", "Netherlands"),
-            CsvCompetition("B1", "Jupiler Pro League", "Belgium"),
-            CsvCompetition("P1", "Primeira Liga", "Portugal"),
-            CsvCompetition("T1", "Super Lig", "Turkey"),
-            CsvCompetition("G1", "Super League", "Greece"),
-        )
+        /** League competitions with daily current-season files. */
+        val COMPETITIONS: List<CsvCompetition> = ExpandedFootballCatalog.COMPETITIONS
     }
 }
 
@@ -402,9 +394,17 @@ object CsvHistoryParser {
                     competitionKey = competitionKey,
                     competitionName = competitionName,
                     season = seasonStartYear,
-                    homeTeamKey = slug(homeTeam),
+                    homeTeamKey = if (competitionKey in ExpandedFootballCatalog.CROSS_SOURCE_LEAGUES) {
+                        ExpandedTeamIdentity.key(competitionKey, homeTeam)
+                    } else {
+                        slug(homeTeam)
+                    },
                     homeTeamName = homeTeam,
-                    awayTeamKey = slug(awayTeam),
+                    awayTeamKey = if (competitionKey in ExpandedFootballCatalog.CROSS_SOURCE_LEAGUES) {
+                        ExpandedTeamIdentity.key(competitionKey, awayTeam)
+                    } else {
+                        slug(awayTeam)
+                    },
                     awayTeamName = awayTeam,
                     homeGoals = homeGoals,
                     awayGoals = awayGoals,
@@ -538,8 +538,16 @@ object CsvFixturesParser {
                 fallbackSeasonStart = fallbackYear,
             ) ?: continue
 
-            val homeKey = CsvHistoryParser.slug(homeTeam)
-            val awayKey = CsvHistoryParser.slug(awayTeam)
+            val homeKey = if (division in ExpandedFootballCatalog.CROSS_SOURCE_LEAGUES) {
+                ExpandedTeamIdentity.key(division, homeTeam)
+            } else {
+                CsvHistoryParser.slug(homeTeam)
+            }
+            val awayKey = if (division in ExpandedFootballCatalog.CROSS_SOURCE_LEAGUES) {
+                ExpandedTeamIdentity.key(division, awayTeam)
+            } else {
+                CsvHistoryParser.slug(awayTeam)
+            }
             val fixtureDate = Instant.ofEpochMilli(kickoff).atZone(LONDON).toLocalDate()
             val providerKey = "$division:$homeKey:$awayKey:$fixtureDate"
             if (!seen.add(providerKey)) continue

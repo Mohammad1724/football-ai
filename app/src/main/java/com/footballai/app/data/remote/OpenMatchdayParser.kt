@@ -85,8 +85,16 @@ object OpenMatchdayParser {
             val awayGoals = awayGoalsIndex?.let { columns[it].trim().toIntOrNull() }
             if (finished && (homeGoals == null || awayGoals == null)) continue
 
-            val homeKey = CsvHistoryParser.slug(homeName)
-            val awayKey = CsvHistoryParser.slug(awayName)
+            val homeKey = if (competition.key in ExpandedFootballCatalog.CROSS_SOURCE_LEAGUES) {
+                ExpandedTeamIdentity.key(competition.key, homeName)
+            } else {
+                CsvHistoryParser.slug(homeName)
+            }
+            val awayKey = if (competition.key in ExpandedFootballCatalog.CROSS_SOURCE_LEAGUES) {
+                ExpandedTeamIdentity.key(competition.key, awayName)
+            } else {
+                CsvHistoryParser.slug(awayName)
+            }
             val providerKey = "${competition.key}:$homeKey:$awayKey:$kickoff"
             if (!seen.add(providerKey)) continue
             matches += RemoteMatch(

@@ -54,11 +54,16 @@ later from **Settings → Run setup guide again**. The same actions are always a
   (registration is free and manual). The token is stored in the Android Keystore.
 * **API-Football** — optional, free tier is 100 requests/day; requires your own key.
 * **Open Matchday** — needs no key and supplies daily-refreshed current-season fixtures
-  and results for the app's 17 leagues through CSV files hosted on GitHub. Its name and
-  upstream terms are shown in provider attribution.
+  and results for 61 league competitions through CSV files hosted on GitHub. Knockout
+  competitions stay excluded until their regulation-time score scope is explicit.
 * **football-data.co.uk** — needs no key and supplies older-season CSV archives plus a
-  fallback for unmapped competitions. Older history strengthens the statistical model;
-  the current-season Open Matchday results can bootstrap it when the older host is unreachable.
+  fallback for unmapped competitions. In addition to the European divisions, cumulative
+  archives cover Brazil, MLS, Denmark, Finland, Japan, Norway and Sweden back to 2012
+  (exact coverage varies by league). Daily GitHub mirrors provide transport fallback
+  without counting those rows twice. Cross-source team aliases connect current fixtures
+  to history; unmatched teams remain honestly data-limited instead of being guessed.
+  Older history strengthens the statistical model; current-season Open Matchday results
+  can bootstrap it when the older host is unreachable.
 
 The app can therefore show a fixture list with no credentials at all. Authenticated
 providers add live scores, statistics, lineups and a wider competition set; when one of
