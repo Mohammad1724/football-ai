@@ -81,6 +81,9 @@
     <string name="expected_total_goals">Total xG</string>
     <string name="explanation_dixon_coles">Dixon-Coles low-score correction applied</string>
     <string name="explanation_elo_edge_away">Elo ratings favour the away team</string>
+    <string name="explanation_recent_form">Last-five form with time weighting and bounded impact</string>
+    <string name="explanation_venue_form">Recent home and away performance by venue</string>
+    <string name="explanation_fixture_congestion">Difference in rest days and recent fixture congestion</string>
     <string name="explanation_elo_edge_home">Elo ratings favour the home team</string>
     <string name="explanation_evenly_matched">The two teams are closely matched</string>
     <string name="explanation_favourite_away">The away side is the clear favourite</string>
@@ -394,7 +397,9 @@
     <string name="daily_pick_team">Most likely result: %1$s win</string>
     <string name="daily_pick_draw">Most likely result: draw</string>
     <string name="daily_pick_unclear">Probabilities are close; no clear favourite</string>
-    <string name="daily_pick_note">Not a guarantee. A gap below 5 percentage points between the top two outcomes is labelled unclear; this threshold is not calibrated confidence.</string>
+    <string name="daily_pick_note">Not a guarantee. Low data coverage or a gap below 8 percentage points between the top two outcomes is labelled unclear; this is neither calibrated confidence nor a profit guarantee.</string>
+    <string name="context_comparison_title">Base model versus contextual features</string>
+    <string name="context_comparison_body">Same fixtures and pre-kickoff information only:\nBrier: base %1$s → contextual %2$s (lower is better)\nLog loss: base %3$s → contextual %4$s (lower is better)\nAccuracy: base %5$s → contextual %6$s\nSmall differences may be random; larger samples and ongoing evaluation are required.</string>
     <string name="action_daily_analysis">Run daily analysis</string>
     <string name="action_daily_start">Run daily analysis</string>
     <string name="search_matches">Search matches</string>

@@ -121,6 +121,8 @@ class DailyAnalysisTest {
         assertEquals("DRAW", DailyAnalysisPolicy.pick(.2, .6, .2, QualityLevel.MEDIUM))
         assertEquals("AWAY", DailyAnalysisPolicy.pick(.2, .2, .6, QualityLevel.MEDIUM))
         assertEquals("UNCLEAR", DailyAnalysisPolicy.pick(.4, .38, .22, QualityLevel.MEDIUM))
+        assertEquals("UNCLEAR", DailyAnalysisPolicy.pick(.46, .39, .15, QualityLevel.MEDIUM))
+        assertEquals("UNCLEAR", DailyAnalysisPolicy.pick(.8, .1, .1, QualityLevel.LOW))
         assertEquals("INSUFFICIENT", DailyAnalysisPolicy.pick(.8, .1, .1, QualityLevel.INSUFFICIENT))
         assertEquals("INSUFFICIENT", DailyAnalysisPolicy.pick(Double.NaN, .1, .1, QualityLevel.HIGH))
         assertFalse(DailyAnalysisPolicy.hasEnoughHistory(39, 20, 20))

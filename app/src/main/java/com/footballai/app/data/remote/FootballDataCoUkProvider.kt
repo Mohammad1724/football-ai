@@ -74,9 +74,15 @@ class FootballDataCoUkProvider(
             }
         }
         val season = seasonCode(seasonStartYear)
+        val mirrorUrl = if (competitionKey in HISTORY_MIRROR_LEAGUES) {
+            "$HISTORY_MIRROR_BASE_URL/$season/$competitionKey.csv"
+        } else {
+            null
+        }
         return when (val response = downloadCsv(
             primaryUrl = "$baseUrl/$season/$competitionKey.csv",
             alternateUrl = "$ALTERNATE_BASE_URL/$season/$competitionKey.csv",
+            mirrorUrl = mirrorUrl,
         )) {
             is Outcome.Failure -> response
             is Outcome.Success -> {
@@ -133,10 +139,18 @@ class FootballDataCoUkProvider(
     }
 
     /** Retries through the canonical non-www host when the www endpoint is unreachable. */
-    private suspend fun downloadCsv(primaryUrl: String, alternateUrl: String): Outcome<String> {
+    private suspend fun downloadCsv(
+        primaryUrl: String,
+        alternateUrl: String,
+        mirrorUrl: String? = null,
+    ): Outcome<String> {
         val primary = client.get(PROVIDER_ID, info.quota, primaryUrl, headers = CSV_HEADERS)
-        if (primary is Outcome.Success || primaryUrl == alternateUrl) return primary
-        return client.get(PROVIDER_ID, info.quota, alternateUrl, headers = CSV_HEADERS)
+        if (primary is Outcome.Success) return primary
+        val alternate = if (primaryUrl == alternateUrl) primary else {
+            client.get(PROVIDER_ID, info.quota, alternateUrl, headers = CSV_HEADERS)
+        }
+        if (alternate is Outcome.Success || mirrorUrl == null) return alternate
+        return client.get(PROVIDER_ID, info.quota, mirrorUrl, headers = CSV_HEADERS)
     }
 
     private val openCacheMutex = Mutex()
@@ -268,6 +282,11 @@ class FootballDataCoUkProvider(
         internal const val ALTERNATE_FIXTURES_URL = "https://football-data.co.uk/fixtures.csv"
         internal const val OPEN_MATCHDAY_BASE_URL =
             "https://raw.githubusercontent.com/oladeeayo/open-matchday/master/data"
+        internal const val HISTORY_MIRROR_BASE_URL =
+            "https://raw.githubusercontent.com/TuncErdoganlar/futbol-veri-aynasi/main/data/fd"
+        internal val HISTORY_MIRROR_LEAGUES = setOf(
+            "T1", "E0", "E1", "SP1", "D1", "I1", "F1", "N1", "P1", "B1", "G1", "SC0",
+        )
         internal val OPEN_MATCHDAY_LEAGUES = mapOf(
             "E0" to "ENG_1_premier-league",
             "E1" to "ENG_2_championship",

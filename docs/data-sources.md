@@ -29,7 +29,7 @@ which provider produced a fixture.
 
 **Open Matchday** supplies the current season's fixtures and finished results from daily-refreshed CSV files hosted on GitHub (`github.com/oladeeayo/open-matchday`). It needs no key and covers all 17 leagues currently listed in the app. Its fixed UTC+1 kickoff convention is converted explicitly. Open Matchday is credited in the provider attribution; the data is for personal, non-commercial use and upstream provider terms still apply.
 
-**football-data.co.uk** supplies older seasons and remains a fallback for competitions not mapped to Open Matchday. Both `www` and canonical non-www hosts are attempted, and transport failures retain their actual network/HTTP diagnostics.
+**football-data.co.uk** supplies older seasons and remains a fallback for competitions not mapped to Open Matchday. Both `www` and canonical non-www hosts are attempted, and transport failures retain their actual network/HTTP diagnostics. For 12 covered leagues, the daily analysis can then try `TuncErdoganlar/futbol-veri-aynasi`, a GitHub mirror of the same public season CSVs. The mirror is a transport fallback, not a second training dataset; rows retain the football-data source identity and are never double-counted. Unsupported leagues remain visible as history gaps.
 
 * Free, no key, plain `https://www.football-data.co.uk/mmz4281/{YYyy}/{code}.csv` for
   history and `https://www.football-data.co.uk/fixtures.csv` for upcoming matches.

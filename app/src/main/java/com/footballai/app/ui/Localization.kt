@@ -116,6 +116,9 @@ fun explanationLabel(code: String): String = text(
         "HOME_ADVANTAGE" -> R.string.explanation_home_advantage
         "ELO_EDGE_HOME" -> R.string.explanation_elo_edge_home
         "ELO_EDGE_AWAY" -> R.string.explanation_elo_edge_away
+        "RECENT_FORM" -> R.string.explanation_recent_form
+        "VENUE_FORM" -> R.string.explanation_venue_form
+        "FIXTURE_CONGESTION" -> R.string.explanation_fixture_congestion
         "DIXON_COLES_LOW_SCORE_ADJUSTMENT" -> R.string.explanation_dixon_coles
         "LIMITED_HISTORY" -> R.string.explanation_limited_history
         "LARGE_SAMPLE" -> R.string.explanation_large_sample

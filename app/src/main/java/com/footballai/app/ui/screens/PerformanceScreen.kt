@@ -149,6 +149,23 @@ fun PerformanceScreen() {
                     }
                     state.report?.let { report ->
                         item { BacktestSummary(report = report, languageTag = languageTag) }
+                        if (report.baselineMatchesEvaluated > 0) {
+                            item {
+                                InfoCard(
+                                    title = stringResource(R.string.context_comparison_title),
+                                    body = stringResource(
+                                        R.string.context_comparison_body,
+                                        Formatters.decimal(report.baselineBrier, languageTag, 4),
+                                        Formatters.decimal(report.brier, languageTag, 4),
+                                        Formatters.decimal(report.baselineLogLoss, languageTag, 3),
+                                        Formatters.decimal(report.logLoss, languageTag, 3),
+                                        Formatters.percent(report.baselineAccuracy, languageTag),
+                                        Formatters.percent(report.accuracy, languageTag),
+                                    ),
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                )
+                            }
+                        }
                         item {
                             SectionHeader(title = stringResource(R.string.section_calibration))
                         }

@@ -170,7 +170,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                         style = MaterialTheme.typography.bodySmall,
                     )
                     Text(
-                        text = stringResource(R.string.about_model, "Dixon-Coles + Elo"),
+                        text = stringResource(R.string.about_model, "Dixon-Coles + Elo + form/context"),
                         style = MaterialTheme.typography.bodySmall,
                     )
                     Text(

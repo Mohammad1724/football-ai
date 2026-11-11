@@ -109,7 +109,12 @@ class PerformanceRepository(
             )
         }
 
-        val report = Backtester(BacktestConfig(refitEveryMatches = refitEvery)).run(records)
+        val report = Backtester(
+            BacktestConfig(refitEveryMatches = refitEvery, contextFeaturesEnabled = true),
+        ).run(records)
+        val baselineReport = Backtester(
+            BacktestConfig(refitEveryMatches = refitEvery, contextFeaturesEnabled = false),
+        ).run(records)
         if (report.matchesEvaluated == 0) {
             return@withContext Outcome.Failure(
                 AppError(
@@ -157,6 +162,10 @@ class PerformanceRepository(
                 periodStartEpochMs = report.periodStartEpochMs,
                 periodEndEpochMs = report.periodEndEpochMs,
                 generatedAtEpochMs = now,
+                baselineMatchesEvaluated = baselineReport.matchesEvaluated,
+                baselineBrier = baselineReport.model.brier,
+                baselineLogLoss = baselineReport.model.logLoss,
+                baselineAccuracy = baselineReport.model.accuracy,
             ),
         )
     }

@@ -304,6 +304,11 @@ data class PerformanceReport(
     val periodStartEpochMs: Long,
     val periodEndEpochMs: Long,
     val generatedAtEpochMs: Long,
+    /** Same fixtures and timestamps with contextual features disabled. */
+    val baselineMatchesEvaluated: Int = 0,
+    val baselineBrier: Double = Double.NaN,
+    val baselineLogLoss: Double = Double.NaN,
+    val baselineAccuracy: Double = Double.NaN,
 )
 
 data class CalibrationPoint(

@@ -87,6 +87,9 @@ class PredictionRepository(
         )
         val baseline = ratingsRepository.baseline(source, match.competitionId, now)
         val fit = ratingsRepository.fit(source, match.competitionId, now)
+        val adjustments = ratingsRepository.adjustments(
+            source, match.competitionId, match.homeTeamId, match.awayTeamId, now,
+        )
         val historyCount = ratingsRepository.matchCount(source, match.competitionId)
         if (!DailyAnalysisPolicy.hasEnoughHistory(historyCount, strengths.first.matchesUsed, strengths.second.matchesUsed)) {
             return Outcome.Failure(AppError(ErrorCode.INSUFFICIENT_HISTORY))
@@ -117,7 +120,7 @@ class PredictionRepository(
             home = strengths.first,
             away = strengths.second,
             baseline = baseline,
-            adjustments = emptyList(),
+            adjustments = adjustments,
             eloBlendWeight = ELO_BLEND_WEIGHT,
             dixonColesRho = fit?.rho,
             quality = quality,
@@ -474,7 +477,7 @@ class PredictionRepository(
     }
 
     companion object {
-        const val MODEL_VERSION = "football-ai/engine-1.2.1"
+        const val MODEL_VERSION = "football-ai/engine-1.3.0"
         const val ELO_BLEND_WEIGHT = 0.15
         const val LIVE_TTL_MS = PredictionPolicy.LIVE_TTL_MS
         private const val STALE_AFTER_MS = 6 * TimeConstants.HOUR_MS

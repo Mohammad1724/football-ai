@@ -299,6 +299,11 @@ class MatchPredictionEngine(private val config: EngineConfig = EngineConfig()) {
             list.add(Explanation(ExplanationCode.ELO_EDGE_AWAY, (-eloDiff / 400.0).coerceIn(0.0, 1.0), params("elo", -eloDiff)))
         }
 
+        for (adjustment in input.adjustments) {
+            val magnitude = maxOf(abs(adjustment.homeFactor - 1.0), abs(adjustment.awayFactor - 1.0))
+            list.add(Explanation(adjustment.reason, (magnitude * 4.0).coerceIn(0.05, 0.45)))
+        }
+
         if (input.dixonColesRho != null && input.dixonColesRho != 0.0) {
             list.add(Explanation(ExplanationCode.DIXON_COLES_LOW_SCORE_ADJUSTMENT, 0.3, params("rho", input.dixonColesRho)))
         }

@@ -101,17 +101,21 @@ class DailyAnalysisRepository(
                 onProgress(0, leagueSeasons.size + candidates.size)
                 var done = 0
                 for ((league, season) in leagueSeasons) {
-                    val bootstrapKey = "daily-history-v1:$league:$season"
-                    // Open Matchday's current results bootstrap the daily model without
-                    // depending on the older football-data host. Older seasons remain
-                    // available through the explicit history import in Data sources.
-                    val seasons = listOf(season)
+                    val bootstrapKey = "daily-history-v2:$league:$season"
+                    // Refresh the current season every day. Fetch the two completed
+                    // seasons once per league; football-data's GitHub mirror is used
+                    // only when the primary host is unreachable and covers that league.
+                    val seasons = if (db.syncMetaDao().get(bootstrapKey)?.value == "ready") {
+                        listOf(season)
+                    } else {
+                        listOf(season, season - 1, season - 2)
+                    }
                     when (val result = sync.importCsvHistory(listOf(league), seasons)) {
                         is Outcome.Failure -> errors += "$league: ${result.error.code}"
                         is Outcome.Success -> {
                             errors += result.value.errors
                             val count = ratings.matchCount(FootballDataCoUkProvider.PROVIDER_ID, Ids.competition(FootballDataCoUkProvider.PROVIDER_ID, league))
-                            if (result.value.errors.isEmpty() && count >= 40) {
+                            if (count >= 40) {
                                 db.syncMetaDao().put(SyncMetaEntity(bootstrapKey, "ready", now))
                             }
                         }
@@ -165,8 +169,9 @@ object DailyAnalysisPolicy {
     /** Descriptive pick, NOT a calibrated confidence or betting recommendation. */
     fun pick(home: Double, draw: Double, away: Double, quality: QualityLevel): String {
         if (kotlin.math.abs(home + draw + away - 1.0) > 1e-6 || quality == QualityLevel.INSUFFICIENT || listOf(home, draw, away).any { !it.isFinite() || it !in 0.0..1.0 }) return "INSUFFICIENT"
+        if (quality == QualityLevel.LOW) return "UNCLEAR"
         val sorted = listOf("HOME" to home, "DRAW" to draw, "AWAY" to away).sortedByDescending { it.second }
-        if (sorted[0].second - sorted[1].second + 1e-9 < 0.05) return "UNCLEAR"
+        if (sorted[0].second - sorted[1].second + 1e-9 < 0.08) return "UNCLEAR"
         return sorted[0].first
     }
 }

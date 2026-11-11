@@ -81,6 +81,9 @@
     <string name="expected_total_goals">مجموع گل انتظاری</string>
     <string name="explanation_dixon_coles">تصحیح نتایج کم‌گل دیکسون-کولز اعمال شد</string>
     <string name="explanation_elo_edge_away">رتبه الو به میهمان متمایل است</string>
+    <string name="explanation_recent_form">فرم پنج بازی اخیر، با وزن زمانی و تأثیر محدود</string>
+    <string name="explanation_venue_form">عملکرد اخیر تیم‌ها در خانه و خارج از خانه</string>
+    <string name="explanation_fixture_congestion">اختلاف استراحت و فشردگی مسابقات اخیر</string>
     <string name="explanation_elo_edge_home">رتبه الو به میزبان متمایل است</string>
     <string name="explanation_evenly_matched">دو تیم بسیار نزدیک هستند</string>
     <string name="explanation_favourite_away">میهمان شانس آشکاری دارد</string>
@@ -394,7 +397,9 @@
     <string name="daily_pick_team">نتیجه محتمل‌تر: برد %1$s</string>
     <string name="daily_pick_draw">نتیجه محتمل‌تر: مساوی</string>
     <string name="daily_pick_unclear">احتمال‌ها نزدیک‌اند؛ برتری واضح نیست</string>
-    <string name="daily_pick_note">این نتیجه تضمینی نیست. فاصله کمتر از ۵ واحد درصد بین دو احتمال اول، «برتری نامشخص» نامیده می‌شود؛ این آستانه معیار اطمینان کالیبره‌شده نیست.</string>
+    <string name="daily_pick_note">این نتیجه تضمینی نیست. پوشش داده کم یا فاصله کمتر از ۸ واحد درصد بین دو احتمال اول، «برتری نامشخص» می‌شود؛ این آستانه معیار اطمینان کالیبره‌شده یا تضمین سود نیست.</string>
+    <string name="context_comparison_title">مقایسه مدل پایه و فیچرهای جدید</string>
+    <string name="context_comparison_body">روی همان مسابقات و بدون استفاده از نتایج آینده:\nBrier: پایه %1$s ← با فرم و شرایط %2$s (کمتر بهتر)\nLog loss: پایه %3$s ← جدید %4$s (کمتر بهتر)\nAccuracy: پایه %5$s ← جدید %6$s\nتفاوت کوچک ممکن است تصادفی باشد؛ نمونه بیشتر و ارزیابی مداوم لازم است.</string>
     <string name="action_daily_analysis">اجرای تحلیل روزانه</string>
     <string name="action_daily_start">اجرای تحلیل روزانه</string>
     <string name="search_matches">جست‌وجوی مسابقات</string>

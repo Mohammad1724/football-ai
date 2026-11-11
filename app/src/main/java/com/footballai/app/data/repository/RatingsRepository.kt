@@ -3,6 +3,7 @@ package com.footballai.app.data.repository
 import com.footballai.app.core.TimeProvider
 import com.footballai.app.data.local.FootballDatabase
 import com.footballai.app.data.local.entity.HistoricalMatchEntity
+import com.footballai.engine.model.LambdaAdjustment
 import com.footballai.engine.model.LeagueBaseline
 import com.footballai.engine.model.TeamStrength
 import com.footballai.engine.ratings.DixonColesFit
@@ -70,6 +71,18 @@ class RatingsRepository(
         val book = book(source, competitionId, asOfEpochMs)
             ?: return@withContext Pair(TeamStrength.neutral(homeTeamId), TeamStrength.neutral(awayTeamId))
         book.strengths(competitionId, homeTeamId, awayTeamId, asOfEpochMs)
+    }
+
+    suspend fun adjustments(
+        source: String,
+        competitionId: String,
+        homeTeamId: String,
+        awayTeamId: String,
+        asOfEpochMs: Long,
+    ): List<LambdaAdjustment> = withContext(Dispatchers.Default) {
+        book(source, competitionId, asOfEpochMs)?.adjustments(
+            competitionId, homeTeamId, awayTeamId, asOfEpochMs,
+        ).orEmpty()
     }
 
     suspend fun baseline(source: String, competitionId: String, asOfEpochMs: Long): LeagueBaseline {

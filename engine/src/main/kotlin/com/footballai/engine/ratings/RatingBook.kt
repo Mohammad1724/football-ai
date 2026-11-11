@@ -1,5 +1,6 @@
 package com.footballai.engine.ratings
 
+import com.footballai.engine.model.LambdaAdjustment
 import com.footballai.engine.model.LeagueBaseline
 import com.footballai.engine.model.TeamStrength
 
@@ -109,6 +110,19 @@ class RatingBook(private val config: RatingBookConfig = RatingBookConfig()) {
         )
         return Pair(home, away)
     }
+
+    @Synchronized
+    fun adjustments(
+        competitionId: String,
+        homeTeamId: String,
+        awayTeamId: String,
+        asOfEpochMs: Long,
+    ): List<LambdaAdjustment> = ContextFeatures.adjustments(
+        history = history[competitionId].orEmpty(),
+        homeTeamId = homeTeamId,
+        awayTeamId = awayTeamId,
+        asOfEpochMs = asOfEpochMs,
+    )
 
     @Synchronized
     fun baseline(competitionId: String, asOfEpochMs: Long): LeagueBaseline {

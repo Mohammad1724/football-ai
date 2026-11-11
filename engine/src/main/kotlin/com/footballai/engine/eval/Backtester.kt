@@ -11,6 +11,7 @@ import com.footballai.engine.prediction.MatchPredictionEngine
 import com.footballai.engine.quality.DataQualityAssessor
 import com.footballai.engine.quality.QualityInputs
 import com.footballai.engine.ratings.DixonColesFit
+import com.footballai.engine.ratings.ContextFeatures
 import com.footballai.engine.ratings.DixonColesFitter
 import com.footballai.engine.ratings.EloConfig
 import com.footballai.engine.ratings.EloRatingSystem
@@ -52,6 +53,8 @@ data class BacktestConfig(
     val elo: EloConfig = EloConfig(),
     val engine: EngineConfig = EngineConfig(),
     val binCount: Int = 10,
+    /** Enables the same recent-form, venue and congestion features used in production. */
+    val contextFeaturesEnabled: Boolean = true,
     /** Conservative result availability when historic completion timestamps are absent. */
     val resultAvailabilityDelayMinutes: Int = 120,
 )
@@ -201,6 +204,16 @@ class Backtester(private val config: BacktestConfig = BacktestConfig()) {
                         home = home,
                         away = away,
                         baseline = baseline,
+                        adjustments = if (config.contextFeaturesEnabled) {
+                            ContextFeatures.adjustments(
+                                history = prior,
+                                homeTeamId = record.homeTeamId,
+                                awayTeamId = record.awayTeamId,
+                                asOfEpochMs = record.kickoffEpochMs,
+                            )
+                        } else {
+                            emptyList()
+                        },
                         eloBlendWeight = config.engine.eloBlendWeight,
                         dixonColesRho = fit?.rho,
                         quality = quality,

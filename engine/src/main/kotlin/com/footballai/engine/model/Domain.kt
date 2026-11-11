@@ -187,6 +187,9 @@ enum class ExplanationCode {
     HOME_ADVANTAGE,
     ELO_EDGE_HOME,
     ELO_EDGE_AWAY,
+    RECENT_FORM,
+    VENUE_FORM,
+    FIXTURE_CONGESTION,
     DIXON_COLES_LOW_SCORE_ADJUSTMENT,
     LIMITED_HISTORY,
     LARGE_SAMPLE,
@@ -229,7 +232,7 @@ data class PreMatchInput(
     val dixonColesRho: Double? = null,
     val quality: DataQuality,
     val asOfEpochMs: Long,
-    val modelVersion: String = "football-ai/engine-1.2.0",
+    val modelVersion: String = "football-ai/engine-1.3.0",
     val fittedMatches: Int = 0,
 )
 
