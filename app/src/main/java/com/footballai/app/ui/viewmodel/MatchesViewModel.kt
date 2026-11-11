@@ -20,7 +20,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-/** Only recent football is shown here; future fixture filters deliberately do not exist. */
+/** Recent results and the next ten days share one date-driven match list. */
 private data class MatchSelection(
     val dayOffset: Int = 0,
     val competitionId: String? = null,
@@ -98,7 +98,7 @@ class MatchesViewModel(private val container: AppContainer) : ViewModel() {
     }
 
     fun selectDay(dayOffset: Int) {
-        if (dayOffset !in OLDEST_DAY_OFFSET..0) return
+        if (dayOffset !in OLDEST_DAY_OFFSET..NEWEST_DAY_OFFSET) return
         selection.update { it.copy(dayOffset = dayOffset) }
     }
 
@@ -130,12 +130,11 @@ class MatchesViewModel(private val container: AppContainer) : ViewModel() {
                 val result = if (providerId == null) {
                     Outcome.Failure(AppError(ErrorCode.NOT_FOUND))
                 } else {
-                    // Include all of today and the previous days. Tomorrow may be returned
-                    // by the provider, but the recent-day UI never presents it.
+                    // Cover every date exposed by the horizontal day selector.
                     container.syncRepository.syncFixtures(
                         providerId = providerId,
                         daysBack = 3,
-                        daysAhead = 1,
+                        daysAhead = NEWEST_DAY_OFFSET,
                     )
                 }
                 val error = when (result) {
@@ -165,6 +164,7 @@ class MatchesViewModel(private val container: AppContainer) : ViewModel() {
 
     companion object {
         const val OLDEST_DAY_OFFSET = -2
+        const val NEWEST_DAY_OFFSET = 10
 
         /** Calendar-day boundaries, including DST changes, in the device's time zone. */
         internal fun localDayWindow(

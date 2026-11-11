@@ -16,6 +16,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -39,6 +41,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -163,12 +166,21 @@ private fun RecentDayTabs(
     onDaySelected: (Int) -> Unit,
 ) {
     val now = System.currentTimeMillis()
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 8.dp),
+    val listState = rememberLazyListState()
+    LaunchedEffect(selectedDayOffset) {
+        listState.animateScrollToItem(selectedDayOffset - MatchesViewModel.OLDEST_DAY_OFFSET)
+    }
+    LazyRow(
+        state = listState,
+        modifier = Modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(horizontal = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        for (offset in MatchesViewModel.OLDEST_DAY_OFFSET..0) {
+        items(
+            count = MatchesViewModel.NEWEST_DAY_OFFSET - MatchesViewModel.OLDEST_DAY_OFFSET + 1,
+            key = { index -> index + MatchesViewModel.OLDEST_DAY_OFFSET },
+        ) { index ->
+            val offset = index + MatchesViewModel.OLDEST_DAY_OFFSET
             val selected = offset == selectedDayOffset
             val epochMs = Instant.ofEpochMilli(now)
                 .atZone(ZoneId.systemDefault())
@@ -179,7 +191,7 @@ private fun RecentDayTabs(
                 .toEpochMilli()
             Column(
                 modifier = Modifier
-                    .weight(1f)
+                    .width(104.dp)
                     .clip(RoundedCornerShape(12.dp))
                     .clickable { onDaySelected(offset) }
                     .padding(top = 12.dp),
@@ -189,6 +201,7 @@ private fun RecentDayTabs(
                     text = when (offset) {
                         0 -> stringResource(R.string.filter_today)
                         -1 -> stringResource(R.string.filter_yesterday)
+                        1 -> stringResource(R.string.filter_tomorrow)
                         else -> Formatters.dateOnlyShort(epochMs, languageTag)
                     },
                     style = MaterialTheme.typography.titleSmall,
