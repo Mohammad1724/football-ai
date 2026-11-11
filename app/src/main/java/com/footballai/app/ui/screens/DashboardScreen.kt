@@ -172,7 +172,7 @@ fun DashboardScreen(
 
                 if (state.syncWarnings.isNotEmpty()) {
                     item {
-                        val code = state.syncWarnings.first().substringAfterLast(": ")
+                        val code = state.syncWarnings.first().substringAfter(": ").substringBefore(' ')
                         InfoCard(
                             title = stringResource(R.string.sync_partial_title),
                             body = stringResource(
@@ -189,12 +189,15 @@ fun DashboardScreen(
                             containerColor = MaterialTheme.colorScheme.surfaceVariant,
                         )
                         state.syncWarnings.distinct().forEach { warning ->
-                            val warningCode = warning.substringAfterLast(": ")
+                            val description = warning.substringAfter(": ")
+                            val warningCode = description.substringBefore(' ')
+                            val error = com.footballai.app.core.AppError(runCatching {
+                                com.footballai.app.core.ErrorCode.valueOf(warningCode)
+                            }.getOrDefault(com.footballai.app.core.ErrorCode.REQUEST_FAILED))
+                            val diagnostics = description.removePrefix(warningCode).trim()
                             InfoCard(
-                                title = warning.substringBeforeLast(": ", "Sync"),
-                                body = errorLabel(com.footballai.app.core.AppError(runCatching {
-                                    com.footballai.app.core.ErrorCode.valueOf(warningCode)
-                                }.getOrDefault(com.footballai.app.core.ErrorCode.REQUEST_FAILED))),
+                                title = warning.substringBefore(": ", "Sync"),
+                                body = errorLabel(error) + if (diagnostics.isEmpty()) "" else "\n$diagnostics",
                             )
                         }
                     }

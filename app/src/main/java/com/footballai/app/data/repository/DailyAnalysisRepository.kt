@@ -102,8 +102,10 @@ class DailyAnalysisRepository(
                 var done = 0
                 for ((league, season) in leagueSeasons) {
                     val bootstrapKey = "daily-history-v1:$league:$season"
-                    val seasons = if (db.syncMetaDao().get(bootstrapKey) == "ready") listOf(season)
-                        else listOf(season - 2, season - 1, season)
+                    // Open Matchday's current results bootstrap the daily model without
+                    // depending on the older football-data host. Older seasons remain
+                    // available through the explicit history import in Data sources.
+                    val seasons = listOf(season)
                     when (val result = sync.importCsvHistory(listOf(league), seasons)) {
                         is Outcome.Failure -> errors += "$league: ${result.error.code}"
                         is Outcome.Success -> {

@@ -66,7 +66,7 @@ class DailyAnalysisTest {
         assertEquals(1, report.predicted)
         assertEquals(2, report.resolved)
         coVerify { e.sync.syncFixtures(e.source, listOf("E0"), 0, 10, false, any()) }
-        coVerify { e.sync.importCsvHistory(listOf("E0"), listOf(2024, 2025, 2026)) }
+        coVerify { e.sync.importCsvHistory(listOf("E0"), listOf(2026)) }
         coVerify(exactly = 0) { e.sync.syncLive(any()) }
     }
 

@@ -25,7 +25,11 @@ which provider produced a fixture.
   counts every call, refuses to exceed the daily limit, and warns before enabling live
   polling for many matches at once.
 
-### 3. football-data.co.uk (CSV archive and fixtures) — history, fixtures, calibration
+### 3. Open Matchday + football-data.co.uk (keyless CSV) — current fixtures, results and history
+
+**Open Matchday** supplies the current season's fixtures and finished results from daily-refreshed CSV files hosted on GitHub (`github.com/oladeeayo/open-matchday`). It needs no key and covers all 17 leagues currently listed in the app. Its fixed UTC+1 kickoff convention is converted explicitly. Open Matchday is credited in the provider attribution; the data is for personal, non-commercial use and upstream provider terms still apply.
+
+**football-data.co.uk** supplies older seasons and remains a fallback for competitions not mapped to Open Matchday. Both `www` and canonical non-www hosts are attempted, and transport failures retain their actual network/HTTP diagnostics.
 
 * Free, no key, plain `https://www.football-data.co.uk/mmz4281/{YYyy}/{code}.csv` for
   history and `https://www.football-data.co.uk/fixtures.csv` for upcoming matches.

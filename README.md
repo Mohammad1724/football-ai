@@ -53,10 +53,12 @@ later from **Settings → Run setup guide again**. The same actions are always a
 * **football-data.org** — a free personal token is required for every endpoint
   (registration is free and manual). The token is stored in the Android Keystore.
 * **API-Football** — optional, free tier is 100 requests/day; requires your own key.
-* **football-data.co.uk** — needs no key at all. It supplies the weekly `fixtures.csv`
-  (upcoming matches for the main European leagues) and the historical CSV archive; the
-  history is what makes the statistical model meaningful, because it needs a few hundred
-  finished matches per competition.
+* **Open Matchday** — needs no key and supplies daily-refreshed current-season fixtures
+  and results for the app's 17 leagues through CSV files hosted on GitHub. Its name and
+  upstream terms are shown in provider attribution.
+* **football-data.co.uk** — needs no key and supplies older-season CSV archives plus a
+  fallback for unmapped competitions. Older history strengthens the statistical model;
+  the current-season Open Matchday results can bootstrap it when the older host is unreachable.
 
 The app can therefore show a fixture list with no credentials at all. Authenticated
 providers add live scores, statistics, lineups and a wider competition set; when one of

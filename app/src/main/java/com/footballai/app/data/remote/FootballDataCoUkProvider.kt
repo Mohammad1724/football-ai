@@ -44,7 +44,7 @@ class FootballDataCoUkProvider(
 
     override val info: ProviderInfo = ProviderInfo(
         id = PROVIDER_ID,
-        displayName = "football-data.co.uk (CSV)",
+        displayName = "Open Matchday / football-data.co.uk",
         requiresApiKey = false,
         capabilities = ProviderCapabilities(
             liveScores = false,
@@ -57,12 +57,22 @@ class FootballDataCoUkProvider(
             historicalSeasons = 25,
         ),
         quota = QuotaPolicy(requestsPerMinute = 30, requestsPerDay = 0),
-        attribution = "Historical results and odds courtesy of football-data.co.uk",
+        attribution = "Current fixtures/results: open-matchday (github.com/oladeeayo/open-matchday). Historical results and odds: football-data.co.uk. Personal, non-commercial use; upstream terms apply.",
     )
 
     override fun availableCompetitions(): List<CsvCompetition> = COMPETITIONS
 
     override suspend fun history(competitionKey: String, seasonStartYear: Int): Outcome<List<RemoteHistoryMatch>> {
+        val competition = COMPETITIONS.firstOrNull { it.key == competitionKey }
+        val openDirectory = OPEN_MATCHDAY_LEAGUES[competitionKey]
+        if (competition != null && openDirectory != null && seasonStartYear == currentSeasonStartYear()) {
+            return when (val response = openMatchdayCsv(openDirectory, "results", seasonStartYear)) {
+                is Outcome.Failure -> response
+                is Outcome.Success -> Outcome.Success(
+                    OpenMatchdayParser.history(response.value, competition, seasonStartYear),
+                )
+            }
+        }
         val season = seasonCode(seasonStartYear)
         return when (val response = downloadCsv(
             primaryUrl = "$baseUrl/$season/$competitionKey.csv",
@@ -129,6 +139,47 @@ class FootballDataCoUkProvider(
         return client.get(PROVIDER_ID, info.quota, alternateUrl, headers = CSV_HEADERS)
     }
 
+    private val openCacheMutex = Mutex()
+    private val openCsvCache = HashMap<String, Pair<Long, String>>()
+
+    private suspend fun openMatchdayCsv(
+        directory: String,
+        kind: String,
+        seasonStartYear: Int,
+    ): Outcome<String> = openCacheMutex.withLock {
+        val cacheKey = "$directory/$kind/$seasonStartYear"
+        val now = System.currentTimeMillis()
+        openCsvCache[cacheKey]?.takeIf { now - it.first < CACHE_TTL_MS }?.let {
+            return@withLock Outcome.Success(it.second)
+        }
+        val url = "$OPEN_MATCHDAY_BASE_URL/$directory/${kind}_${seasonCode(seasonStartYear)}.csv"
+        when (val result = client.get(PROVIDER_ID, info.quota, url, headers = CSV_HEADERS)) {
+            is Outcome.Failure -> result
+            is Outcome.Success -> {
+                openCsvCache[cacheKey] = now to result.value
+                result
+            }
+        }
+    }
+
+    private suspend fun openMatches(competition: CsvCompetition, directory: String): Outcome<List<RemoteMatch>> {
+        val season = currentSeasonStartYear()
+        val fixturesResponse = openMatchdayCsv(directory, "fixtures", season)
+        val resultsResponse = openMatchdayCsv(directory, "results", season)
+        if (fixturesResponse is Outcome.Failure && resultsResponse is Outcome.Failure) return fixturesResponse
+        return try {
+            val fixtures = (fixturesResponse as? Outcome.Success<String>)?.value
+                ?.let { OpenMatchdayParser.fixtures(it, competition, season) }
+                .orEmpty()
+            val results = (resultsResponse as? Outcome.Success<String>)?.value
+                ?.let { OpenMatchdayParser.results(it, competition, season) }
+                .orEmpty()
+            Outcome.Success(fixtures + results)
+        } catch (error: Exception) {
+            Outcome.Failure(AppError(ErrorCode.PARSE_ERROR, detail = error.message, cause = error))
+        }
+    }
+
     override suspend fun competitions(): Outcome<List<RemoteCompetition>> = Outcome.Success(
         COMPETITIONS.map { competition ->
             RemoteCompetition(
@@ -146,20 +197,31 @@ class FootballDataCoUkProvider(
         season: Int?,
         fromEpochMs: Long?,
         toEpochMs: Long?,
-    ): Outcome<List<RemoteMatch>> = when (val all = fixtures()) {
-        is Outcome.Failure -> all
-        is Outcome.Success -> Outcome.Success(
-            all.value.filter { match ->
-                match.competitionKey == competitionKey &&
-                    (fromEpochMs == null || match.kickoffEpochMs >= fromEpochMs) &&
-                    (toEpochMs == null || match.kickoffEpochMs <= toEpochMs)
-            },
-        )
+    ): Outcome<List<RemoteMatch>> {
+        val competition = COMPETITIONS.firstOrNull { it.key == competitionKey }
+        val openDirectory = OPEN_MATCHDAY_LEAGUES[competitionKey]
+        val all = if (competition != null && openDirectory != null && (season == null || season == currentSeasonStartYear())) {
+            openMatches(competition, openDirectory)
+        } else {
+            fixtures()
+        }
+        return when (all) {
+            is Outcome.Failure -> all
+            is Outcome.Success -> Outcome.Success(
+                all.value.filter { match ->
+                    match.competitionKey == competitionKey &&
+                        (fromEpochMs == null || match.kickoffEpochMs >= fromEpochMs) &&
+                        (toEpochMs == null || match.kickoffEpochMs <= toEpochMs)
+                },
+            )
+        }
     }
 
     override suspend fun liveMatches(): Outcome<List<RemoteMatch>> = unsupported("live scores")
 
-    override suspend fun match(matchKey: String): Outcome<RemoteMatch?> = when (val all = fixtures()) {
+    override suspend fun match(matchKey: String): Outcome<RemoteMatch?> = when (
+        val all = matches(matchKey.substringBefore(':'), null, fromEpochMs = null, toEpochMs = null)
+    ) {
         is Outcome.Failure -> all
         is Outcome.Success -> {
             val parts = matchKey.split(':')
@@ -204,6 +266,27 @@ class FootballDataCoUkProvider(
         const val FIXTURES_URL = "https://www.football-data.co.uk/fixtures.csv"
         internal const val ALTERNATE_BASE_URL = "https://football-data.co.uk/mmz4281"
         internal const val ALTERNATE_FIXTURES_URL = "https://football-data.co.uk/fixtures.csv"
+        internal const val OPEN_MATCHDAY_BASE_URL =
+            "https://raw.githubusercontent.com/oladeeayo/open-matchday/master/data"
+        internal val OPEN_MATCHDAY_LEAGUES = mapOf(
+            "E0" to "ENG_1_premier-league",
+            "E1" to "ENG_2_championship",
+            "E2" to "ENG_3_league-one",
+            "SC0" to "SCO_1_premiership",
+            "D1" to "GER_1_bundesliga",
+            "D2" to "GER_2_2-bundesliga",
+            "I1" to "ITA_1_serie-a",
+            "I2" to "ITA_2_serie-b",
+            "SP1" to "ESP_1_la-liga",
+            "SP2" to "ESP_2_segunda-division",
+            "F1" to "FRA_1_ligue-1",
+            "F2" to "FRA_2_ligue-2",
+            "N1" to "NED_1_eredivisie",
+            "B1" to "BEL_1_pro-league",
+            "P1" to "POR_1_primeira-liga",
+            "T1" to "TUR_1_super-lig",
+            "G1" to "GRE_1_super-league",
+        )
         private val CSV_HEADERS = mapOf(
             "User-Agent" to "FootballAI/0.4 (Android; personal football CSV reader)",
             "Accept" to "text/csv,text/plain;q=0.9,*/*;q=0.8",
