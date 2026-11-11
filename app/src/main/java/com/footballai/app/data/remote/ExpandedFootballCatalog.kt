@@ -265,7 +265,7 @@ internal object ExpandedTeamIdentity {
         .replace(Regex("[^a-z0-9]+"), "")
 }
 
-/** Parser for football-data.co.uk/new/*.csv cumulative league archives. */
+/** Parser for cumulative league archives in the football-data.co.uk new directory. */
 internal object ExtraCsvHistoryParser {
     private val HOME_ODDS = listOf("AvgCH", "PSCH", "B365CH", "AvgH", "PH", "B365H")
     private val DRAW_ODDS = listOf("AvgCD", "PSCD", "B365CD", "AvgD", "PD", "B365D")
