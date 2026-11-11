@@ -21,6 +21,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -41,7 +42,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -139,7 +142,7 @@ fun MatchDetailScreen(
                 },
                 title = {
                     Text(
-                        text = detail?.summary?.let { "${it.home.name} - ${it.away.name}" }
+                        text = detail?.summary?.competitionName?.takeIf { it.isNotBlank() }
                             ?: stringResource(R.string.title_match),
                         style = MaterialTheme.typography.titleMedium,
                         maxLines = 1,
@@ -340,6 +343,8 @@ private fun TeamColumn(
     }
 }
 
+private enum class PredictionGlossary { EXPECTED_GOALS, DATA_COVERAGE }
+
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 private fun AnalysisTab(
@@ -357,6 +362,8 @@ private fun AnalysisTab(
     onToggleTracking: (Boolean) -> Unit,
     languageTag: String,
 ) {
+    var showAdvanced by rememberSaveable(prediction?.id) { mutableStateOf(false) }
+    var glossary by remember { mutableStateOf<PredictionGlossary?>(null) }
     LazyColumn(modifier = Modifier.fillMaxSize()) {
         if (isLiveMatch) {
             item {
@@ -436,11 +443,13 @@ private fun AnalysisTab(
                         text = stringResource(R.string.prediction_result),
                         style = MaterialTheme.typography.titleMedium,
                     )
-                    QualityBadge(
-                        level = prediction.quality.level,
-                        completeness = prediction.quality.completeness,
-                        languageTag = languageTag,
-                    )
+                    Box(modifier = Modifier.clickable { glossary = PredictionGlossary.DATA_COVERAGE }) {
+                        QualityBadge(
+                            level = prediction.quality.level,
+                            completeness = prediction.quality.completeness,
+                            languageTag = languageTag,
+                        )
+                    }
                 }
                 Spacer(Modifier.height(10.dp))
                 ProbabilityBar(
@@ -459,6 +468,9 @@ private fun AnalysisTab(
                     ExpectedGoals(label = stringResource(R.string.expected_home_goals), value = prediction.expectedHomeGoals, languageTag = languageTag)
                     ExpectedGoals(label = stringResource(R.string.expected_away_goals), value = prediction.expectedAwayGoals, languageTag = languageTag)
                     ExpectedGoals(label = stringResource(R.string.expected_total_goals), value = prediction.expectedHomeGoals + prediction.expectedAwayGoals, languageTag = languageTag)
+                }
+                TextButton(onClick = { glossary = PredictionGlossary.EXPECTED_GOALS }) {
+                    Text(stringResource(R.string.expected_goals_help))
                 }
                 val liveSnapshot = prediction.live
                 if (liveSnapshot != null) {
@@ -493,6 +505,18 @@ private fun AnalysisTab(
             item { Spacer(Modifier.height(8.dp)) }
         }
 
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                horizontalArrangement = Arrangement.Center,
+            ) {
+                TextButton(onClick = { showAdvanced = !showAdvanced }) {
+                    Text(stringResource(if (showAdvanced) R.string.hide_advanced_analysis else R.string.show_advanced_analysis))
+                }
+            }
+        }
+
+        if (showAdvanced) {
         item { MarketSection(prediction = prediction, languageTag = languageTag) }
 
         item {
@@ -565,6 +589,7 @@ private fun AnalysisTab(
                 containerColor = MaterialTheme.colorScheme.surfaceVariant,
             )
         }
+        }
         item {
             Spacer(Modifier.height(8.dp))
             InfoCard(
@@ -573,15 +598,31 @@ private fun AnalysisTab(
                 containerColor = MaterialTheme.colorScheme.surfaceVariant,
             )
         }
-        item {
-            TextButton(
-                onClick = onPredict,
-                modifier = Modifier.padding(horizontal = 8.dp),
-            ) {
-                Text(stringResource(R.string.action_recalculate))
+        if (!isFinished) {
+            item {
+                TextButton(
+                    onClick = onPredict,
+                    modifier = Modifier.padding(horizontal = 8.dp),
+                ) {
+                    Text(stringResource(R.string.action_recalculate))
+                }
             }
         }
         item { Spacer(Modifier.height(24.dp)) }
+    }
+    glossary?.let { selected ->
+        AlertDialog(
+            onDismissRequest = { glossary = null },
+            confirmButton = {
+                TextButton(onClick = { glossary = null }) { Text(stringResource(R.string.action_close)) }
+            },
+            title = {
+                Text(stringResource(if (selected == PredictionGlossary.EXPECTED_GOALS) R.string.expected_goals_help_title else R.string.section_data_quality))
+            },
+            text = {
+                Text(stringResource(if (selected == PredictionGlossary.EXPECTED_GOALS) R.string.expected_goals_help_body else R.string.data_coverage_help_body))
+            },
+        )
     }
 }
 

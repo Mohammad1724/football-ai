@@ -409,6 +409,13 @@
     <string name="predictions_resolved_filter">ارزیابی‌شده (%1$s)</string>
     <string name="empty_upcoming_predictions_title">پیش‌بینی بازی آینده‌ای ندارید</string>
     <string name="empty_upcoming_predictions_message">برای مشاهده ارزیابی پیش‌بینی‌های قبلی، فیلتر «ارزیابی‌شده» را انتخاب کنید.</string>
+    <string name="show_advanced_analysis">نمایش بازارها و تحلیل پیشرفته</string>
+    <string name="hide_advanced_analysis">پنهان‌کردن تحلیل پیشرفته</string>
+    <string name="expected_goals_help">گل مورد انتظار (xG) چیست؟</string>
+    <string name="expected_goals_help_title">گل مورد انتظار</string>
+    <string name="expected_goals_help_body">عددی برآوردشده از تعداد گل هر تیم بر اساس قدرت حمله و دفاع، فرم و شرایط مسابقه است؛ پیش‌بینی نتیجه‌ی دقیق نیست. مثلاً ۱٫۵۲ به معنی حدود یک و نیم گل در میانگین مسابقات مشابه است، نه اینکه تیم نصف گل هم می‌زند.</string>
+    <string name="data_coverage_help_body">پوشش داده نشان می‌دهد ورودی‌های مدل چقدر کامل‌اند؛ درصد دقت یا شانس درست‌بودن پیش‌بینی نیست. تاریخچه بیشتر پوشش را بالا می‌برد و نبود ترکیب، مصدومان یا ضرایب آن را کاهش می‌دهد. برای فهم عوامل اصلی، «تحلیل پیشرفته» را باز کنید.</string>
+    <string name="daily_pick_note_short">انتخاب احتمالی مدل است، نه تضمین نتیجه یا سود.</string>
     <string name="search_matches">جست‌وجوی مسابقات</string>
     <string name="search_matches_hint">نام لیگ، تیم یا مسابقه…</string>
     <string name="search_local_description">در لیگ‌ها، تیم‌ها و مسابقات دریافت‌شده روی همین دستگاه جست‌وجو کنید.</string>

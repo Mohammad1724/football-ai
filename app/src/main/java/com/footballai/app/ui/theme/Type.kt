@@ -46,26 +46,26 @@ val FootballAiTypography = Typography(
     titleSmall = TextStyle(
         fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.Medium,
-        fontSize = 13.sp,
-        lineHeight = 18.sp,
+        fontSize = 14.sp,
+        lineHeight = 20.sp,
     ),
     bodyLarge = TextStyle(
         fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.Normal,
-        fontSize = 15.sp,
-        lineHeight = 22.sp,
+        fontSize = 16.sp,
+        lineHeight = 24.sp,
     ),
     bodyMedium = TextStyle(
         fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.Normal,
-        fontSize = 13.sp,
-        lineHeight = 19.sp,
+        fontSize = 14.sp,
+        lineHeight = 21.sp,
     ),
     bodySmall = TextStyle(
         fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.Normal,
-        fontSize = 11.sp,
-        lineHeight = 16.sp,
+        fontSize = 12.sp,
+        lineHeight = 18.sp,
     ),
     labelLarge = TextStyle(
         fontFamily = FontFamily.SansSerif,
@@ -76,13 +76,13 @@ val FootballAiTypography = Typography(
     labelMedium = TextStyle(
         fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.Medium,
-        fontSize = 11.sp,
-        lineHeight = 15.sp,
+        fontSize = 12.sp,
+        lineHeight = 17.sp,
     ),
     labelSmall = TextStyle(
         fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.Medium,
-        fontSize = 10.sp,
-        lineHeight = 14.sp,
+        fontSize = 11.sp,
+        lineHeight = 16.sp,
     ),
 )

@@ -409,6 +409,13 @@
     <string name="predictions_resolved_filter">Resolved (%1$s)</string>
     <string name="empty_upcoming_predictions_title">No upcoming predictions</string>
     <string name="empty_upcoming_predictions_message">Choose the Resolved filter to review how earlier predictions performed.</string>
+    <string name="show_advanced_analysis">Show markets and advanced analysis</string>
+    <string name="hide_advanced_analysis">Hide advanced analysis</string>
+    <string name="expected_goals_help">What is expected goals (xG)?</string>
+    <string name="expected_goals_help_title">Expected goals</string>
+    <string name="expected_goals_help_body">An estimate of each team’s goal output from attack, defence, form and match context—not an exact score prediction. For example, 1.52 is an average across similar matches, not half a goal in this match.</string>
+    <string name="data_coverage_help_body">Data coverage describes how complete the model inputs are. It is not prediction accuracy or a chance of being correct. More history raises coverage; missing lineups, injuries or odds lowers it. Open Advanced analysis to inspect the main factors.</string>
+    <string name="daily_pick_note_short">A probabilistic model pick, not a guarantee of outcome or profit.</string>
     <string name="search_matches">Search matches</string>
     <string name="search_matches_hint">League, team or match…</string>
     <string name="search_local_description">Search the leagues, teams and fixtures already downloaded on this device.</string>

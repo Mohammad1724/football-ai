@@ -21,7 +21,7 @@ fun PreMatchVerdict(prediction: PredictionView, home: String, away: String) {
     }
     Column {
         Text(label, style = MaterialTheme.typography.titleSmall)
-        Text(stringResource(R.string.daily_pick_note), style = MaterialTheme.typography.bodySmall,
+        Text(stringResource(R.string.daily_pick_note_short), style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
