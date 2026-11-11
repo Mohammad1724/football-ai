@@ -182,6 +182,14 @@
     <string name="prediction_pending_body">ذخیره‌شده در %1$s؛ پس از پایان بازی ارزیابی می‌شود</string>
     <string name="prediction_resolved_body">نتیجه نهایی %1$d-%2$d · بریر %3$s</string>
     <string name="prediction_result">پیش‌بینی</string>
+    <string name="prediction_verdict_title">پیش‌بینی مدل</string>
+    <string name="verdict_home_win">برد %1$s</string>
+    <string name="verdict_away_win">برد %1$s</string>
+    <string name="verdict_draw">تساوی</string>
+    <string name="confidence_high">اطمینان بالا</string>
+    <string name="confidence_medium">اطمینان متوسط</string>
+    <string name="confidence_low">اطمینان کم — بازی نزدیک</string>
+    <string name="verdict_disclaimer">بر اساس آمار تاریخی و احتمالات مدل است، نه تضمین نتیجه واقعی؛ هیچ مزیت شرط‌بندی‌ای ادعا نمی‌شود.</string>
     <string name="provider_active">فعال</string>
     <string name="provider_capabilities">زنده %1$s · آمار %2$s · ترکیب %3$s</string>
     <string name="provider_quota">محدودیت: %1$d در دقیقه، %2$s در روز</string>

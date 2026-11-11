@@ -417,6 +417,15 @@ private fun AnalysisTab(
         }
 
         item {
+            PredictionVerdictCard(
+                prediction = prediction,
+                homeTeamName = homeName,
+                awayTeamName = awayName,
+                languageTag = languageTag,
+            )
+        }
+
+        item {
             Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -434,15 +443,13 @@ private fun AnalysisTab(
                     )
                 }
                 Spacer(Modifier.height(10.dp))
-                if (prediction.kind == com.footballai.app.domain.model.PredictionKind.PRE_MATCH) {
-                    com.footballai.app.ui.components.PreMatchVerdict(prediction, homeName, awayName)
-                    Spacer(Modifier.height(8.dp))
-                }
                 ProbabilityBar(
                     homeWin = prediction.homeWin,
                     draw = prediction.draw,
                     awayWin = prediction.awayWin,
                     languageTag = languageTag,
+                    homeLabel = homeName,
+                    awayLabel = awayName,
                 )
                 Spacer(Modifier.height(12.dp))
                 Row(
@@ -575,6 +582,105 @@ private fun AnalysisTab(
             }
         }
         item { Spacer(Modifier.height(24.dp)) }
+    }
+}
+
+/** How clearly the model's top pick separates from the runner-up outcome. */
+private enum class VerdictConfidence { HIGH, MEDIUM, LOW }
+private enum class VerdictOutcome { HOME, DRAW, AWAY }
+
+private data class MatchVerdict(
+    val outcome: VerdictOutcome,
+    val probability: Double,
+    val confidence: VerdictConfidence,
+)
+
+private fun computeVerdict(prediction: PredictionView): MatchVerdict {
+    val ranked = listOf(
+        VerdictOutcome.HOME to prediction.homeWin,
+        VerdictOutcome.DRAW to prediction.draw,
+        VerdictOutcome.AWAY to prediction.awayWin,
+    ).sortedByDescending { it.second }
+    val top = ranked[0]
+    val margin = top.second - ranked[1].second
+    val confidence = when {
+        margin >= 0.20 -> VerdictConfidence.HIGH
+        margin >= 0.08 -> VerdictConfidence.MEDIUM
+        else -> VerdictConfidence.LOW
+    }
+    return MatchVerdict(outcome = top.first, probability = top.second, confidence = confidence)
+}
+
+/** Headline model pick above the complete 1X2 probability breakdown. */
+@Composable
+private fun PredictionVerdictCard(
+    prediction: PredictionView,
+    homeTeamName: String,
+    awayTeamName: String,
+    languageTag: String,
+) {
+    val colors = FootballAiThemeExtra.colors
+    val verdict = remember(prediction) { computeVerdict(prediction) }
+    val outcomeColor = when (verdict.outcome) {
+        VerdictOutcome.HOME -> colors.homeSeries
+        VerdictOutcome.DRAW -> colors.drawSeries
+        VerdictOutcome.AWAY -> colors.awaySeries
+    }
+    val outcomeLabel = when (verdict.outcome) {
+        VerdictOutcome.HOME -> stringResource(R.string.verdict_home_win, homeTeamName)
+        VerdictOutcome.DRAW -> stringResource(R.string.verdict_draw)
+        VerdictOutcome.AWAY -> stringResource(R.string.verdict_away_win, awayTeamName)
+    }
+    val confidenceLabel = stringResource(
+        when (verdict.confidence) {
+            VerdictConfidence.HIGH -> R.string.confidence_high
+            VerdictConfidence.MEDIUM -> R.string.confidence_medium
+            VerdictConfidence.LOW -> R.string.confidence_low
+        },
+    )
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        colors = CardDefaults.cardColors(containerColor = outcomeColor.copy(alpha = 0.12f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = stringResource(R.string.prediction_verdict_title),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(6.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = outcomeLabel,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = outcomeColor,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(
+                    text = Formatters.percent(verdict.probability, languageTag),
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = outcomeColor,
+                )
+            }
+            Spacer(Modifier.height(8.dp))
+            StatusChip(text = confidenceLabel, color = outcomeColor, filled = true)
+            Spacer(Modifier.height(10.dp))
+            Text(
+                text = stringResource(R.string.verdict_disclaimer),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
 

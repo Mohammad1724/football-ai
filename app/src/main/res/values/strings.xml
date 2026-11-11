@@ -182,6 +182,14 @@
     <string name="prediction_pending_body">Stored %1$s; scored after the match finishes</string>
     <string name="prediction_resolved_body">Final score %1$d-%2$d · Brier %3$s</string>
     <string name="prediction_result">Prediction</string>
+    <string name="prediction_verdict_title">Model pick</string>
+    <string name="verdict_home_win">%1$s to win</string>
+    <string name="verdict_away_win">%1$s to win</string>
+    <string name="verdict_draw">Draw</string>
+    <string name="confidence_high">High confidence</string>
+    <string name="confidence_medium">Medium confidence</string>
+    <string name="confidence_low">Low confidence — close match</string>
+    <string name="verdict_disclaimer">Based on historical stats and the model\'s probabilities. Not a guarantee of the real result — no betting edge is claimed.</string>
     <string name="provider_active">Active</string>
     <string name="provider_capabilities">Live %1$s · Stats %2$s · Lineups %3$s</string>
     <string name="provider_quota">Limit: %1$d per minute, %2$s per day</string>
