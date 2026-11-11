@@ -30,6 +30,8 @@ class MatchRepository(
 
     fun observeLive(): Flow<List<MatchSummary>> = db.matchDao().observeLive().map { decorate(it) }
 
+    fun observeAll(): Flow<List<MatchSummary>> = db.matchDao().observeAll().map { decorate(it) }
+
     fun observeBetween(fromEpochMs: Long, toEpochMs: Long): Flow<List<MatchSummary>> =
         db.matchDao().observeBetween(fromEpochMs, toEpochMs).map { decorate(it) }
 

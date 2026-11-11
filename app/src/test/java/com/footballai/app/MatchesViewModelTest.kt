@@ -1,10 +1,15 @@
 package com.footballai.app
 
+import com.footballai.app.domain.model.Competition
+import com.footballai.app.domain.model.MatchStatus
+import com.footballai.app.domain.model.MatchSummary
+import com.footballai.app.domain.model.TeamRef
 import com.footballai.app.ui.viewmodel.MatchesViewModel
 import java.time.Instant
 import java.time.ZoneId
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 class MatchesViewModelTest {
 
@@ -39,6 +44,49 @@ class MatchesViewModelTest {
 
         assertEquals(Instant.parse("2026-11-11T20:30:00Z").toEpochMilli(), start)
         assertEquals(Instant.parse("2026-11-12T20:30:00Z").toEpochMilli(), end)
+    }
+
+    @Test
+    fun `calendar date outside shortcut strip gets a local day offset`() {
+        val zone = ZoneId.of("Asia/Tehran")
+        val now = Instant.parse("2026-11-11T12:00:00Z").toEpochMilli()
+        val selected = Instant.parse("2026-12-19T20:30:00Z").toEpochMilli()
+
+        assertEquals(39, MatchesViewModel.dayOffsetFor(now, selected, zone))
+        val (start, end) = MatchesViewModel.localDayWindow(now, 39, zone)
+        assertTrue(selected in start until end)
+    }
+
+    @Test
+    fun `local search finds competitions teams and matches case insensitively`() {
+        val arsenal = TeamRef("arsenal", "Arsenal")
+        val chelsea = TeamRef("chelsea", "Chelsea")
+        val match = MatchSummary(
+            id = "football-data-co-uk:1",
+            competitionId = "epl",
+            competitionName = "Premier League",
+            competitionEmblemUrl = null,
+            home = arsenal,
+            away = chelsea,
+            kickoffEpochMs = 1L,
+            status = MatchStatus.SCHEDULED,
+            minute = null,
+            homeGoals = null,
+            awayGoals = null,
+            lastSyncedAt = 1L,
+            hasStatistics = false,
+            hasLineups = false,
+            hasEvents = false,
+            hasOdds = false,
+        )
+        val competition = Competition("epl", "Premier League", "England", null, 2026, "football-data-co-uk", true)
+
+        val teamResults = MatchesViewModel.buildSearchResults("ArSeNaL", listOf(match), listOf(competition), true)
+        assertEquals(listOf(arsenal), teamResults.teams)
+        assertEquals(listOf(match), teamResults.matches)
+        val leagueResults = MatchesViewModel.buildSearchResults("england", listOf(match), listOf(competition), true)
+        assertEquals(listOf(competition), leagueResults.competitions)
+        assertTrue(MatchesViewModel.buildSearchResults(" ", listOf(match), listOf(competition), true).isEmpty)
     }
 
     @Test

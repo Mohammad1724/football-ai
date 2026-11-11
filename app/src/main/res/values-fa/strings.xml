@@ -397,4 +397,16 @@
     <string name="daily_pick_note">این نتیجه تضمینی نیست. فاصله کمتر از ۵ واحد درصد بین دو احتمال اول، «برتری نامشخص» نامیده می‌شود؛ این آستانه معیار اطمینان کالیبره‌شده نیست.</string>
     <string name="action_daily_analysis">اجرای تحلیل روزانه</string>
     <string name="action_daily_start">اجرای تحلیل روزانه</string>
+    <string name="search_matches">جست‌وجوی مسابقات</string>
+    <string name="search_matches_hint">نام لیگ، تیم یا مسابقه…</string>
+    <string name="search_local_description">در لیگ‌ها، تیم‌ها و مسابقات دریافت‌شده روی همین دستگاه جست‌وجو کنید.</string>
+    <string name="search_all">همه</string>
+    <string name="search_competitions">لیگ‌ها</string>
+    <string name="search_teams">تیم‌ها</string>
+    <string name="search_match_results">مسابقات</string>
+    <string name="search_team_matches">نمایش مسابقات این تیم</string>
+    <string name="no_search_results">لیگ، تیم یا مسابقه‌ای با این نام در داده‌های دریافت‌شده پیدا نشد.</string>
+    <string name="open_calendar">بازکردن تقویم</string>
+    <string name="action_done">تأیید</string>
+    <string name="action_close">بستن</string>
 </resources>

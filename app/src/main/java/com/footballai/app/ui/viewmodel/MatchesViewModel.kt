@@ -8,8 +8,11 @@ import com.footballai.app.core.Outcome
 import com.footballai.app.di.AppContainer
 import com.footballai.app.domain.model.Competition
 import com.footballai.app.domain.model.MatchSummary
+import com.footballai.app.domain.model.TeamRef
 import java.time.Instant
 import java.time.ZoneId
+import java.time.temporal.ChronoUnit
+import java.util.Locale
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,6 +31,16 @@ private data class MatchSelection(
     val liveOnly: Boolean = false,
 )
 
+enum class MatchSearchFilter { ALL, COMPETITIONS, TEAMS, MATCHES }
+
+data class MatchSearchResults(
+    val competitions: List<Competition> = emptyList(),
+    val teams: List<TeamRef> = emptyList(),
+    val matches: List<MatchSummary> = emptyList(),
+) {
+    val isEmpty: Boolean get() = competitions.isEmpty() && teams.isEmpty() && matches.isEmpty()
+}
+
 data class MatchesUiState(
     val isLoading: Boolean = true,
     val isSyncing: Boolean = false,
@@ -36,6 +49,10 @@ data class MatchesUiState(
     val competitionId: String? = null,
     val followedOnly: Boolean = false,
     val liveOnly: Boolean = false,
+    val searchOpen: Boolean = false,
+    val searchQuery: String = "",
+    val searchFilter: MatchSearchFilter = MatchSearchFilter.ALL,
+    val searchResults: MatchSearchResults = MatchSearchResults(),
     val matches: List<MatchSummary> = emptyList(),
     val competitions: List<Competition> = emptyList(),
 )
@@ -48,6 +65,7 @@ class MatchesViewModel(private val container: AppContainer) : ViewModel() {
 
     private val selection = MutableStateFlow(MatchSelection())
     private val refreshVersion = MutableStateFlow(0)
+    private val searchQuery = MutableStateFlow("")
 
     init {
         viewModelScope.launch {
@@ -95,10 +113,40 @@ class MatchesViewModel(private val container: AppContainer) : ViewModel() {
                     }
                 }
         }
+        viewModelScope.launch {
+            combine(
+                searchQuery,
+                container.matchRepository.observeAll(),
+                container.matchRepository.observeCompetitions(),
+                container.settingsRepository.settings,
+            ) { query, matches, competitions, settings ->
+                buildSearchResults(query, matches, competitions, settings.dailyAnalysisEnabled)
+            }.collect { results ->
+                _state.update { it.copy(searchResults = results) }
+            }
+        }
+    }
+
+    fun setSearchOpen(open: Boolean) {
+        _state.update { it.copy(searchOpen = open) }
+    }
+
+    fun updateSearchQuery(query: String) {
+        searchQuery.value = query
+        _state.update { it.copy(searchQuery = query) }
+    }
+
+    fun setSearchFilter(filter: MatchSearchFilter) {
+        _state.update { it.copy(searchFilter = filter) }
+    }
+
+    fun selectDate(epochMs: Long) {
+        val offset = dayOffsetFor(container.clock.nowEpochMs(), epochMs)
+        if (offset in -3650..3650) selection.update { it.copy(dayOffset = offset) }
     }
 
     fun selectDay(dayOffset: Int) {
-        if (dayOffset !in OLDEST_DAY_OFFSET..NEWEST_DAY_OFFSET) return
+        if (dayOffset !in -3650..3650) return
         selection.update { it.copy(dayOffset = dayOffset) }
     }
 
@@ -165,6 +213,43 @@ class MatchesViewModel(private val container: AppContainer) : ViewModel() {
     companion object {
         const val OLDEST_DAY_OFFSET = -2
         const val NEWEST_DAY_OFFSET = 10
+
+        internal fun dayOffsetFor(
+            nowEpochMs: Long,
+            selectedEpochMs: Long,
+            zoneId: ZoneId = ZoneId.systemDefault(),
+        ): Int {
+            val today = Instant.ofEpochMilli(nowEpochMs).atZone(zoneId).toLocalDate()
+            val selected = Instant.ofEpochMilli(selectedEpochMs).atZone(zoneId).toLocalDate()
+            return ChronoUnit.DAYS.between(today, selected).toInt()
+        }
+
+        internal fun buildSearchResults(
+            rawQuery: String,
+            allMatches: List<MatchSummary>,
+            allCompetitions: List<Competition>,
+            dailyAnalysis: Boolean,
+        ): MatchSearchResults {
+            val query = rawQuery.trim().lowercase(Locale.ROOT)
+            if (query.isEmpty()) return MatchSearchResults()
+            val matches = allMatches.filter { !dailyAnalysis || it.id.startsWith("football-data-co-uk:") }
+            val competitions = allCompetitions.filter { competition ->
+                (!dailyAnalysis || competition.providerId == "football-data-co-uk") &&
+                    (competition.name.lowercase(Locale.ROOT).contains(query) ||
+                        competition.country?.lowercase(Locale.ROOT)?.contains(query) == true)
+            }.take(20)
+            val teams = matches.flatMap { listOf(it.home, it.away) }
+                .distinctBy { it.id }
+                .filter { it.name.lowercase(Locale.ROOT).contains(query) }
+                .sortedBy { it.name }
+                .take(20)
+            val matchingMatches = matches.filter { match ->
+                match.home.name.lowercase(Locale.ROOT).contains(query) ||
+                    match.away.name.lowercase(Locale.ROOT).contains(query) ||
+                    match.competitionName.lowercase(Locale.ROOT).contains(query)
+            }.take(50)
+            return MatchSearchResults(competitions, teams, matchingMatches)
+        }
 
         /** Calendar-day boundaries, including DST changes, in the device's time zone. */
         internal fun localDayWindow(

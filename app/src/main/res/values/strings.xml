@@ -397,4 +397,16 @@
     <string name="daily_pick_note">Not a guarantee. A gap below 5 percentage points between the top two outcomes is labelled unclear; this threshold is not calibrated confidence.</string>
     <string name="action_daily_analysis">Run daily analysis</string>
     <string name="action_daily_start">Run daily analysis</string>
+    <string name="search_matches">Search matches</string>
+    <string name="search_matches_hint">League, team or match…</string>
+    <string name="search_local_description">Search the leagues, teams and fixtures already downloaded on this device.</string>
+    <string name="search_all">All</string>
+    <string name="search_competitions">Competitions</string>
+    <string name="search_teams">Teams</string>
+    <string name="search_match_results">Matches</string>
+    <string name="search_team_matches">Show this team’s matches</string>
+    <string name="no_search_results">No downloaded league, team or match matches this search.</string>
+    <string name="open_calendar">Open calendar</string>
+    <string name="action_done">Done</string>
+    <string name="action_close">Close</string>
 </resources>

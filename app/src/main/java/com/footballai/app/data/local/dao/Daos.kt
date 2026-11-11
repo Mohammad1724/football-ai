@@ -100,6 +100,9 @@ interface MatchDao {
     @Query("SELECT * FROM matches WHERE id IN (:ids)")
     suspend fun byIds(ids: List<String>): List<MatchEntity>
 
+    @Query("SELECT * FROM matches ORDER BY kickoffEpochMs DESC")
+    fun observeAll(): Flow<List<MatchEntity>>
+
     @Query(
         """
         SELECT * FROM matches
