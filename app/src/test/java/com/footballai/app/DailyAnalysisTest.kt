@@ -66,7 +66,7 @@ class DailyAnalysisTest {
         assertEquals(1, report.predicted)
         assertEquals(2, report.resolved)
         coVerify { e.sync.syncFixtures(e.source, listOf("E0"), 0, 10, false, any()) }
-        coVerify { e.sync.importCsvHistory(listOf("E0"), listOf(2026)) }
+        coVerify { e.sync.importCsvHistory(listOf("E0"), listOf(2026, 2025, 2024)) }
         coVerify(exactly = 0) { e.sync.syncLive(any()) }
     }
 
@@ -104,7 +104,7 @@ class DailyAnalysisTest {
 
     @Test fun `completed bootstrap downloads only the current season on later runs`() = runTest {
         val e = Env()
-        coEvery { e.meta.get("daily-history-v1:E0:2026") } returns "ready"
+        coEvery { e.meta.get("daily-history-v2:E0:2026") } returns "ready"
         e.repo.run()
         coVerify { e.sync.importCsvHistory(listOf("E0"), listOf(2026)) }
     }
