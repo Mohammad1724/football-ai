@@ -13,8 +13,8 @@ android {
         applicationId = "com.footballai.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 10
-        versionName = "0.4.1"
+        versionCode = 11
+        versionName = "0.4.2"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         resourceConfigurations += listOf("en", "fa")
     }

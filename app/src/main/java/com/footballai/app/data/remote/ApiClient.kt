@@ -110,8 +110,14 @@ class ApiClient(
                 }
             } catch (error: CancellationException) {
                 throw error
+            } catch (error: UnknownHostException) {
+                Outcome.Failure(AppError(ErrorCode.NETWORK_UNAVAILABLE, detail = "Host could not be resolved", cause = error))
+            } catch (error: SocketTimeoutException) {
+                Outcome.Failure(AppError(ErrorCode.REQUEST_FAILED, detail = "Connection timed out", cause = error))
+            } catch (error: IOException) {
+                Outcome.Failure(AppError(ErrorCode.NETWORK_UNAVAILABLE, detail = error.message, cause = error))
             } catch (error: Exception) {
-                Outcome.Failure(AppError(ErrorCode.REQUEST_FAILED, detail = error.message, cause = error))
+                Outcome.Failure(AppError(ErrorCode.UNKNOWN, detail = error.message, cause = error))
             }
         }
 

@@ -52,6 +52,12 @@ data class SyncSummary(
     )
 }
 
+private fun AppError.syncDescription(): String = buildString {
+    append(code.name)
+    httpStatus?.let { append(" (HTTP ").append(it).append(')') }
+    detail?.takeIf { it.isNotBlank() }?.let { append(": ").append(it.take(160)) }
+}
+
 /**
  * Writes provider payloads into the local database.
  *
@@ -193,7 +199,7 @@ class SyncRepository(
         for ((index, key) in keys.withIndex()) {
             when (val result = provider.matches(key, null, fromEpochMs, toEpochMs)) {
                 is Outcome.Failure -> {
-                    errors.add("${provider.info.displayName}/$key: ${result.error.code}")
+                    errors.add("${provider.info.displayName}/$key: ${result.error.syncDescription()}")
                     repeatedFailures = if (result.error.code == lastErrorCode) repeatedFailures + 1 else 1
                     lastErrorCode = result.error.code
                 }

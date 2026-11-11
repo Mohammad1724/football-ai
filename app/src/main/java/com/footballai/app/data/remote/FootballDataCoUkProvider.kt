@@ -63,8 +63,11 @@ class FootballDataCoUkProvider(
     override fun availableCompetitions(): List<CsvCompetition> = COMPETITIONS
 
     override suspend fun history(competitionKey: String, seasonStartYear: Int): Outcome<List<RemoteHistoryMatch>> {
-        val url = "$baseUrl/${seasonCode(seasonStartYear)}/$competitionKey.csv"
-        return when (val response = client.get(PROVIDER_ID, info.quota, url)) {
+        val season = seasonCode(seasonStartYear)
+        return when (val response = downloadCsv(
+            primaryUrl = "$baseUrl/$season/$competitionKey.csv",
+            alternateUrl = "$ALTERNATE_BASE_URL/$season/$competitionKey.csv",
+        )) {
             is Outcome.Failure -> response
             is Outcome.Success -> {
                 val competition = COMPETITIONS.firstOrNull { it.key == competitionKey }
@@ -102,7 +105,7 @@ class FootballDataCoUkProvider(
         if (!force && cachedFixtures.isNotEmpty() && now - cachedAtMs < CACHE_TTL_MS) {
             return@withLock Outcome.Success(cachedFixtures)
         }
-        when (val response = client.get(PROVIDER_ID, info.quota, fixturesUrl)) {
+        when (val response = downloadCsv(fixturesUrl, ALTERNATE_FIXTURES_URL)) {
             is Outcome.Failure -> response
             is Outcome.Success -> {
                 val parsed = try {
@@ -117,6 +120,13 @@ class FootballDataCoUkProvider(
                 Outcome.Success(parsed)
             }
         }
+    }
+
+    /** Retries through the canonical non-www host when the www endpoint is unreachable. */
+    private suspend fun downloadCsv(primaryUrl: String, alternateUrl: String): Outcome<String> {
+        val primary = client.get(PROVIDER_ID, info.quota, primaryUrl, headers = CSV_HEADERS)
+        if (primary is Outcome.Success || primaryUrl == alternateUrl) return primary
+        return client.get(PROVIDER_ID, info.quota, alternateUrl, headers = CSV_HEADERS)
     }
 
     override suspend fun competitions(): Outcome<List<RemoteCompetition>> = Outcome.Success(
@@ -192,6 +202,12 @@ class FootballDataCoUkProvider(
         const val PROVIDER_ID = "football-data-co-uk"
         const val DEFAULT_BASE_URL = "https://www.football-data.co.uk/mmz4281"
         const val FIXTURES_URL = "https://www.football-data.co.uk/fixtures.csv"
+        internal const val ALTERNATE_BASE_URL = "https://football-data.co.uk/mmz4281"
+        internal const val ALTERNATE_FIXTURES_URL = "https://football-data.co.uk/fixtures.csv"
+        private val CSV_HEADERS = mapOf(
+            "User-Agent" to "FootballAI/0.4 (Android; personal football CSV reader)",
+            "Accept" to "text/csv,text/plain;q=0.9,*/*;q=0.8",
+        )
         private const val CACHE_TTL_MS = 5 * 60 * 1000L
 
         /** Leagues synced when the user follows none of this provider's competitions. */
