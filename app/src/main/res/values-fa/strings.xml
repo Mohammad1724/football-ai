@@ -186,17 +186,17 @@
     <string name="verdict_home_win">برد %1$s</string>
     <string name="verdict_away_win">برد %1$s</string>
     <string name="verdict_draw">تساوی</string>
-    <string name="confidence_high">اطمینان بالا</string>
-    <string name="confidence_medium">اطمینان متوسط</string>
-    <string name="confidence_low">اطمینان کم — بازی نزدیک</string>
+    <string name="confidence_high">برتری نسبی زیاد</string>
+    <string name="confidence_medium">برتری نسبی متوسط</string>
+    <string name="confidence_low">برتری نسبی کم — بازی نزدیک</string>
     <string name="verdict_disclaimer">بر اساس آمار تاریخی و احتمالات مدل است، نه تضمین نتیجه واقعی؛ هیچ مزیت شرط‌بندی‌ای ادعا نمی‌شود.</string>
     <string name="provider_active">فعال</string>
     <string name="provider_capabilities">زنده %1$s · آمار %2$s · ترکیب %3$s</string>
     <string name="provider_quota">محدودیت: %1$d در دقیقه، %2$s در روز</string>
-    <string name="quality_high">کیفیت بالا</string>
+    <string name="quality_high">پوشش داده بالا</string>
     <string name="quality_insufficient">داده ناکافی</string>
-    <string name="quality_low">کیفیت پایین</string>
-    <string name="quality_medium">کیفیت متوسط</string>
+    <string name="quality_low">پوشش داده کم</string>
+    <string name="quality_medium">پوشش داده متوسط</string>
     <string name="quota_usage">استفاده امروز: %1$s از %2$s</string>
     <string name="rating_attack">قدرت حمله</string>
     <string name="rating_attack_hint">۱٫۰۰ = میانگین لیگ</string>

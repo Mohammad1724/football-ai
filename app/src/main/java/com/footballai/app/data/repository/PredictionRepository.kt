@@ -474,7 +474,7 @@ class PredictionRepository(
     }
 
     companion object {
-        const val MODEL_VERSION = "football-ai/engine-1.2.0"
+        const val MODEL_VERSION = "football-ai/engine-1.2.1"
         const val ELO_BLEND_WEIGHT = 0.15
         const val LIVE_TTL_MS = PredictionPolicy.LIVE_TTL_MS
         private const val STALE_AFTER_MS = 6 * TimeConstants.HOUR_MS

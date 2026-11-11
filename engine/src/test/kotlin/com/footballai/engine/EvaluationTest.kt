@@ -112,6 +112,34 @@ class EvaluationTest {
     }
 
     @Test
+    fun `pre match quality normalizes out live only evidence`() {
+        val currentSeasonOnly = DataQualityAssessor.assess(
+            QualityInputs(
+                competitionHistoricalMatches = 120,
+                homeMatchesUsed = 10,
+                awayMatchesUsed = 10,
+                isLive = false,
+            ),
+        )
+        assertEquals(0.51 / 0.90, currentSeasonOnly.completeness, 1e-9)
+        assertEquals(DataQualityLevel.MEDIUM, currentSeasonOnly.level)
+
+        val richPreMatch = DataQualityAssessor.assess(
+            QualityInputs(
+                competitionHistoricalMatches = 400,
+                homeMatchesUsed = 25,
+                awayMatchesUsed = 25,
+                hasLineups = true,
+                hasInjuries = true,
+                hasOdds = true,
+                isLive = false,
+            ),
+        )
+        assertEquals(DataQualityLevel.HIGH, richPreMatch.level)
+        assertEquals(1.0, richPreMatch.completeness, 1e-9)
+    }
+
+    @Test
     fun `backtest never uses future matches`() {
         val league = TestLeagueFactory.create(seed = 21L, teamCount = 8, seasons = 6)
         val records = league.matches.mapIndexed { index, match ->

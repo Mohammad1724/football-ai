@@ -98,7 +98,11 @@ object DataQualityAssessor {
         if (!inputs.hasInjuries) notes.add(QualityNote(QualityNoteCode.INJURIES_UNAVAILABLE))
         notes.add(QualityNote(QualityNoteCode.MODEL_NOT_CALIBRATED))
 
-        val completeness = score.coerceIn(0.0, 1.0)
+        // Live-only evidence must not make HIGH unreachable before kickoff. Normalize
+        // against the evidence categories applicable to this prediction context.
+        val applicableWeight = WEIGHT_HISTORY + WEIGHT_TEAM_SAMPLE + WEIGHT_LINEUPS +
+            WEIGHT_INJURIES + WEIGHT_ODDS + if (inputs.isLive) WEIGHT_LIVE_STATS else 0.0
+        val completeness = (score / applicableWeight).coerceIn(0.0, 1.0)
         val level = when {
             inputs.competitionHistoricalMatches == 0 && minTeamSample == 0 -> DataQualityLevel.INSUFFICIENT
             completeness >= 0.80 -> DataQualityLevel.HIGH
