@@ -188,7 +188,7 @@ fun MatchesScreen(onMatchClick: (String) -> Unit) {
             onFilterChange = viewModel::setSearchFilter,
             onDismiss = { viewModel.setSearchOpen(false) },
             onCompetitionClick = { competitionId ->
-                viewModel.selectCompetition(competitionId)
+                viewModel.setCompetition(competitionId)
                 state.searchResults.matches.filter { it.competitionId == competitionId }
                     .minByOrNull { kotlin.math.abs(it.kickoffEpochMs - System.currentTimeMillis()) }
                     ?.let { viewModel.selectDate(it.kickoffEpochMs) }
