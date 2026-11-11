@@ -44,6 +44,9 @@ object OpenMatchdayParser {
             homeGoals = match.homeGoals ?: 0,
             awayGoals = match.awayGoals ?: 0,
             kickoffEpochMs = match.kickoffEpochMs,
+            homeOdds = null,
+            drawOdds = null,
+            awayOdds = null,
         )
     }
 
