@@ -105,7 +105,7 @@ class DailyAnalysisRepository(
                     // Refresh the current season every day. Fetch the two completed
                     // seasons once per league; football-data's GitHub mirror is used
                     // only when the primary host is unreachable and covers that league.
-                    val seasons = if (db.syncMetaDao().get(bootstrapKey)?.value == "ready") {
+                    val seasons = if (db.syncMetaDao().get(bootstrapKey) == "ready") {
                         listOf(season)
                     } else {
                         listOf(season, season - 1, season - 2)
