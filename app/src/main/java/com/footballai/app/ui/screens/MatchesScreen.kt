@@ -294,7 +294,7 @@ private fun MatchSearchDialog(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 } else if (!hasVisibleResults) {
-                    EmptyState(stringResource(R.string.no_matches_title), stringResource(R.string.no_search_results))
+                    EmptyState(stringResource(R.string.empty_matches_title), stringResource(R.string.no_search_results))
                 } else {
                     LazyColumn(
                         modifier = Modifier.fillMaxWidth().height(520.dp),
