@@ -187,6 +187,11 @@ fun MatchDetailScreen(
             }
 
             val hasLiveTab = detail.summary.status.isLive
+            // The download can only help when the archive itself is missing; an unknown
+            // team name or a women's international would be unaffected by it.
+            val missingArchive = state.lastError?.let { error ->
+                error.code == com.footballai.app.core.ErrorCode.NO_NATIONAL_HISTORY && error.detail == null
+            } == true
             when {
                 selectedTab == 0 -> AnalysisTab(
                     prediction = state.prediction,
@@ -200,10 +205,7 @@ fun MatchDetailScreen(
                         !detail.summary.status.isFinished &&
                         (detail.summary.status.isLive || detail.summary.status == com.footballai.app.domain.model.MatchStatus.SCHEDULED),
                     onPredict = { viewModel.predict(forcePersist = true) },
-                    // The download can only help when the archive itself is missing; an
-                    // unknown team or a women's international would be unaffected.
-                    needsNationalHistory = state.lastError?.code == com.footballai.app.core.ErrorCode.NO_NATIONAL_HISTORY &&
-                        state.lastError.detail == null,
+                    needsNationalHistory = missingArchive,
                     isImportingHistory = state.isImportingHistory,
                     onImportNationalHistory = viewModel::importNationalHistory,
                     liveTrackingEnabled = state.liveTrackingEnabled,
