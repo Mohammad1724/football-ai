@@ -44,6 +44,8 @@ private data class MatchScope(
 private data class MatchListData(
     val matches: List<MatchSummary>,
     val competitions: List<Competition>,
+    val dailyAnalysis: Boolean,
+    val sourceName: String,
 )
 
 /** Club or national-team fixtures. National teams are a first-class scope, not a corner case. */
@@ -135,7 +137,7 @@ class MatchesViewModel(private val container: AppContainer) : ViewModel() {
                                     MatchGenderFilter.WOMEN -> match.isWomen
                                 }
                         }.sortedBy { it.kickoffEpochMs }
-                        MatchListData(visible, availableCompetitions)
+                        MatchListData(visible, availableCompetitions, dailyAnalysis, scope.sourceName)
                     }
                 }.collect { data ->
                     val selected = selection.value
@@ -145,8 +147,8 @@ class MatchesViewModel(private val container: AppContainer) : ViewModel() {
                             competitions = data.competitions,
                             isLoading = false,
                             selectedDayOffset = selected.dayOffset,
-                            dailyAnalysisMode = scope.dailyAnalysis,
-                            sourceName = scope.sourceName,
+                            dailyAnalysisMode = data.dailyAnalysis,
+                            sourceName = data.sourceName,
                             competitionId = selected.competitionId,
                             followedOnly = selected.followedOnly,
                             liveOnly = selected.liveOnly,
