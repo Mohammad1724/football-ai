@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.footballai.app.core.AppError
 import com.footballai.app.core.Outcome
+import com.footballai.app.data.sync.SyncTrigger
 import com.footballai.app.di.AppContainer
 import com.footballai.app.domain.model.Competition
 import com.footballai.app.domain.model.MatchSummary
@@ -89,6 +90,11 @@ data class PredictionsUiState(
     val resolvedCount: Int = 0,
     val resolving: Boolean = false,
     val resolvedNow: Int = 0,
+    /** True while the screen's refresh gesture is running a full sync. */
+    val refreshing: Boolean = false,
+    /** Fixtures the last refresh received; 0 is a valid answer, not a failure. */
+    val lastSyncedAdded: Int = 0,
+    val lastError: com.footballai.app.core.AppError? = null,
 )
 
 class PredictionsViewModel(private val container: AppContainer) : ViewModel() {
@@ -135,6 +141,35 @@ class PredictionsViewModel(private val container: AppContainer) : ViewModel() {
         }
     }
 
+    /**
+     * The screen's refresh control.
+     *
+     * Resolving finished predictions only updates rows that already exist; a user pressing
+     * refresh on this screen is also asking for new fixtures and new odds to appear, so the
+     * gesture does both, in that order: sync first, then grade what has finished.
+     */
+    fun refresh() {
+        if (_state.value.refreshing) return
+        viewModelScope.launch {
+            _state.update { it.copy(refreshing = true, lastError = null) }
+            try {
+                when (val result = container.autoSyncCoordinator.syncNow(SyncTrigger.MANUAL)) {
+                    is Outcome.Failure -> _state.update { it.copy(lastError = result.error) }
+                    is Outcome.Success -> {
+                        val resolved = container.predictionRepository.resolveFinishedPredictions()
+                        _state.update { it.copy(resolvedNow = resolved, lastSyncedAdded = result.value.added) }
+                    }
+                }
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                _state.update { it.copy(lastError = com.footballai.app.core.AppError(com.footballai.app.core.ErrorCode.UNKNOWN)) }
+            } finally {
+                _state.update { it.copy(refreshing = false) }
+            }
+        }
+    }
+
     companion object {
         internal fun filterItems(
             items: List<PredictionWithMatch>,
@@ -163,6 +198,8 @@ data class PerformanceUiState(
     val studyClass: String = "CLUB_LEAGUE",
     val study: com.footballai.app.data.repository.CalibrationStudyResult? = null,
     val studyLoading: Boolean = false,
+    /** True while the stored-prediction statistics are being recomputed. */
+    val statsRefreshing: Boolean = false,
     val fittedSamples: Int = 0,
     val lastError: AppError? = null,
 )
@@ -239,9 +276,15 @@ class PerformanceViewModel(private val container: AppContainer) : ViewModel() {
     }
 
     fun refreshStoredStats() {
+        if (_state.value.statsRefreshing) return
         viewModelScope.launch {
-            val stats = container.performanceRepository.refreshStoredStats()
-            _state.update { it.copy(storedStats = stats) }
+            _state.update { it.copy(statsRefreshing = true) }
+            try {
+                val stats = container.performanceRepository.refreshStoredStats()
+                _state.update { it.copy(storedStats = stats) }
+            } finally {
+                _state.update { it.copy(statsRefreshing = false) }
+            }
         }
     }
 }

@@ -25,6 +25,7 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
             dailyAnalysisEnabled = preferences[KEY_DAILY_ANALYSIS] ?: true,
             livePollingEnabled = !(preferences[KEY_DAILY_ANALYSIS] ?: true) && (preferences[KEY_LIVE_POLLING] ?: false),
             backgroundSyncEnabled = preferences[KEY_BACKGROUND_SYNC] ?: true,
+            autoRefreshOnOpen = preferences[KEY_AUTO_REFRESH] ?: true,
             autoPredictEnabled = preferences[KEY_AUTO_PREDICT] ?: true,
             dataSaverEnabled = preferences[KEY_DATA_SAVER] ?: false,
             lastHistoricalImportEpochMs = preferences[KEY_LAST_IMPORT],
@@ -55,6 +56,8 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
 
     suspend fun setBackgroundSync(enabled: Boolean) = edit { it[KEY_BACKGROUND_SYNC] = enabled }
 
+    suspend fun setAutoRefreshOnOpen(enabled: Boolean) = edit { it[KEY_AUTO_REFRESH] = enabled }
+
     suspend fun setAutoPredict(enabled: Boolean) = edit { it[KEY_AUTO_PREDICT] = enabled }
 
     suspend fun setDataSaver(enabled: Boolean) = edit { it[KEY_DATA_SAVER] = enabled }
@@ -82,6 +85,7 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         private val KEY_DAILY_ANALYSIS = booleanPreferencesKey("daily_analysis")
         private val KEY_LIVE_POLLING = booleanPreferencesKey("live_polling")
         private val KEY_BACKGROUND_SYNC = booleanPreferencesKey("background_sync")
+        private val KEY_AUTO_REFRESH = booleanPreferencesKey("auto_refresh_on_open")
         private val KEY_AUTO_PREDICT = booleanPreferencesKey("auto_predict")
         private val KEY_DATA_SAVER = booleanPreferencesKey("data_saver")
         private val KEY_LAST_IMPORT = longPreferencesKey("last_historical_import")

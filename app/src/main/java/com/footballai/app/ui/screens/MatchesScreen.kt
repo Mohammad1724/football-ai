@@ -1,6 +1,7 @@
 package com.footballai.app.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -58,9 +59,15 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -77,6 +84,9 @@ import com.footballai.app.ui.LocalAppContainer
 import com.footballai.app.ui.LocalLanguageTag
 import com.footballai.app.ui.components.EmptyState
 import com.footballai.app.ui.components.LoadingState
+import com.footballai.app.ui.components.ScrollableRefreshContent
+import com.footballai.app.ui.components.SwipeRefresh
+import com.footballai.app.ui.components.SyncStatusStrip
 import com.footballai.app.ui.components.TeamMonogram
 import com.footballai.app.ui.matchStatusLabel
 import com.footballai.app.ui.theme.FootballAiThemeExtra
@@ -89,6 +99,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.ZoneOffset
+import kotlin.math.abs
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -151,55 +162,91 @@ fun MatchesScreen(onMatchClick: (String) -> Unit) {
                 )
             }
 
-            state.lastError?.let { error ->
-                Text(
-                    text = com.footballai.app.ui.errorLabel(error),
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                )
-            }
-            if (state.isLoading) {
-                LoadingState()
-            } else if (state.matches.isEmpty()) {
-                // An empty day is usually a coverage fact, not a missing fixture, so the
-                // empty state says which source served it and offers the one-tap switch.
-                EmptyState(
-                    title = stringResource(
-                        if (state.dailyAnalysisMode) R.string.empty_coverage_title else R.string.empty_filtered_matches_title,
-                    ),
-                    message = when {
-                        state.dailyAnalysisMode -> stringResource(R.string.empty_daily_mode_message, state.sourceName)
-                        state.kind == MatchKindFilter.NATIONAL -> stringResource(R.string.empty_no_national_message, state.sourceName)
-                        state.selectedDayOffset < 0 -> stringResource(R.string.empty_recent_results_message)
-                        else -> stringResource(R.string.empty_upcoming_message)
-                    },
-                    actionLabel = when {
-                        state.isSyncing || state.switchingSource -> null
-                        state.dailyAnalysisMode -> stringResource(R.string.action_enable_global_coverage)
-                        else -> stringResource(R.string.action_sync)
-                    },
-                    onAction = when {
-                        state.isSyncing || state.switchingSource -> null
-                        state.dailyAnalysisMode -> ({ viewModel.enableGlobalCoverage() })
-                        else -> ({ viewModel.refresh() })
-                    },
-                )
-                if (state.switchingSource) {
-                    Text(
-                        text = stringResource(R.string.switching_source),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                    )
+            SyncStatusStrip(
+                isSyncing = state.isSyncing,
+                isAuto = state.autoSyncing,
+                progressDone = 0,
+                progressTotal = 0,
+                lastSyncEpochMs = state.lastSyncEpochMs,
+                nowEpochMs = state.nowEpochMs,
+                added = state.justSynced,
+                error = state.lastError,
+                isOnline = state.isOnline,
+                languageTag = languageTag,
+            )
+
+            SwipeRefresh(
+                isRefreshing = state.isSyncing,
+                onRefresh = viewModel::refresh,
+                enabled = state.isOnline,
+                modifier = Modifier.weight(1f),
+            ) {
+                // Swiping over the list changes the day. It is a separate axis from the
+                // pull gesture, so the two never compete, and horizontal chip rows keep
+                // their own scrolling because a child that consumes the drag wins it.
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .daySwipe(
+                            selectedDayOffset = state.selectedDayOffset,
+                            onDaySelected = viewModel::selectDay,
+                        ),
+                ) {
+                    if (state.isLoading) {
+                        LoadingState()
+                    } else if (state.matches.isEmpty()) {
+                        ScrollableRefreshContent {
+                            // An empty day is usually a coverage fact, not a missing
+                            // fixture, so the empty state says which source served it and
+                            // offers the one-tap switch.
+                            EmptyState(
+                                title = stringResource(
+                                    if (state.dailyAnalysisMode) R.string.empty_coverage_title else R.string.empty_filtered_matches_title,
+                                ),
+                                message = when {
+                                    state.dailyAnalysisMode -> stringResource(R.string.empty_daily_mode_message, state.sourceName)
+                                    state.kind == MatchKindFilter.NATIONAL -> stringResource(R.string.empty_no_national_message, state.sourceName)
+                                    state.selectedDayOffset < 0 -> stringResource(R.string.empty_recent_results_message)
+                                    else -> stringResource(R.string.empty_upcoming_message)
+                                },
+                                actionLabel = when {
+                                    state.isSyncing || state.switchingSource -> null
+                                    state.dailyAnalysisMode -> stringResource(R.string.action_enable_global_coverage)
+                                    else -> stringResource(R.string.action_sync)
+                                },
+                                onAction = when {
+                                    state.isSyncing || state.switchingSource -> null
+                                    state.dailyAnalysisMode -> ({ viewModel.enableGlobalCoverage() })
+                                    else -> ({ viewModel.refresh() })
+                                },
+                            )
+                            if (state.switchingSource) {
+                                Text(
+                                    text = stringResource(R.string.switching_source),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                                )
+                            }
+                            // Both gestures are invisible by nature; say they exist.
+                            Text(
+                                text = stringResource(R.string.pull_refresh_hint) + " " +
+                                    stringResource(R.string.day_swipe_hint),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 4.dp),
+                            )
+                        }
+                    } else {
+                        GroupedMatchList(
+                            state = state,
+                            languageTag = languageTag,
+                            onMatchClick = onMatchClick,
+                        )
+                    }
                 }
-            } else {
-                GroupedMatchList(
-                    state = state,
-                    languageTag = languageTag,
-                    onMatchClick = onMatchClick,
-                )
             }
         }
     }
@@ -406,6 +453,47 @@ private fun SearchResultRow(
         }
     }
 }
+
+/**
+ * Horizontal swipe over the match list: left for the next day, right for the previous.
+ *
+ * It deliberately does nothing until the finger has travelled [SWIPE_THRESHOLD_DP], so a
+ * tap on a card or a small accidental move never changes the day. In a right-to-left
+ * layout the direction is flipped, because "forward" is to the left for those readers.
+ */
+@Composable
+private fun Modifier.daySwipe(
+    selectedDayOffset: Int,
+    onDaySelected: (Int) -> Unit,
+): Modifier {
+    val haptics = LocalHapticFeedback.current
+    val threshold = with(LocalDensity.current) { SWIPE_THRESHOLD_DP.dp.toPx() }
+    val rightToLeft = LocalLayoutDirection.current == LayoutDirection.Rtl
+    return this.pointerInput(selectedDayOffset, rightToLeft) {
+        var travel = 0f
+        detectHorizontalDragGestures(
+            onDragStart = { travel = 0f },
+            onDragCancel = { travel = 0f },
+            onDragEnd = {
+                if (abs(travel) >= threshold) {
+                    val step = if (travel < 0f) 1 else -1
+                    val next = selectedDayOffset + if (rightToLeft) -step else step
+                    if (next in MatchesViewModel.OLDEST_DAY_OFFSET..MatchesViewModel.NEWEST_DAY_OFFSET) {
+                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onDaySelected(next)
+                    }
+                }
+                travel = 0f
+            },
+            onHorizontalDrag = { change, dragAmount ->
+                travel += dragAmount
+                change.consume()
+            },
+        )
+    }
+}
+
+private const val SWIPE_THRESHOLD_DP = 64
 
 @Composable
 private fun RecentDayTabs(

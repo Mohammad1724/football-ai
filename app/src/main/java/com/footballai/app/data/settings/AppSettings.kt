@@ -21,6 +21,8 @@ data class AppSettings(
     val dailyAnalysisEnabled: Boolean = true,
     val livePollingEnabled: Boolean = false,
     val backgroundSyncEnabled: Boolean = true,
+    /** Refresh by itself when the app is opened and what is stored is not current. */
+    val autoRefreshOnOpen: Boolean = true,
     val autoPredictEnabled: Boolean = true,
     val dataSaverEnabled: Boolean = false,
     val lastHistoricalImportEpochMs: Long? = null,

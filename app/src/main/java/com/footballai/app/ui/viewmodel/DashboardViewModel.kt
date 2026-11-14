@@ -8,6 +8,7 @@ import com.footballai.app.core.ErrorCode
 import com.footballai.app.core.Outcome
 import com.footballai.app.core.TimeConstants
 import com.footballai.app.di.AppContainer
+import com.footballai.app.data.sync.SyncTrigger
 import com.footballai.app.domain.model.MatchSummary
 import com.footballai.app.domain.model.SyncStatus
 import kotlinx.coroutines.CancellationException
@@ -52,6 +53,10 @@ data class DashboardUiState(
     /** Keyless source that supplied the fixtures when the configured provider returned none. */
     val fallbackProviderName: String? = null,
     val fallbackProviderId: String? = null,
+    /** Fixtures returned by the last manual refresh, shown as a short confirmation. */
+    val justSynced: Int = 0,
+    /** False when the phone has no connection; the screen says so instead of spinning. */
+    val isOnline: Boolean = true,
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -73,6 +78,11 @@ class DashboardViewModel(private val container: AppContainer) : ViewModel() {
     init {
         viewModelScope.launch {
             container.dailyAnalysisRepository.reports.collect { report -> _state.update { it.copy(dailyReport = report) } }
+        }
+        viewModelScope.launch {
+            container.networkMonitor.isOnline.collect { online ->
+                _state.update { it.copy(isOnline = online) }
+            }
         }
         observeMatches()
         observeProvider()
@@ -100,50 +110,30 @@ class DashboardViewModel(private val container: AppContainer) : ViewModel() {
                 it.copy(isSyncing = true, isLoading = false, lastError = null, syncDone = 0, syncTotal = 0)
             }
             try {
-                if (container.settingsRepository.current().dailyAnalysisEnabled || container.providerRegistry.activeProviderId() == "football-data-org") {
-                    val report = container.dailyAnalysisRepository.run { done, total ->
-                        _state.update { it.copy(syncDone = done, syncTotal = total) }
-                    }
-                    _state.update { it.copy(dailyReport = report, syncWarnings = report.errors,
-                        fallbackProviderName = null, fallbackProviderId = null) }
-                    return@launch
+                // One implementation for every refresh in the app: the coordinator decides
+                // what "refresh" means for the active mode, records the result and keeps
+                // two syncs from overlapping.
+                val result = container.autoSyncCoordinator.syncNow(SyncTrigger.MANUAL) { done, total ->
+                    _state.update { it.copy(syncDone = done, syncTotal = total) }
                 }
-                val providerId = container.providerRegistry.activeProviderId()
-                if (providerId == null) {
-                    _state.update { it.copy(lastError = AppError(ErrorCode.MISSING_API_KEY)) }
-                    return@launch
-                }
-                val result = container.syncRepository.syncFixtures(
-                    providerId = providerId,
-                    onProgress = { done, total ->
-                        _state.update { it.copy(syncDone = done, syncTotal = total) }
-                    },
-                )
                 when (result) {
                     is Outcome.Failure -> _state.update { it.copy(lastError = result.error) }
-                    is Outcome.Success -> {
-                        container.predictionRepository.resolveFinishedPredictions()
-                        _state.update {
-                            it.copy(
-                                lastError = null,
-                                syncWarnings = result.value.errors,
-                                fallbackProviderName = result.value.fallbackProviderId
-                                    ?.let { id -> container.providerRegistry.info(id)?.displayName },
-                                fallbackProviderId = result.value.fallbackProviderId,
-                            )
-                        }
+                    is Outcome.Success -> _state.update {
+                        it.copy(
+                            lastError = null,
+                            syncWarnings = result.value.warnings,
+                            dailyReport = result.value.dailyReport ?: it.dailyReport,
+                            fallbackProviderId = result.value.fallbackProviderId,
+                            fallbackProviderName = result.value.fallbackProviderId
+                                ?.let { id -> container.providerRegistry.info(id)?.displayName },
+                            justSynced = result.value.added,
+                        )
                     }
                 }
             } catch (cancellation: CancellationException) {
                 throw cancellation
-            } catch (error: AppErrorException) {
-                // Quota exhaustion and similar typed failures must not leave the screen
-                // spinning forever.
-                _state.update { it.copy(lastError = error.error) }
             } catch (error: Exception) {
-                _state.update {
-                    it.copy(lastError = AppError(ErrorCode.UNKNOWN, detail = error.message))
-                }
+                _state.update { it.copy(lastError = AppError(ErrorCode.UNKNOWN, detail = error.message)) }
             } finally {
                 _state.update { it.copy(isSyncing = false) }
                 refreshCounts()
@@ -219,17 +209,16 @@ class DashboardViewModel(private val container: AppContainer) : ViewModel() {
         }
     }
 
+    /**
+     * A second safety net for the automatic refresh: the activity triggers it on start,
+     * this covers a dashboard that is re-created later in the session. Both go through
+     * the coordinator, so whichever runs second finds nothing stale and does nothing.
+     */
     private fun autoSyncIfEmpty() {
         if (autoSyncAttempted) return
         autoSyncAttempted = true
         viewModelScope.launch {
-            if (container.settingsRepository.current().dailyAnalysisEnabled || container.providerRegistry.activeProviderId() == "football-data-org") {
-                if (container.dailyAnalysisRepository.needsRefresh()) refresh()
-                return@launch
-            }
-            val providerId = container.providerRegistry.activeProviderId() ?: return@launch
-            val (fixtures, _, _) = container.matchRepository.countsTriple()
-            if (fixtures == 0) refresh()
+            container.autoSyncCoordinator.syncIfStale(SyncTrigger.STARTUP)
         }
     }
 

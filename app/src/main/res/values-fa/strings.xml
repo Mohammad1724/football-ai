@@ -504,4 +504,12 @@
     <string name="national_history_action">دریافت تاریخچهٔ بازی‌های ملی</string>
     <string name="error_no_national_history_women">این یک بازی ملی زنان است و آرشیو بین‌المللی که این برنامه می‌تواند دریافت کند فقط مسابقات مردان را دارد. ارزیابی این بازی با نتایج مردان غلط می‌بود، پس تحلیلی نشان داده نمی‌شود.</string>
     <string name="error_no_national_history_team">دست‌کم یکی از این تیم‌های ملی در آرشیو مسابقات ملی نیست، پس سابقه‌ای برای ارزیابی‌اش وجود ندارد. هیچ چیزی حدس زده نشد و نام مشابهی جای آن گذاشته نشد؛ ممکن است نام تیم در منبع بازی با آرشیو متفاوت باشد.</string>
+    <string name="sync_running_label">در حال به‌روزرسانی…</string>
+    <string name="sync_progress_label">در حال به‌روزرسانی %1$s از %2$s…</string>
+    <string name="sync_last_updated">به‌روزرسانی %1$s</string>
+    <string name="sync_added_suffix">%1$s بازی</string>
+    <string name="setting_auto_refresh">به‌روزرسانی خودکار هنگام باز کردن برنامه</string>
+    <string name="setting_auto_refresh_body">وقتی داده‌های ذخیره‌شده دیگر به‌روز نباشند — روز عوض شده باشد یا زمان به‌روزرسانی قدیمی باشد — برنامه خودش هنگام باز شدن به‌روزرسانی می‌کند. بدون اینترنت هرگز انجام نمی‌شود و هیچ‌وقت دو بار هم‌زمان.</string>
+    <string name="pull_refresh_hint">برای به‌روزرسانی، صفحه را به پایین بکشید.</string>
+    <string name="day_swipe_hint">برای عوض کردن روز، روی فهرست به چپ یا راست بکشید.</string>
 </resources>

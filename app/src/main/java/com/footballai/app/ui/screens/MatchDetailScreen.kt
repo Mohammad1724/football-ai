@@ -76,6 +76,7 @@ import com.footballai.app.ui.components.EmptyState
 import com.footballai.app.ui.components.ErrorState
 import com.footballai.app.ui.components.InfoCard
 import com.footballai.app.ui.components.LoadingState
+import com.footballai.app.ui.components.SwipeRefresh
 import com.footballai.app.ui.components.MarketBarRow
 import com.footballai.app.ui.components.ProbabilityBar
 import com.footballai.app.ui.components.QualityBadge
@@ -193,26 +194,32 @@ fun MatchDetailScreen(
                 error.code == com.footballai.app.core.ErrorCode.NO_NATIONAL_HISTORY && error.detail == null
             } == true
             when {
-                selectedTab == 0 -> AnalysisTab(
-                    prediction = state.prediction,
-                    isPredicting = state.isPredicting,
-                    error = state.lastError?.let { errorLabel(it) },
-                    isLiveMatch = detail.summary.status.isLive,
-                    isFinished = detail.summary.status.isFinished,
-                    homeName = detail.summary.home.name,
-                    awayName = detail.summary.away.name,
-                    canPredict = state.lastError?.code != com.footballai.app.core.ErrorCode.INVALID_MATCH_STATE &&
-                        !detail.summary.status.isFinished &&
-                        (detail.summary.status.isLive || detail.summary.status == com.footballai.app.domain.model.MatchStatus.SCHEDULED),
-                    onPredict = { viewModel.predict(forcePersist = true) },
-                    needsNationalHistory = missingArchive,
-                    isImportingHistory = state.isImportingHistory,
-                    onImportNationalHistory = viewModel::importNationalHistory,
-                    liveTrackingEnabled = state.liveTrackingEnabled,
-                    isLiveTracking = state.isLiveTracking,
-                    onToggleTracking = viewModel::setLiveTrackingEnabled,
-                    languageTag = languageTag,
-                )
+                selectedTab == 0 -> SwipeRefresh(
+                    isRefreshing = state.isRefreshing,
+                    onRefresh = viewModel::refresh,
+                    modifier = Modifier.fillMaxSize(),
+                ) {
+                    AnalysisTab(
+                        prediction = state.prediction,
+                        isPredicting = state.isPredicting,
+                        error = state.lastError?.let { errorLabel(it) },
+                        isLiveMatch = detail.summary.status.isLive,
+                        isFinished = detail.summary.status.isFinished,
+                        homeName = detail.summary.home.name,
+                        awayName = detail.summary.away.name,
+                        canPredict = state.lastError?.code != com.footballai.app.core.ErrorCode.INVALID_MATCH_STATE &&
+                            !detail.summary.status.isFinished &&
+                            (detail.summary.status.isLive || detail.summary.status == com.footballai.app.domain.model.MatchStatus.SCHEDULED),
+                        onPredict = { viewModel.predict(forcePersist = true) },
+                        needsNationalHistory = missingArchive,
+                        isImportingHistory = state.isImportingHistory,
+                        onImportNationalHistory = viewModel::importNationalHistory,
+                        liveTrackingEnabled = state.liveTrackingEnabled,
+                        isLiveTracking = state.isLiveTracking,
+                        onToggleTracking = viewModel::setLiveTrackingEnabled,
+                        languageTag = languageTag,
+                    )
+                }
 
                 hasLiveTab && selectedTab == 1 -> LiveTab(
                     prediction = state.prediction,

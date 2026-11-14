@@ -12,6 +12,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.lifecycleScope
+import com.footballai.app.data.sync.SyncTrigger
+import kotlinx.coroutines.launch
 import com.footballai.app.data.settings.AppLanguage
 import com.footballai.app.data.settings.AppSettings
 import com.footballai.app.data.settings.ThemeMode
@@ -63,6 +66,22 @@ class MainActivity : ComponentActivity() {
                     FootballAiApp()
                 }
             }
+        }
+    }
+
+    /**
+     * Refresh on entering the app, but only when there is a reason.
+     *
+     * onStart covers both a cold launch and a return from the background (a phone in a
+     * pocket for two hours must not show yesterday's fixtures). The coordinator decides
+     * whether anything is actually stale, so this costs nothing when the data is current,
+     * and it is a no-op while another sync is already running.
+     */
+    override fun onStart() {
+        super.onStart()
+        val container = (application as FootballAiApplication).container
+        lifecycleScope.launch {
+            container.autoSyncCoordinator.syncIfStale(SyncTrigger.RESUME)
         }
     }
 

@@ -51,6 +51,7 @@ import com.footballai.app.ui.components.EmptyState
 import com.footballai.app.ui.components.ErrorState
 import com.footballai.app.ui.components.InfoCard
 import com.footballai.app.ui.components.LoadingState
+import com.footballai.app.ui.components.SwipeRefresh
 import com.footballai.app.ui.components.SectionHeader
 import com.footballai.app.ui.errorLabel
 import com.footballai.app.ui.theme.FootballAiThemeExtra
@@ -88,136 +89,144 @@ fun PerformanceScreen() {
                 LoadingState()
                 return@Column
             }
-            LazyColumn(modifier = Modifier.fillMaxSize()) {
-                item {
-                    SectionHeader(
-                        title = stringResource(R.string.section_stored_predictions),
-                        subtitle = stringResource(R.string.section_stored_predictions_subtitle),
-                    )
-                }
-                item {
-                    StoredStatsCard(
-                        resolved = state.storedStats.resolved,
-                        correct = state.storedStats.correct,
-                        brier = state.storedStats.brier,
-                        logLoss = state.storedStats.logLoss,
-                        accuracy = state.storedStats.accuracy,
-                        languageTag = languageTag,
-                    )
-                }
-
-                item {
-                    SectionHeader(
-                        title = stringResource(R.string.calibration_study_title),
-                        subtitle = stringResource(R.string.calibration_study_hint),
-                    )
-                }
-                item {
-                    CalibrationStudyCard(
-                        studyClass = state.studyClass,
-                        study = state.study,
-                        fittedSamples = state.fittedSamples,
-                        loading = state.studyLoading,
-                        languageTag = languageTag,
-                        onSelectClass = viewModel::selectStudyClass,
-                    )
-                }
-
-                item {
-                    SectionHeader(
-                        title = stringResource(R.string.section_backtest),
-                        subtitle = stringResource(R.string.section_backtest_subtitle),
-                    )
-                }
-                if (state.sources.isEmpty()) {
+            // Pull down to recompute the stored-prediction statistics: the same numbers
+            // the refresh button produces, without hunting for the icon.
+            SwipeRefresh(
+                isRefreshing = state.statsRefreshing,
+                onRefresh = viewModel::refreshStoredStats,
+                modifier = Modifier.weight(1f),
+            ) {
+                LazyColumn(modifier = Modifier.fillMaxSize()) {
                     item {
-                        EmptyState(
-                            title = stringResource(R.string.empty_backtest_title),
-                            message = stringResource(R.string.empty_backtest_message),
+                        SectionHeader(
+                            title = stringResource(R.string.section_stored_predictions),
+                            subtitle = stringResource(R.string.section_stored_predictions_subtitle),
                         )
                     }
-                } else {
                     item {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .horizontalScroll(rememberScrollState())
-                                .padding(horizontal = 16.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            state.sources.forEach { source ->
-                                FilterChip(
-                                    selected = state.selectedSource == source.source,
-                                    onClick = { viewModel.selectSource(source.source) },
-                                    label = {
-                                        Text(
-                                            "${source.displayName} (${Formatters.integer(source.matches, languageTag)})",
-                                        )
-                                    },
-                                )
-                            }
-                        }
+                        StoredStatsCard(
+                            resolved = state.storedStats.resolved,
+                            correct = state.storedStats.correct,
+                            brier = state.storedStats.brier,
+                            logLoss = state.storedStats.logLoss,
+                            accuracy = state.storedStats.accuracy,
+                            languageTag = languageTag,
+                        )
                     }
-                    item {
-                        if (state.isRunning) {
-                            LoadingState()
-                        } else {
-                            state.lastError?.let { error ->
-                                ErrorState(message = errorLabel(error), onRetry = { viewModel.runBacktest() })
-                            }
-                        }
-                    }
-                    state.report?.let { report ->
-                        item { BacktestSummary(report = report, languageTag = languageTag) }
-                        if (report.baselineMatchesEvaluated > 0) {
-                            item {
-                                InfoCard(
-                                    title = stringResource(R.string.context_comparison_title),
-                                    body = stringResource(
-                                        R.string.context_comparison_body,
-                                        Formatters.decimal(report.baselineBrier, languageTag, 4),
-                                        Formatters.decimal(report.brier, languageTag, 4),
-                                        Formatters.decimal(report.baselineLogLoss, languageTag, 3),
-                                        Formatters.decimal(report.logLoss, languageTag, 3),
-                                        Formatters.percent(report.baselineAccuracy, languageTag),
-                                        Formatters.percent(report.accuracy, languageTag),
-                                    ),
-                                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                                )
-                            }
-                        }
-                        item {
-                            SectionHeader(title = stringResource(R.string.section_calibration))
-                        }
-                        item {
-                            Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-                                CalibrationChart(points = report.calibration)
-                                Text(
-                                    text = stringResource(
-                                        R.string.calibration_hint,
-                                        Formatters.decimal(report.expectedCalibrationError, languageTag, 3),
-                                    ),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                        }
-                        item { SectionHeader(title = stringResource(R.string.section_by_competition)) }
-                        items(report.byCompetition.values.toList()) { competition ->
-                            CompetitionPerformanceRow(competition = competition, languageTag = languageTag)
-                        }
-                    }
-                }
 
-                item {
-                    Spacer(Modifier.height(12.dp))
-                    InfoCard(
-                        title = stringResource(R.string.honesty_title),
-                        body = stringResource(R.string.honesty_body),
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                    )
+                    item {
+                        SectionHeader(
+                            title = stringResource(R.string.calibration_study_title),
+                            subtitle = stringResource(R.string.calibration_study_hint),
+                        )
+                    }
+                    item {
+                        CalibrationStudyCard(
+                            studyClass = state.studyClass,
+                            study = state.study,
+                            fittedSamples = state.fittedSamples,
+                            loading = state.studyLoading,
+                            languageTag = languageTag,
+                            onSelectClass = viewModel::selectStudyClass,
+                        )
+                    }
+
+                    item {
+                        SectionHeader(
+                            title = stringResource(R.string.section_backtest),
+                            subtitle = stringResource(R.string.section_backtest_subtitle),
+                        )
+                    }
+                    if (state.sources.isEmpty()) {
+                        item {
+                            EmptyState(
+                                title = stringResource(R.string.empty_backtest_title),
+                                message = stringResource(R.string.empty_backtest_message),
+                            )
+                        }
+                    } else {
+                        item {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .horizontalScroll(rememberScrollState())
+                                    .padding(horizontal = 16.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                state.sources.forEach { source ->
+                                    FilterChip(
+                                        selected = state.selectedSource == source.source,
+                                        onClick = { viewModel.selectSource(source.source) },
+                                        label = {
+                                            Text(
+                                                "${source.displayName} (${Formatters.integer(source.matches, languageTag)})",
+                                            )
+                                        },
+                                    )
+                                }
+                            }
+                        }
+                        item {
+                            if (state.isRunning) {
+                                LoadingState()
+                            } else {
+                                state.lastError?.let { error ->
+                                    ErrorState(message = errorLabel(error), onRetry = { viewModel.runBacktest() })
+                                }
+                            }
+                        }
+                        state.report?.let { report ->
+                            item { BacktestSummary(report = report, languageTag = languageTag) }
+                            if (report.baselineMatchesEvaluated > 0) {
+                                item {
+                                    InfoCard(
+                                        title = stringResource(R.string.context_comparison_title),
+                                        body = stringResource(
+                                            R.string.context_comparison_body,
+                                            Formatters.decimal(report.baselineBrier, languageTag, 4),
+                                            Formatters.decimal(report.brier, languageTag, 4),
+                                            Formatters.decimal(report.baselineLogLoss, languageTag, 3),
+                                            Formatters.decimal(report.logLoss, languageTag, 3),
+                                            Formatters.percent(report.baselineAccuracy, languageTag),
+                                            Formatters.percent(report.accuracy, languageTag),
+                                        ),
+                                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                    )
+                                }
+                            }
+                            item {
+                                SectionHeader(title = stringResource(R.string.section_calibration))
+                            }
+                            item {
+                                Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+                                    CalibrationChart(points = report.calibration)
+                                    Text(
+                                        text = stringResource(
+                                            R.string.calibration_hint,
+                                            Formatters.decimal(report.expectedCalibrationError, languageTag, 3),
+                                        ),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+                            item { SectionHeader(title = stringResource(R.string.section_by_competition)) }
+                            items(report.byCompetition.values.toList()) { competition ->
+                                CompetitionPerformanceRow(competition = competition, languageTag = languageTag)
+                            }
+                        }
+                    }
+
+                    item {
+                        Spacer(Modifier.height(12.dp))
+                        InfoCard(
+                            title = stringResource(R.string.honesty_title),
+                            body = stringResource(R.string.honesty_body),
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        )
+                    }
+                    item { Spacer(Modifier.height(24.dp)) }
                 }
-                item { Spacer(Modifier.height(24.dp)) }
             }
         }
     }

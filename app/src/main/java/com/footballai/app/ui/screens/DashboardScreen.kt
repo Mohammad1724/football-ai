@@ -55,6 +55,8 @@ import com.footballai.app.ui.LocalLanguageTag
 import com.footballai.app.ui.components.ErrorState
 import com.footballai.app.ui.components.InfoCard
 import com.footballai.app.ui.components.LoadingState
+import com.footballai.app.ui.components.SwipeRefresh
+import com.footballai.app.ui.components.SyncStatusStrip
 import com.footballai.app.ui.components.MatchCard
 import com.footballai.app.ui.components.SectionHeader
 import com.footballai.app.ui.components.StatusChip
@@ -111,188 +113,207 @@ fun DashboardScreen(
         },
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+            SyncStatusStrip(
+                isSyncing = state.isSyncing,
+                isAuto = false,
+                progressDone = state.syncDone,
+                progressTotal = state.syncTotal,
+                lastSyncEpochMs = state.sync.lastSuccessfulSyncEpochMs,
+                nowEpochMs = System.currentTimeMillis(),
+                added = if (state.justSynced > 0) state.justSynced else null,
+                error = state.lastError,
+                isOnline = state.isOnline,
+                languageTag = languageTag,
+            )
             if (state.isLoading) {
                 LoadingState()
                 return@Column
             }
 
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(2.dp),
+            // Pull down to refresh the same way the match list does.
+            SwipeRefresh(
+                isRefreshing = state.isSyncing,
+                onRefresh = viewModel::refresh,
+                modifier = Modifier.weight(1f),
             ) {
-                if (state.dailyMode && showDataDetails) {
-                    item { InfoCard(title = stringResource(R.string.daily_mode_title), body = stringResource(R.string.daily_dashboard_hint)) }
-                }
-                if (showDataDetails) state.dailyReport?.let { report ->
-                        item {
-                            InfoCard(title = stringResource(R.string.daily_report_title), body = stringResource(
-                                R.string.daily_report_body,
-                                Formatters.integer(report.coveredLeagues, languageTag),
-                                Formatters.integer(report.candidates, languageTag),
-                                Formatters.integer(report.predicted + report.alreadySaved, languageTag),
-                                Formatters.integer(report.insufficientHistory, languageTag),
-                                Formatters.integer(report.failed, languageTag),
-                                Formatters.kickoffDateTime(report.attemptedAt, languageTag),
-                            ))
-                        }
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    if (state.dailyMode && showDataDetails) {
+                        item { InfoCard(title = stringResource(R.string.daily_mode_title), body = stringResource(R.string.daily_dashboard_hint)) }
                     }
-                item {
-                    SyncCard(
-                        dailyMode = state.dailyMode,
-                        providerName = state.providerName,
-                        lastSyncEpochMs = state.sync.lastSuccessfulSyncEpochMs,
-                        fixtures = state.sync.fixturesCount,
-                        historical = state.sync.historicalCount,
-                        predictions = state.sync.predictionsCount,
-                        isSyncing = state.isSyncing,
-                        progressDone = state.syncDone,
-                        progressTotal = state.syncTotal,
-                        onSync = { viewModel.refresh() },
-                        onCancelSync = { viewModel.cancelSync() },
-                        onConfigure = onOpenDataSources,
-                    )
-                }
-
-                item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                        horizontalArrangement = Arrangement.Center,
-                    ) {
-                        TextButton(onClick = { showDataDetails = !showDataDetails }) {
-                            Text(
-                                if (showDataDetails) {
-                                    stringResource(R.string.hide_data_details)
-                                } else if (state.syncWarnings.isNotEmpty()) {
-                                    stringResource(R.string.show_data_details_with_warnings, state.syncWarnings.size)
-                                } else {
-                                    stringResource(R.string.show_data_details)
-                                },
-                            )
+                    if (showDataDetails) state.dailyReport?.let { report ->
+                            item {
+                                InfoCard(title = stringResource(R.string.daily_report_title), body = stringResource(
+                                    R.string.daily_report_body,
+                                    Formatters.integer(report.coveredLeagues, languageTag),
+                                    Formatters.integer(report.candidates, languageTag),
+                                    Formatters.integer(report.predicted + report.alreadySaved, languageTag),
+                                    Formatters.integer(report.insufficientHistory, languageTag),
+                                    Formatters.integer(report.failed, languageTag),
+                                    Formatters.kickoffDateTime(report.attemptedAt, languageTag),
+                                ))
+                            }
                         }
-                    }
-                }
-
-                state.fallbackProviderName?.let { name ->
                     item {
-                        Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-                            InfoCard(
-                                title = stringResource(R.string.sync_fallback_title),
-                                body = stringResource(R.string.sync_fallback_body, name),
-                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                            )
-                            TextButton(onClick = { viewModel.useFallbackProvider() }) {
-                                Text(stringResource(R.string.sync_fallback_use))
+                        SyncCard(
+                            dailyMode = state.dailyMode,
+                            providerName = state.providerName,
+                            lastSyncEpochMs = state.sync.lastSuccessfulSyncEpochMs,
+                            fixtures = state.sync.fixturesCount,
+                            historical = state.sync.historicalCount,
+                            predictions = state.sync.predictionsCount,
+                            isSyncing = state.isSyncing,
+                            progressDone = state.syncDone,
+                            progressTotal = state.syncTotal,
+                            onSync = { viewModel.refresh() },
+                            onCancelSync = { viewModel.cancelSync() },
+                            onConfigure = onOpenDataSources,
+                        )
+                    }
+
+                    item {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                            horizontalArrangement = Arrangement.Center,
+                        ) {
+                            TextButton(onClick = { showDataDetails = !showDataDetails }) {
+                                Text(
+                                    if (showDataDetails) {
+                                        stringResource(R.string.hide_data_details)
+                                    } else if (state.syncWarnings.isNotEmpty()) {
+                                        stringResource(R.string.show_data_details_with_warnings, state.syncWarnings.size)
+                                    } else {
+                                        stringResource(R.string.show_data_details)
+                                    },
+                                )
                             }
                         }
                     }
-                }
 
-                if (state.syncWarnings.isNotEmpty() && showDataDetails) {
-                    item {
-                        val code = state.syncWarnings.first().substringAfter(": ").substringBefore(' ')
-                        InfoCard(
-                            title = stringResource(R.string.sync_partial_title),
-                            body = stringResource(
-                                R.string.sync_partial_body,
-                                Formatters.integer(state.syncWarnings.size, languageTag),
-                                Formatters.integer(
-                                    if (state.syncTotal > 0) state.syncTotal else state.syncWarnings.size,
-                                    languageTag,
-                                ),
-                                errorLabel(com.footballai.app.core.AppError(runCatching {
-                                    com.footballai.app.core.ErrorCode.valueOf(code)
-                                }.getOrDefault(com.footballai.app.core.ErrorCode.REQUEST_FAILED))),
-                            ),
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                        )
-                        state.syncWarnings.distinct().forEach { warning ->
-                            val description = warning.substringAfter(": ")
-                            val warningCode = description.substringBefore(' ')
-                            val error = com.footballai.app.core.AppError(runCatching {
-                                com.footballai.app.core.ErrorCode.valueOf(warningCode)
-                            }.getOrDefault(com.footballai.app.core.ErrorCode.REQUEST_FAILED))
-                            val diagnostics = description.removePrefix(warningCode).trim()
+                    state.fallbackProviderName?.let { name ->
+                        item {
+                            Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+                                InfoCard(
+                                    title = stringResource(R.string.sync_fallback_title),
+                                    body = stringResource(R.string.sync_fallback_body, name),
+                                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                )
+                                TextButton(onClick = { viewModel.useFallbackProvider() }) {
+                                    Text(stringResource(R.string.sync_fallback_use))
+                                }
+                            }
+                        }
+                    }
+
+                    if (state.syncWarnings.isNotEmpty() && showDataDetails) {
+                        item {
+                            val code = state.syncWarnings.first().substringAfter(": ").substringBefore(' ')
                             InfoCard(
-                                title = warning.substringBefore(": ", "Sync"),
-                                body = errorLabel(error) + if (diagnostics.isEmpty()) "" else "\n$diagnostics",
+                                title = stringResource(R.string.sync_partial_title),
+                                body = stringResource(
+                                    R.string.sync_partial_body,
+                                    Formatters.integer(state.syncWarnings.size, languageTag),
+                                    Formatters.integer(
+                                        if (state.syncTotal > 0) state.syncTotal else state.syncWarnings.size,
+                                        languageTag,
+                                    ),
+                                    errorLabel(com.footballai.app.core.AppError(runCatching {
+                                        com.footballai.app.core.ErrorCode.valueOf(code)
+                                    }.getOrDefault(com.footballai.app.core.ErrorCode.REQUEST_FAILED))),
+                                ),
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            )
+                            state.syncWarnings.distinct().forEach { warning ->
+                                val description = warning.substringAfter(": ")
+                                val warningCode = description.substringBefore(' ')
+                                val error = com.footballai.app.core.AppError(runCatching {
+                                    com.footballai.app.core.ErrorCode.valueOf(warningCode)
+                                }.getOrDefault(com.footballai.app.core.ErrorCode.REQUEST_FAILED))
+                                val diagnostics = description.removePrefix(warningCode).trim()
+                                InfoCard(
+                                    title = warning.substringBefore(": ", "Sync"),
+                                    body = errorLabel(error) + if (diagnostics.isEmpty()) "" else "\n$diagnostics",
+                                )
+                            }
+                        }
+                    }
+
+                    state.lastError?.let { error ->
+                        item {
+                            ErrorState(
+                                message = errorLabel(error),
+                                onRetry = { viewModel.refresh() },
                             )
                         }
                     }
-                }
 
-                state.lastError?.let { error ->
+                    if (state.liveMatches.isNotEmpty()) {
+                        item {
+                            SectionHeader(
+                                title = stringResource(R.string.section_live),
+                                subtitle = stringResource(R.string.section_live_subtitle),
+                            )
+                        }
+                        items(state.liveMatches, key = { it.id }) { match ->
+                            MatchCard(match = match, languageTag = languageTag, onClick = { onMatchClick(match.id) })
+                        }
+                    }
+
+                    if (state.todayMatches.isNotEmpty()) {
+                        item {
+                            SectionHeader(
+                                title = stringResource(R.string.section_today),
+                                actionLabel = if (state.todayMatches.size > 6) stringResource(R.string.action_see_all) else null,
+                                onAction = if (state.todayMatches.size > 6) onOpenMatches else null,
+                            )
+                        }
+                        items(state.todayMatches.take(6), key = { it.id }) { match ->
+                            MatchCard(match = match, languageTag = languageTag, onClick = { onMatchClick(match.id) })
+                        }
+                    }
+
+                    if (state.upcomingMatches.isNotEmpty()) {
+                        item {
+                            SectionHeader(
+                                title = stringResource(R.string.section_upcoming),
+                                actionLabel = stringResource(R.string.action_see_all),
+                                onAction = onOpenMatches,
+                            )
+                        }
+                        items(state.upcomingMatches.take(6), key = { it.id }) { match ->
+                            MatchCard(match = match, languageTag = languageTag, onClick = { onMatchClick(match.id) })
+                        }
+                    }
+
+                    if (!state.dailyMode && !state.hasAnyData && state.lastError == null) {
+                        item {
+                            GettingStartedCard(
+                                hasProvider = state.providerName != null,
+                                fixtures = state.sync.fixturesCount,
+                                historical = state.historicalMatches,
+                                isSyncing = state.isSyncing,
+                                syncDone = state.syncDone,
+                                syncTotal = state.syncTotal,
+                                onAddKey = onOpenDataSources,
+                                onSyncFixtures = { viewModel.refresh() },
+                                onCancelSync = { viewModel.cancelSync() },
+                                onImportHistory = onOpenDataSources,
+                            )
+                        }
+                    }
+
                     item {
-                        ErrorState(
-                            message = errorLabel(error),
-                            onRetry = { viewModel.refresh() },
+                        Spacer(Modifier.height(12.dp))
+                        InfoCard(
+                            title = stringResource(R.string.disclaimer_title),
+                            body = stringResource(R.string.disclaimer_body),
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
                         )
                     }
+                    item { Spacer(Modifier.height(24.dp)) }
                 }
-
-                if (state.liveMatches.isNotEmpty()) {
-                    item {
-                        SectionHeader(
-                            title = stringResource(R.string.section_live),
-                            subtitle = stringResource(R.string.section_live_subtitle),
-                        )
-                    }
-                    items(state.liveMatches, key = { it.id }) { match ->
-                        MatchCard(match = match, languageTag = languageTag, onClick = { onMatchClick(match.id) })
-                    }
-                }
-
-                if (state.todayMatches.isNotEmpty()) {
-                    item {
-                        SectionHeader(
-                            title = stringResource(R.string.section_today),
-                            actionLabel = if (state.todayMatches.size > 6) stringResource(R.string.action_see_all) else null,
-                            onAction = if (state.todayMatches.size > 6) onOpenMatches else null,
-                        )
-                    }
-                    items(state.todayMatches.take(6), key = { it.id }) { match ->
-                        MatchCard(match = match, languageTag = languageTag, onClick = { onMatchClick(match.id) })
-                    }
-                }
-
-                if (state.upcomingMatches.isNotEmpty()) {
-                    item {
-                        SectionHeader(
-                            title = stringResource(R.string.section_upcoming),
-                            actionLabel = stringResource(R.string.action_see_all),
-                            onAction = onOpenMatches,
-                        )
-                    }
-                    items(state.upcomingMatches.take(6), key = { it.id }) { match ->
-                        MatchCard(match = match, languageTag = languageTag, onClick = { onMatchClick(match.id) })
-                    }
-                }
-
-                if (!state.dailyMode && !state.hasAnyData && state.lastError == null) {
-                    item {
-                        GettingStartedCard(
-                            hasProvider = state.providerName != null,
-                            fixtures = state.sync.fixturesCount,
-                            historical = state.historicalMatches,
-                            isSyncing = state.isSyncing,
-                            syncDone = state.syncDone,
-                            syncTotal = state.syncTotal,
-                            onAddKey = onOpenDataSources,
-                            onSyncFixtures = { viewModel.refresh() },
-                            onCancelSync = { viewModel.cancelSync() },
-                            onImportHistory = onOpenDataSources,
-                        )
-                    }
-                }
-
-                item {
-                    Spacer(Modifier.height(12.dp))
-                    InfoCard(
-                        title = stringResource(R.string.disclaimer_title),
-                        body = stringResource(R.string.disclaimer_body),
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                    )
-                }
-                item { Spacer(Modifier.height(24.dp)) }
             }
         }
     }

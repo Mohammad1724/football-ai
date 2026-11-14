@@ -47,6 +47,9 @@ class AppContainer(context: Context) {
     fun contextForWork(): Context = appContext
 
     val clock: TimeProvider = TimeProvider.System
+
+    /** Connectivity, so no screen starts a sync it cannot finish. */
+    val networkMonitor = com.footballai.app.core.NetworkMonitor(appContext)
     val dispatchers: DispatchersProvider = DispatchersProvider()
 
     val database: FootballDatabase = FootballDatabase.create(appContext)
@@ -127,6 +130,23 @@ class AppContainer(context: Context) {
     val dailyAnalysisRepository = com.footballai.app.data.repository.DailyAnalysisRepository(
         database, providerRegistry, syncRepository, ratingsRepository, predictionRepository, clock,
     )
+
+    /**
+     * One place that decides whether the stored data is current and, if not, refreshes
+     * it. Every refresh button and every automatic trigger goes through it, so two syncs
+     * can never run at once and the UI always shows the truth about what is happening.
+     */
+    val autoSyncCoordinator: com.footballai.app.data.sync.AutoSyncCoordinator =
+        com.footballai.app.data.sync.AutoSyncCoordinator(
+            settingsRepository = settingsRepository,
+            syncRepository = syncRepository,
+            dailyAnalysisRepository = dailyAnalysisRepository,
+            predictionRepository = predictionRepository,
+            providerRegistry = providerRegistry,
+            matchRepository = matchRepository,
+            networkMonitor = networkMonitor,
+            clock = clock,
+        )
 
     val performanceRepository: PerformanceRepository = PerformanceRepository(
         db = database,

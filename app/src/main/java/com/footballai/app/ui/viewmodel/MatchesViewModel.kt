@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.footballai.app.core.AppError
 import com.footballai.app.core.ErrorCode
 import com.footballai.app.core.Outcome
+import com.footballai.app.data.sync.SyncTrigger
 import com.footballai.app.domain.catalog.NameLocalization
 import com.footballai.app.di.AppContainer
 import com.footballai.app.domain.model.Competition
@@ -19,6 +20,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.update
@@ -85,6 +87,21 @@ data class MatchesUiState(
     val sourceName: String = "",
     /** True while the app switches to the worldwide source and syncs it. */
     val switchingSource: Boolean = false,
+    /** Fixtures returned by the last refresh; null when nothing was refreshed yet. */
+    val justSynced: Int? = null,
+    /** Per-competition failures of the last refresh, so a partial result is visible. */
+    val syncWarnings: List<String> = emptyList(),
+    /** False when the phone has no connection: the refresh button explains instead of hanging. */
+    val isOnline: Boolean = true,
+    /**
+     * True while the app refreshes itself. The user did not press anything, so the list
+     * keeps showing what it has and only a thin strip changes.
+     */
+    val autoSyncing: Boolean = false,
+    /** When the stored fixtures were last confirmed current, for the status strip. */
+    val lastSyncEpochMs: Long? = null,
+    /** Live wall clock, so "3 minutes ago" keeps being true without a new sync. */
+    val nowEpochMs: Long = System.currentTimeMillis(),
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -162,6 +179,34 @@ class MatchesViewModel(private val container: AppContainer) : ViewModel() {
                 }
         }
         viewModelScope.launch {
+            container.networkMonitor.isOnline.collect { online ->
+                _state.update { it.copy(isOnline = online) }
+            }
+        }
+        viewModelScope.launch {
+            container.autoSyncCoordinator.state.collect { sync ->
+                _state.update {
+                    it.copy(
+                        autoSyncing = sync.isSyncing && !it.isSyncing,
+                        lastSyncEpochMs = sync.lastSuccessEpochMs ?: it.lastSyncEpochMs,
+                        nowEpochMs = container.clock.nowEpochMs(),
+                    )
+                }
+            }
+        }
+        viewModelScope.launch {
+            container.settingsRepository.settings.collect { settings ->
+                _state.update { it.copy(lastSyncEpochMs = settings.lastSyncEpochMs ?: it.lastSyncEpochMs) }
+            }
+        }
+        viewModelScope.launch {
+            // Keep the relative "last updated" label honest without a sync every minute.
+            while (true) {
+                delay(30_000L)
+                _state.update { it.copy(nowEpochMs = container.clock.nowEpochMs()) }
+            }
+        }
+        viewModelScope.launch {
             combine(
                 searchQuery,
                 container.matchRepository.observeAll(),
@@ -223,11 +268,9 @@ class MatchesViewModel(private val container: AppContainer) : ViewModel() {
                 container.settingsRepository.setDailyAnalysis(false)
                 container.settingsRepository.setActiveProvider(com.footballai.app.data.remote.EspnOpenProvider.PROVIDER_ID)
                 container.syncRepository.syncCompetitions(com.footballai.app.data.remote.EspnOpenProvider.PROVIDER_ID)
-                container.syncRepository.syncFixtures(
-                    providerId = com.footballai.app.data.remote.EspnOpenProvider.PROVIDER_ID,
-                    daysBack = 1,
-                    daysAhead = 2,
-                )
+                // Go through the coordinator so the progress strip, the quota guard and
+                // the "never two syncs at once" rule apply here too.
+                container.autoSyncCoordinator.syncNow(SyncTrigger.MANUAL)
                 selection.update { it.copy(kind = MatchKindFilter.ALL, gender = MatchGenderFilter.ALL, followedOnly = false) }
             } finally {
                 _state.update { it.copy(switchingSource = false) }
@@ -245,41 +288,21 @@ class MatchesViewModel(private val container: AppContainer) : ViewModel() {
 
     fun refresh() {
         if (_state.value.isSyncing) return
-        _state.update { it.copy(isSyncing = true, lastError = null) }
+        _state.update { it.copy(isSyncing = true, lastError = null, justSynced = null) }
         viewModelScope.launch {
             try {
-                if (container.settingsRepository.current().dailyAnalysisEnabled || container.providerRegistry.activeProviderId() == "football-data-org") {
-                    val report = container.dailyAnalysisRepository.run()
-                    _state.update {
-                        it.copy(lastError = report.errors.firstOrNull()?.let { AppError(ErrorCode.REQUEST_FAILED) })
-                    }
-                    return@launch
-                }
-                val providerId = container.providerRegistry.activeProviderId()
-                val result = if (providerId == null) {
-                    Outcome.Failure(AppError(ErrorCode.NOT_FOUND))
-                } else {
-                    // Cover every date exposed by the horizontal day selector.
-                    container.syncRepository.syncFixtures(
-                        providerId = providerId,
-                        daysBack = 3,
-                        daysAhead = NEWEST_DAY_OFFSET,
-                    )
-                }
-                val error = when (result) {
-                    is Outcome.Failure -> result.error
-                    is Outcome.Success -> if (result.value.errors.isEmpty()) {
-                        null
-                    } else {
-                        AppError(
-                            code = runCatching {
-                                ErrorCode.valueOf(result.value.errors.first().substringAfterLast(": "))
-                            }.getOrDefault(ErrorCode.REQUEST_FAILED),
-                            detail = result.value.errors.joinToString(),
+                // Every refresh in the app is the same refresh, so a fix here fixes the
+                // button, the pull gesture and the automatic pass at once.
+                when (val result = container.autoSyncCoordinator.syncNow(SyncTrigger.MANUAL)) {
+                    is Outcome.Failure -> _state.update { it.copy(lastError = result.error) }
+                    is Outcome.Success -> _state.update {
+                        it.copy(
+                            lastError = null,
+                            justSynced = result.value.added,
+                            syncWarnings = result.value.warnings,
                         )
                     }
                 }
-                _state.update { it.copy(lastError = error) }
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {

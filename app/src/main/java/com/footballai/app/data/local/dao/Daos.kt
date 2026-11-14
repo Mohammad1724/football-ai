@@ -91,6 +91,9 @@ interface MatchDao {
     @Query("SELECT * FROM matches WHERE providerId = :provider AND kickoffEpochMs <= :now AND status = 'SCHEDULED'")
     suspend fun pendingResults(provider: String, now: Long): List<MatchEntity>
 
+    @Query("SELECT COUNT(*) FROM matches WHERE kickoffEpochMs BETWEEN :fromEpochMs AND :toEpochMs")
+    suspend fun countBetween(fromEpochMs: Long, toEpochMs: Long): Int
+
     @Query("SELECT * FROM matches WHERE id = :id")
     suspend fun byId(id: String): MatchEntity?
 

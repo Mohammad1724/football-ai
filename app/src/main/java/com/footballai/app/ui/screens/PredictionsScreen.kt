@@ -20,6 +20,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -32,6 +33,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.size
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
@@ -43,6 +45,9 @@ import com.footballai.app.ui.LocalAppContainer
 import com.footballai.app.ui.LocalLanguageTag
 import com.footballai.app.ui.components.EmptyState
 import com.footballai.app.ui.components.LoadingState
+import com.footballai.app.ui.components.ScrollableRefreshContent
+import com.footballai.app.ui.components.SwipeRefresh
+import com.footballai.app.ui.components.SyncStatusStrip
 import com.footballai.app.ui.components.ProbabilityBar
 import com.footballai.app.ui.components.StatusChip
 import com.footballai.app.ui.theme.FootballAiThemeExtra
@@ -64,8 +69,17 @@ fun PredictionsScreen(onMatchClick: (String) -> Unit) {
             TopAppBar(
                 title = { Text(stringResource(R.string.title_predictions)) },
                 actions = {
-                    IconButton(onClick = { viewModel.resolve() }, enabled = !state.resolving) {
-                        Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.action_resolve))
+                    // The same action as the pull gesture: sync, then grade what finished.
+                    // Pressing refresh and having nothing happen was the confusing part.
+                    IconButton(
+                        onClick = { viewModel.refresh() },
+                        enabled = !state.refreshing && !state.resolving,
+                    ) {
+                        if (state.refreshing || state.resolving) {
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                        } else {
+                            Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.action_refresh))
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
@@ -73,6 +87,18 @@ fun PredictionsScreen(onMatchClick: (String) -> Unit) {
         },
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+            SyncStatusStrip(
+                isSyncing = state.refreshing,
+                isAuto = false,
+                progressDone = 0,
+                progressTotal = 0,
+                lastSyncEpochMs = null,
+                nowEpochMs = System.currentTimeMillis(),
+                added = state.lastSyncedAdded.takeIf { it > 0 },
+                error = state.lastError,
+                isOnline = true,
+                languageTag = languageTag,
+            )
             if (state.isLoading) {
                 LoadingState()
                 return@Column
@@ -83,27 +109,47 @@ fun PredictionsScreen(onMatchClick: (String) -> Unit) {
                 resolvedCount = state.resolvedCount,
                 onSelect = viewModel::setFilter,
             )
-            if (state.items.isEmpty()) {
-                EmptyState(
-                    title = stringResource(
-                        if (state.filter == PredictionListFilter.UPCOMING) R.string.empty_upcoming_predictions_title
-                        else R.string.empty_predictions_title,
-                    ),
-                    message = stringResource(
-                        if (state.filter == PredictionListFilter.UPCOMING && state.resolvedCount > 0) {
-                            R.string.empty_upcoming_predictions_message
-                        } else {
-                            R.string.empty_predictions_message
-                        },
-                    ),
-                )
-                return@Column
-            }
-            LazyColumn(modifier = Modifier.fillMaxSize()) {
-                items(state.items, key = { it.prediction.id }) { item ->
-                    PredictionHistoryCard(item = item, languageTag = languageTag, onClick = { onMatchClick(item.match.id) })
+            SwipeRefresh(
+                isRefreshing = state.refreshing,
+                onRefresh = viewModel::refresh,
+                modifier = Modifier.weight(1f),
+            ) {
+                if (state.items.isEmpty()) {
+                    // A static screen still needs a scroll for the pull gesture to reach it.
+                    ScrollableRefreshContent {
+                        EmptyState(
+                            title = stringResource(
+                                if (state.filter == PredictionListFilter.UPCOMING) R.string.empty_upcoming_predictions_title
+                                else R.string.empty_predictions_title,
+                            ),
+                            message = stringResource(
+                                if (state.filter == PredictionListFilter.UPCOMING && state.resolvedCount > 0) {
+                                    R.string.empty_upcoming_predictions_message
+                                } else {
+                                    R.string.empty_predictions_message
+                                },
+                            ),
+                        )
+                        Text(
+                            text = stringResource(R.string.pull_refresh_hint),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        )
+                    }
+                } else {
+                    LazyColumn(modifier = Modifier.fillMaxSize()) {
+                        items(state.items, key = { it.prediction.id }) { item ->
+                            PredictionHistoryCard(
+                                item = item,
+                                languageTag = languageTag,
+                                onClick = { onMatchClick(item.match.id) },
+                            )
+                        }
+                        item { Spacer(Modifier.height(24.dp)) }
+                    }
                 }
-                item { Spacer(Modifier.height(24.dp)) }
             }
         }
     }

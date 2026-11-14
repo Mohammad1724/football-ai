@@ -68,6 +68,17 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
         viewModelScope.launch { container.settingsRepository.setLivePolling(enabled) }
     }
 
+    /**
+     * Turning automatic refreshing back on must take effect without a restart, so the
+     * coordinator's last attempt is forgotten; the next screen start syncs again.
+     */
+    fun setAutoRefreshOnOpen(enabled: Boolean) {
+        viewModelScope.launch {
+            container.settingsRepository.setAutoRefreshOnOpen(enabled)
+            if (enabled) container.autoSyncCoordinator.forgetAttempt()
+        }
+    }
+
     fun setBackgroundSync(enabled: Boolean) {
         viewModelScope.launch {
             container.settingsRepository.setBackgroundSync(enabled)

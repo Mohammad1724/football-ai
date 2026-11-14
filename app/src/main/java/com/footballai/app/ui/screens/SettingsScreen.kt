@@ -145,6 +145,14 @@ fun SettingsScreen(onOpenDataSources: () -> Unit) {
             }
             item {
                 ToggleRow(
+                    title = stringResource(R.string.setting_auto_refresh),
+                    subtitle = stringResource(R.string.setting_auto_refresh_body),
+                    checked = state.settings.autoRefreshOnOpen,
+                    onCheckedChange = viewModel::setAutoRefreshOnOpen,
+                )
+            }
+            item {
+                ToggleRow(
                     title = stringResource(R.string.setting_background_sync),
                     subtitle = stringResource(R.string.setting_background_sync_body),
                     checked = state.settings.backgroundSyncEnabled,

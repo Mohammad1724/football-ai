@@ -504,4 +504,12 @@
     <string name="national_history_action">Download international history</string>
     <string name="error_no_national_history_women">This is a women\'s international, and the international archive this app can download covers men\'s matches only. Rating this match from men\'s results would be wrong, so no analysis is shown.</string>
     <string name="error_no_national_history_team">At least one of these national teams is not in the international archive, so there is no history to rate it from. Nothing was guessed and no similar name was substituted; the team name in the fixture source may differ from the archive.</string>
+    <string name="sync_running_label">Updating…</string>
+    <string name="sync_progress_label">Updating %1$s of %2$s…</string>
+    <string name="sync_last_updated">Updated %1$s</string>
+    <string name="sync_added_suffix">%1$s matches</string>
+    <string name="setting_auto_refresh">Refresh when the app opens</string>
+    <string name="setting_auto_refresh_body">When what is stored is no longer current — a new day, or an old timestamp — the app refreshes by itself on opening. It never runs while you are offline, and never twice at once.</string>
+    <string name="pull_refresh_hint">Pull down to refresh.</string>
+    <string name="day_swipe_hint">Swipe left or right over the list to change the day.</string>
 </resources>

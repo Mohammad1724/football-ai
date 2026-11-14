@@ -209,6 +209,10 @@ class MatchRepository(
             (date.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli() - 1)
     }
 
+    /** True when any fixture is stored in the window a user would look at. */
+    suspend fun hasFixturesBetween(fromEpochMs: Long, toEpochMs: Long): Boolean =
+        db.matchDao().countBetween(fromEpochMs, toEpochMs) > 0
+
     suspend fun countsTriple(): Triple<Int, Int, Int> = Triple(
         db.matchDao().count(),
         db.historicalDao().count(),

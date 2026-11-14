@@ -93,212 +93,219 @@ fun DataSourcesScreen(onBack: () -> Unit) {
         },
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
-            LazyColumn(modifier = Modifier.fillMaxSize()) {
-                item {
-                    Text(
-                        text = stringResource(R.string.history_upgrade_notice),
-                        modifier = Modifier.padding(16.dp),
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                }
-                item {
-                    SectionHeader(
-                        title = stringResource(R.string.section_providers),
-                        subtitle = stringResource(R.string.section_providers_subtitle),
-                    )
-                }
-                items(state.providers) { provider ->
-                    ProviderCard(
-                        provider = provider,
-                        languageTag = languageTag,
-                        onSaveKey = { keyDialogProvider = provider },
-                        onClearKey = { viewModel.clearKey(provider.info.id) },
-                        onSelect = { viewModel.selectProvider(provider.info.id) },
-                    )
-                }
-
-                if (state.verifiedProviderId != null) {
-                    item { Text(stringResource(R.string.key_verified_notice), modifier = Modifier.padding(16.dp)) }
-                }
-                state.lastError?.let { error ->
+            // The same gesture everywhere: it re-reads provider, quota and history state.
+            SwipeRefresh(
+                isRefreshing = false,
+                onRefresh = viewModel::refresh,
+                modifier = Modifier.weight(1f),
+            ) {
+                LazyColumn(modifier = Modifier.fillMaxSize()) {
                     item {
-                        Row(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
-                            StatusChip(text = errorLabel(error), color = MaterialTheme.colorScheme.error)
-                        }
+                        Text(
+                            text = stringResource(R.string.history_upgrade_notice),
+                            modifier = Modifier.padding(16.dp),
+                            style = MaterialTheme.typography.bodySmall,
+                        )
                     }
-                }
-                state.lastSummary?.let { summary ->
-                    item { SummaryCard(summary = summary, languageTag = languageTag) }
-                }
-
-                if (state.providers.any { it.isActive && it.info.id == "api-football" }) {
                     item {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Text(stringResource(R.string.api_trial_hint))
-                            TextButton(onClick = viewModel::testApiFootballAccess, enabled = state.busyAction == null) {
-                                Text(stringResource(R.string.api_trial_action))
+                        SectionHeader(
+                            title = stringResource(R.string.section_providers),
+                            subtitle = stringResource(R.string.section_providers_subtitle),
+                        )
+                    }
+                    items(state.providers) { provider ->
+                        ProviderCard(
+                            provider = provider,
+                            languageTag = languageTag,
+                            onSaveKey = { keyDialogProvider = provider },
+                            onClearKey = { viewModel.clearKey(provider.info.id) },
+                            onSelect = { viewModel.selectProvider(provider.info.id) },
+                        )
+                    }
+
+                    if (state.verifiedProviderId != null) {
+                        item { Text(stringResource(R.string.key_verified_notice), modifier = Modifier.padding(16.dp)) }
+                    }
+                    state.lastError?.let { error ->
+                        item {
+                            Row(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+                                StatusChip(text = errorLabel(error), color = MaterialTheme.colorScheme.error)
                             }
                         }
                     }
-                }
-                item {
-                    SectionHeader(title = stringResource(R.string.section_sync_actions))
-                }
-                item {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState())
-                            .padding(horizontal = 16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        AssistChip(
-                            onClick = { viewModel.syncCompetitions() },
-                            label = { Text(stringResource(R.string.action_sync_competitions)) },
-                        )
-                        AssistChip(
-                            onClick = { viewModel.syncFixtures() },
-                            label = { Text(stringResource(R.string.action_sync_fixtures)) },
-                        )
-                        AssistChip(
-                            onClick = { viewModel.syncLive() },
-                            label = { Text(stringResource(R.string.action_sync_live)) },
-                        )
+                    state.lastSummary?.let { summary ->
+                        item { SummaryCard(summary = summary, languageTag = languageTag) }
                     }
-                }
 
-                item {
-                    SectionHeader(
-                        title = stringResource(R.string.section_history_import),
-                        subtitle = stringResource(R.string.section_history_import_subtitle),
-                    )
-                }
-                item {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState())
-                            .padding(horizontal = 16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        state.csvCompetitions.forEach { competition ->
-                            FilterChip(
-                                selected = state.selectedCsvKeys.contains(competition.key),
-                                onClick = { viewModel.toggleCsvKey(competition.key) },
-                                label = { Text("${competition.name} · ${competition.country}") },
-                            )
+                    if (state.providers.any { it.isActive && it.info.id == "api-football" }) {
+                        item {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text(stringResource(R.string.api_trial_hint))
+                                TextButton(onClick = viewModel::testApiFootballAccess, enabled = state.busyAction == null) {
+                                    Text(stringResource(R.string.api_trial_action))
+                                }
+                            }
                         }
                     }
-                }
-                item {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 6.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        listOf(1, 3, 5).forEach { seasons ->
-                            FilterChip(
-                                selected = state.historicalSeasons == seasons,
-                                onClick = { viewModel.setHistoricalSeasons(seasons) },
-                                label = {
-                                    Text(stringResource(R.string.seasons_count, Formatters.integer(seasons, languageTag)))
-                                },
-                            )
-                        }
-                    }
-                }
-                item {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Text(
-                            text = stringResource(
-                                R.string.estimated_requests,
-                                Formatters.integer(state.estimatedRequests, languageTag),
-                            ),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        AssistChip(
-                            onClick = { viewModel.importCsvHistory() },
-                            enabled = state.busyAction == null,
-                            label = { Text(stringResource(R.string.action_import_csv_history)) },
-                            leadingIcon = {
-                                Icon(Icons.Default.CloudDownload, contentDescription = null, modifier = Modifier.size(16.dp))
-                            },
-                        )
-                        AssistChip(
-                            onClick = { viewModel.importProviderHistory() },
-                            enabled = state.busyAction == null,
-                            label = { Text(stringResource(R.string.action_import_provider_history)) },
-                        )
-                    }
-                }
-
-                item {
-                    SectionHeader(
-                        title = stringResource(R.string.section_stored_history),
-                    )
-                }
-                if (state.historicalSources.isEmpty()) {
                     item {
-                        Text(
-                            text = stringResource(R.string.no_history_stored),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(horizontal = 16.dp),
-                        )
+                        SectionHeader(title = stringResource(R.string.section_sync_actions))
                     }
-                } else {
-                    items(state.historicalSources) { source ->
-                        HistorySourceCard(
-                            source = source,
-                            languageTag = languageTag,
-                            onDelete = { viewModel.clearHistoricalData(source.source) },
-                        )
-                    }
-                }
-
-                item { SectionHeader(title = stringResource(R.string.section_competitions)) }
-                if (state.competitions.isEmpty()) {
                     item {
-                        Text(
-                            text = stringResource(R.string.no_competitions),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(horizontal = 16.dp),
-                        )
-                    }
-                } else {
-                    items(state.competitions) { competition ->
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 2.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween,
+                                .horizontalScroll(rememberScrollState())
+                                .padding(horizontal = 16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(text = competition.name, style = MaterialTheme.typography.bodyMedium)
-                                Text(
-                                    text = competition.country ?: competition.providerId,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                            Switch(
-                                checked = competition.isFollowed,
-                                onCheckedChange = { viewModel.toggleFollowedCompetition(competition) },
+                            AssistChip(
+                                onClick = { viewModel.syncCompetitions() },
+                                label = { Text(stringResource(R.string.action_sync_competitions)) },
+                            )
+                            AssistChip(
+                                onClick = { viewModel.syncFixtures() },
+                                label = { Text(stringResource(R.string.action_sync_fixtures)) },
+                            )
+                            AssistChip(
+                                onClick = { viewModel.syncLive() },
+                                label = { Text(stringResource(R.string.action_sync_live)) },
                             )
                         }
                     }
+
+                    item {
+                        SectionHeader(
+                            title = stringResource(R.string.section_history_import),
+                            subtitle = stringResource(R.string.section_history_import_subtitle),
+                        )
+                    }
+                    item {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState())
+                                .padding(horizontal = 16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            state.csvCompetitions.forEach { competition ->
+                                FilterChip(
+                                    selected = state.selectedCsvKeys.contains(competition.key),
+                                    onClick = { viewModel.toggleCsvKey(competition.key) },
+                                    label = { Text("${competition.name} · ${competition.country}") },
+                                )
+                            }
+                        }
+                    }
+                    item {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 6.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            listOf(1, 3, 5).forEach { seasons ->
+                                FilterChip(
+                                    selected = state.historicalSeasons == seasons,
+                                    onClick = { viewModel.setHistoricalSeasons(seasons) },
+                                    label = {
+                                        Text(stringResource(R.string.seasons_count, Formatters.integer(seasons, languageTag)))
+                                    },
+                                )
+                            }
+                        }
+                    }
+                    item {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Text(
+                                text = stringResource(
+                                    R.string.estimated_requests,
+                                    Formatters.integer(state.estimatedRequests, languageTag),
+                                ),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            AssistChip(
+                                onClick = { viewModel.importCsvHistory() },
+                                enabled = state.busyAction == null,
+                                label = { Text(stringResource(R.string.action_import_csv_history)) },
+                                leadingIcon = {
+                                    Icon(Icons.Default.CloudDownload, contentDescription = null, modifier = Modifier.size(16.dp))
+                                },
+                            )
+                            AssistChip(
+                                onClick = { viewModel.importProviderHistory() },
+                                enabled = state.busyAction == null,
+                                label = { Text(stringResource(R.string.action_import_provider_history)) },
+                            )
+                        }
+                    }
+
+                    item {
+                        SectionHeader(
+                            title = stringResource(R.string.section_stored_history),
+                        )
+                    }
+                    if (state.historicalSources.isEmpty()) {
+                        item {
+                            Text(
+                                text = stringResource(R.string.no_history_stored),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 16.dp),
+                            )
+                        }
+                    } else {
+                        items(state.historicalSources) { source ->
+                            HistorySourceCard(
+                                source = source,
+                                languageTag = languageTag,
+                                onDelete = { viewModel.clearHistoricalData(source.source) },
+                            )
+                        }
+                    }
+
+                    item { SectionHeader(title = stringResource(R.string.section_competitions)) }
+                    if (state.competitions.isEmpty()) {
+                        item {
+                            Text(
+                                text = stringResource(R.string.no_competitions),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 16.dp),
+                            )
+                        }
+                    } else {
+                        items(state.competitions) { competition ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 2.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(text = competition.name, style = MaterialTheme.typography.bodyMedium)
+                                    Text(
+                                        text = competition.country ?: competition.providerId,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                                Switch(
+                                    checked = competition.isFollowed,
+                                    onCheckedChange = { viewModel.toggleFollowedCompetition(competition) },
+                                )
+                            }
+                        }
+                    }
+                    item { Spacer(Modifier.height(24.dp)) }
                 }
-                item { Spacer(Modifier.height(24.dp)) }
             }
         }
     }
