@@ -97,6 +97,26 @@ fun PerformanceScreen() {
                 modifier = Modifier.weight(1f),
             ) {
                 LazyColumn(modifier = Modifier.fillMaxSize()) {
+                    // The screen never said what it was for. It measures the model; it
+                    // does not change anything, and that is worth one paragraph.
+                    item {
+                        InfoCard(
+                            title = stringResource(R.string.performance_intro_title),
+                            body = stringResource(R.string.performance_intro_body),
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        )
+                    }
+                    item {
+                        Text(
+                            text = stringResource(R.string.performance_action_hint),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+                        )
+                    }
+                    item {
+                        InfoCard(title = stringResource(R.string.performance_reading_title), body = stringResource(R.string.performance_reading_body))
+                    }
                     item {
                         SectionHeader(
                             title = stringResource(R.string.section_stored_predictions),

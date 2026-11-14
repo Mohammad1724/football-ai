@@ -22,12 +22,15 @@ import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.CloudDownload
+import androidx.compose.material.icons.filled.QueryStats
+import androidx.compose.material.icons.filled.SportsSoccer
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -70,6 +73,7 @@ fun DashboardScreen(
     onOpenDataSources: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenMatches: () -> Unit,
+    onOpenPredictions: () -> Unit,
 ) {
     val container = LocalAppContainer.current
     val viewModel: DashboardViewModel = viewModel(
@@ -140,6 +144,15 @@ fun DashboardScreen(
                     modifier = Modifier.fillMaxSize(),
                     verticalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
+                    // Three tabs used to show the same fixtures. This one says what it is
+                    // for before it shows anything: today, and nothing else.
+                    item {
+                        InfoCard(
+                            title = stringResource(R.string.home_intro_title),
+                            body = stringResource(R.string.home_intro_body),
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        )
+                    }
                     if (state.dailyMode && showDataDetails) {
                         item { InfoCard(title = stringResource(R.string.daily_mode_title), body = stringResource(R.string.daily_dashboard_hint)) }
                     }
@@ -274,16 +287,45 @@ fun DashboardScreen(
                         }
                     }
 
-                    if (state.upcomingMatches.isNotEmpty()) {
-                        item {
-                            SectionHeader(
-                                title = stringResource(R.string.section_upcoming),
-                                actionLabel = stringResource(R.string.action_see_all),
-                                onAction = onOpenMatches,
-                            )
-                        }
-                        items(state.upcomingMatches.take(6), key = { it.id }) { match ->
-                            MatchCard(match = match, languageTag = languageTag, onClick = { onMatchClick(match.id) })
+                    // The full list, day by day, belongs to the Matches tab; this tab
+                    // only points at it instead of repeating it.
+                    item {
+                        InfoCard(
+                            title = stringResource(R.string.home_predictions_title),
+                            body = if (state.sync.predictionsCount > 0) {
+                                stringResource(
+                                    R.string.home_predictions_body,
+                                    Formatters.integer(state.sync.predictionsCount, languageTag),
+                                )
+                            } else {
+                                stringResource(R.string.home_predictions_empty_body)
+                            },
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                        )
+                    }
+                    item {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            OutlinedButton(onClick = onOpenMatches, modifier = Modifier.weight(1f)) {
+                                Icon(
+                                    Icons.Default.SportsSoccer,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                Text(stringResource(R.string.home_open_all_matches))
+                            }
+                            OutlinedButton(onClick = onOpenPredictions, modifier = Modifier.weight(1f)) {
+                                Icon(
+                                    Icons.Default.QueryStats,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                Text(stringResource(R.string.home_predictions_action))
+                            }
                         }
                     }
 

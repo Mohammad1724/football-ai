@@ -3,6 +3,7 @@ package com.footballai.app
 import com.footballai.app.domain.catalog.ClassificationSource
 import com.footballai.app.domain.catalog.CompetitionCatalog
 import com.footballai.app.domain.catalog.NameLocalization
+import com.footballai.app.domain.catalog.TeamNames
 import com.footballai.engine.model.CompetitionType
 import com.footballai.engine.model.Gender
 import com.footballai.engine.model.TeamKind
@@ -108,6 +109,52 @@ class ClassificationAndLocalizationTest {
         assertNull(NameLocalization.persianTeamName("Some Village FC"))
         assertNotNull(NameLocalization.flagEmoji("Japan"))
         assertNull(NameLocalization.flagEmoji("Some Village FC"))
+    }
+
+    @Test
+    fun `every team in the dictionary can be named and looked up`() {
+        // The dictionary is the promise that no screen shows an unnamed team. A row
+        // without a Persian name, or one that cannot find itself, breaks that promise.
+        val unnamed = TeamNames.nationalTeams.filter { it.persian.isBlank() }
+        assertTrue(unnamed.isEmpty(), "national teams without a Persian name: ${unnamed.map { it.english }}")
+        val unresolvable = TeamNames.clubs.filter { NameLocalization.persianTeamName(it.english) == null }
+        assertTrue(unresolvable.isEmpty(), "clubs that cannot find themselves: ${unresolvable.map { it.english }}")
+        assertTrue(TeamNames.nationalTeams.size >= 320)
+        assertTrue(TeamNames.clubs.size >= 250)
+    }
+
+    @Test
+    fun `the spelling a source uses resolves to the same team`() {
+        assertEquals("ایران", NameLocalization.persianTeamName("IR Iran"))
+        assertEquals("کره جنوبی", NameLocalization.persianTeamName("Korea Republic"))
+        assertEquals("ساحل عاج", NameLocalization.persianTeamName("Côte d'Ivoire"))
+        assertEquals("بوسنی و هرزگوین", NameLocalization.persianTeamName("Bosnia-Herzegovina"))
+        assertEquals("منچستریونایتد", NameLocalization.persianTeamName("Man United"))
+        assertEquals("یونیون برلین", NameLocalization.persianTeamName("1. FC Union Berlin"))
+        assertEquals("بارسلونا", NameLocalization.persianTeamName("Barcelona CF"))
+    }
+
+    @Test
+    fun `a suffixed name stays the same nation and says what the suffix means`() {
+        assertEquals("اسپانیا (بانوان)", NameLocalization.persianTeamName("Spain Women"))
+        assertEquals("ژاپن (زیر ۲۱ سال)", NameLocalization.persianTeamName("Japan U21"))
+        // A suffix must not turn an unknown name into a known one.
+        assertNull(NameLocalization.persianTeamName("Nowhere Women"))
+    }
+
+    @Test
+    fun `both names are offered for the ui and the unknown one is not invented`() {
+        assertEquals("ایران" to "Iran", NameLocalization.namePair("Iran", "fa"))
+        assertEquals("Iran" to "ایران", NameLocalization.namePair("Iran", "en"))
+        assertEquals("Unlisted FC" to null, NameLocalization.namePair("Unlisted FC", "fa"))
+    }
+
+    @Test
+    fun `a flag is only offered for a team that has one`() {
+        assertNotNull(NameLocalization.flagEmoji("England"))
+        assertNotNull(NameLocalization.flagEmoji("Curaçao"))
+        assertEquals(7, NameLocalization.flagEmoji("England")!!.codePointCount(0, NameLocalization.flagEmoji("England")!!.length))
+        assertNull(NameLocalization.flagEmoji("Tibet"))
     }
 
     @Test

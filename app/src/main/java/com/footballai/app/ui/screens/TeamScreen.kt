@@ -48,7 +48,8 @@ import com.footballai.app.ui.components.EmptyState
 import com.footballai.app.ui.components.LoadingState
 import com.footballai.app.ui.components.SectionHeader
 import com.footballai.app.ui.components.StatusChip
-import com.footballai.app.ui.components.TeamMonogram
+import com.footballai.app.ui.components.TeamBadge
+import com.footballai.app.ui.components.TeamNameLines
 import com.footballai.app.ui.theme.FootballAiThemeExtra
 import com.footballai.app.ui.viewmodel.TeamViewModel
 
@@ -97,13 +98,14 @@ fun TeamScreen(teamId: String, onBack: () -> Unit) {
                             .padding(16.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        TeamMonogram(profile.team.name, size = 52)
+                        TeamBadge(profile.team, size = 52)
                         Spacer(Modifier.width(12.dp))
                         Column {
-                            Text(
-                                text = profile.team.name,
-                                style = MaterialTheme.typography.headlineSmall,
-                                fontWeight = FontWeight.Bold,
+                            TeamNameLines(
+                                team = profile.team,
+                                languageTag = languageTag,
+                                primaryStyle = MaterialTheme.typography.headlineSmall,
+                                primaryMaxLines = 2,
                             )
                             Text(
                                 text = profile.competitionName.ifBlank { stringResource(R.string.unknown_competition) },

@@ -1,5 +1,12 @@
 package com.footballai.app.ui.screens
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.clickable
@@ -78,6 +85,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.footballai.app.R
 import com.footballai.app.core.Formatters
+import com.footballai.app.domain.catalog.NameLocalization
 import com.footballai.app.domain.model.MatchSummary
 import com.footballai.app.domain.model.TeamRef
 import com.footballai.app.ui.LocalAppContainer
@@ -112,6 +120,9 @@ fun MatchesScreen(onMatchClick: (String) -> Unit) {
     )
     val state by viewModel.state.collectAsStateWithLifecycle()
     val languageTag = LocalLanguageTag.current
+    // The day strip reads in the interface direction, so a later day sits on the left
+    // in Persian and on the right in English.
+    val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     var calendarOpen by remember { mutableStateOf(false) }
 
     Scaffold(
@@ -197,59 +208,78 @@ fun MatchesScreen(onMatchClick: (String) -> Unit) {
                             onDaySelected = viewModel::selectDay,
                         ),
                 ) {
-                    if (state.isLoading) {
-                        LoadingState()
-                    } else if (state.matches.isEmpty()) {
-                        ScrollableRefreshContent {
-                            // An empty day is usually a coverage fact, not a missing
-                            // fixture, so the empty state says which source served it and
-                            // offers the one-tap switch.
-                            EmptyState(
-                                title = stringResource(
-                                    if (state.dailyAnalysisMode) R.string.empty_coverage_title else R.string.empty_filtered_matches_title,
-                                ),
-                                message = when {
-                                    state.dailyAnalysisMode -> stringResource(R.string.empty_daily_mode_message, state.sourceName)
-                                    state.kind == MatchKindFilter.NATIONAL -> stringResource(R.string.empty_no_national_message, state.sourceName)
-                                    state.selectedDayOffset < 0 -> stringResource(R.string.empty_recent_results_message)
-                                    else -> stringResource(R.string.empty_upcoming_message)
-                                },
-                                actionLabel = when {
-                                    state.isSyncing || state.autoSyncing || state.switchingSource -> null
-                                    state.dailyAnalysisMode -> stringResource(R.string.action_enable_global_coverage)
-                                    else -> stringResource(R.string.action_sync)
-                                },
-                                onAction = when {
-                                    state.isSyncing || state.autoSyncing || state.switchingSource -> null
-                                    state.dailyAnalysisMode -> ({ viewModel.enableGlobalCoverage() })
-                                    else -> ({ viewModel.refresh() })
-                                },
+                    // Changing the day used to swap the list in a single frame. The new
+                    // day now slides in from the side its tab sits on, so the gesture and
+                    // the result read as one movement.
+                    AnimatedContent(
+                        targetState = state.selectedDayOffset,
+                        transitionSpec = {
+                            val forwardStep = if (targetState > initialState) 1 else -1
+                            val sign = if (rtl) -forwardStep else forwardStep
+                            (
+                                slideInHorizontally(animationSpec = tween(260)) { width -> sign * width / 3 } +
+                                    fadeIn(animationSpec = tween(200))
+                                ).togetherWith(
+                                slideOutHorizontally(animationSpec = tween(220)) { width -> -sign * width / 6 } +
+                                    fadeOut(animationSpec = tween(140)),
                             )
-                            if (state.switchingSource) {
+                        },
+                        label = "day",
+                    ) { _ ->
+                        if (state.isLoading) {
+                            LoadingState()
+                        } else if (state.matches.isEmpty()) {
+                            ScrollableRefreshContent {
+                                // An empty day is usually a coverage fact, not a missing
+                                // fixture, so the empty state says which source served it and
+                                // offers the one-tap switch.
+                                EmptyState(
+                                    title = stringResource(
+                                        if (state.dailyAnalysisMode) R.string.empty_coverage_title else R.string.empty_filtered_matches_title,
+                                    ),
+                                    message = when {
+                                        state.dailyAnalysisMode -> stringResource(R.string.empty_daily_mode_message, state.sourceName)
+                                        state.kind == MatchKindFilter.NATIONAL -> stringResource(R.string.empty_no_national_message, state.sourceName)
+                                        state.selectedDayOffset < 0 -> stringResource(R.string.empty_recent_results_message)
+                                        else -> stringResource(R.string.empty_upcoming_message)
+                                    },
+                                    actionLabel = when {
+                                        state.isSyncing || state.autoSyncing || state.switchingSource -> null
+                                        state.dailyAnalysisMode -> stringResource(R.string.action_enable_global_coverage)
+                                        else -> stringResource(R.string.action_sync)
+                                    },
+                                    onAction = when {
+                                        state.isSyncing || state.autoSyncing || state.switchingSource -> null
+                                        state.dailyAnalysisMode -> ({ viewModel.enableGlobalCoverage() })
+                                        else -> ({ viewModel.refresh() })
+                                    },
+                                )
+                                if (state.switchingSource) {
+                                    Text(
+                                        text = stringResource(R.string.switching_source),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        textAlign = TextAlign.Center,
+                                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                                    )
+                                }
+                                // Both gestures are invisible by nature; say they exist.
                                 Text(
-                                    text = stringResource(R.string.switching_source),
-                                    style = MaterialTheme.typography.bodySmall,
+                                    text = stringResource(R.string.pull_refresh_hint) + " " +
+                                        stringResource(R.string.day_swipe_hint),
+                                    style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     textAlign = TextAlign.Center,
-                                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 4.dp),
                                 )
                             }
-                            // Both gestures are invisible by nature; say they exist.
-                            Text(
-                                text = stringResource(R.string.pull_refresh_hint) + " " +
-                                    stringResource(R.string.day_swipe_hint),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 4.dp),
+                        } else {
+                            GroupedMatchList(
+                                state = state,
+                                languageTag = languageTag,
+                                onMatchClick = onMatchClick,
                             )
                         }
-                    } else {
-                        GroupedMatchList(
-                            state = state,
-                            languageTag = languageTag,
-                            onMatchClick = onMatchClick,
-                        )
                     }
                 }
             }
@@ -333,6 +363,7 @@ private fun MatchSearchDialog(
     onTeamClick: (TeamRef) -> Unit,
     onMatchClick: (MatchSummary) -> Unit,
 ) {
+    val languageTag = LocalLanguageTag.current
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {},
@@ -400,9 +431,15 @@ private fun MatchSearchDialog(
                             items(state.searchResults.teams.size) { index ->
                                 val team = state.searchResults.teams[index]
                                 SearchResultRow(
-                                    title = team.name,
-                                    subtitle = stringResource(R.string.search_team_matches),
-                                    icon = { TeamMonogram(name = team.name) },
+                                    title = NameLocalization.displayName(
+                                        team.name,
+                                        languageTag,
+                                        team.shortName,
+                                    ),
+                                    subtitle = team.name.takeIf {
+                                        NameLocalization.persianTeamName(team.name, team.shortName) != null
+                                    } ?: stringResource(R.string.search_team_matches),
+                                    icon = { TeamBadge(team, size = 26) },
                                     onClick = { onTeamClick(team) },
                                 )
                             }

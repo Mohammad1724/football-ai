@@ -40,6 +40,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.footballai.app.R
 import com.footballai.app.core.Formatters
+import com.footballai.app.domain.catalog.NameLocalization
 import com.footballai.app.domain.model.PredictionWithMatch
 import com.footballai.app.ui.LocalAppContainer
 import com.footballai.app.ui.LocalLanguageTag
@@ -50,6 +51,8 @@ import com.footballai.app.ui.components.SwipeRefresh
 import com.footballai.app.ui.components.SyncStatusStrip
 import com.footballai.app.ui.components.ProbabilityBar
 import com.footballai.app.ui.components.StatusChip
+import com.footballai.app.ui.components.TeamBadge
+import com.footballai.app.ui.components.TeamNameLines
 import com.footballai.app.ui.theme.FootballAiThemeExtra
 import com.footballai.app.ui.viewmodel.PredictionListFilter
 import com.footballai.app.ui.viewmodel.PredictionsViewModel
@@ -103,6 +106,12 @@ fun PredictionsScreen(onMatchClick: (String) -> Unit) {
                 LoadingState()
                 return@Column
             }
+            Text(
+                text = stringResource(R.string.predictions_intro_short),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            )
             PredictionFilterRow(
                 selected = state.filter,
                 upcomingCount = state.upcomingCount,
@@ -210,11 +219,11 @@ private fun PredictionHistoryCard(item: PredictionWithMatch, languageTag: String
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
-                    text = "${match.home.name} - ${match.away.name}",
-                    style = MaterialTheme.typography.titleSmall,
-                    modifier = Modifier.weight(1f),
-                )
+                Column(modifier = Modifier.weight(1f)) {
+                    PredictionTeamLine(match.home, languageTag)
+                    Spacer(Modifier.height(4.dp))
+                    PredictionTeamLine(match.away, languageTag)
+                }
                 val resolution = prediction.resolution
                 when {
                     resolution != null -> StatusChip(
@@ -238,7 +247,11 @@ private fun PredictionHistoryCard(item: PredictionWithMatch, languageTag: String
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.height(8.dp))
-            com.footballai.app.ui.components.PreMatchVerdict(prediction, match.home.name, match.away.name)
+            com.footballai.app.ui.components.PreMatchVerdict(
+                prediction = prediction,
+                home = NameLocalization.displayName(match.home.name, languageTag, match.home.shortName),
+                away = NameLocalization.displayName(match.away.name, languageTag, match.away.shortName),
+            )
             Spacer(Modifier.height(8.dp))
             ProbabilityBar(
                 homeWin = prediction.homeWin,
@@ -271,5 +284,19 @@ private fun PredictionHistoryCard(item: PredictionWithMatch, languageTag: String
                 )
             }
         }
+    }
+}
+
+/** One team inside a prediction card: badge, Persian name, published name. */
+@Composable
+private fun PredictionTeamLine(team: com.footballai.app.domain.model.TeamRef, languageTag: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        TeamBadge(team, size = 22)
+        Spacer(Modifier.size(8.dp))
+        TeamNameLines(
+            team = team,
+            languageTag = languageTag,
+            primaryStyle = MaterialTheme.typography.titleSmall,
+        )
     }
 }

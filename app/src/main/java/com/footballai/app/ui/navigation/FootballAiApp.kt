@@ -1,5 +1,11 @@
 package com.footballai.app.ui.navigation
 
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -17,7 +23,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.res.stringResource
+import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -71,6 +80,21 @@ private val bottomDestinations = listOf(
     BottomDestination(Routes.SETTINGS, R.string.nav_settings, Icons.Default.Settings),
 )
 
+/**
+ * Screens that are pushed on top of a tab. They slide in from the side; tabs cross-fade
+ * into each other. Both are short and both are animated: switching used to replace the
+ * whole screen in one frame, which read as a flicker rather than a move.
+ */
+private val pushedRoutes = setOf(
+    Routes.MATCH_DETAIL,
+    Routes.TEAM,
+    Routes.COMPETITION,
+    Routes.DATA_SOURCES,
+    Routes.SETTINGS,
+)
+
+private fun isPushed(entry: NavBackStackEntry): Boolean = entry.destination.route in pushedRoutes
+
 @Composable
 fun FootballAiApp() {
     val container = LocalAppContainer.current
@@ -93,6 +117,16 @@ private fun MainNavigation() {
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
     val showBottomBar = bottomDestinations.any { it.route == currentRoute }
+    // Forward is to the left when the interface is right-to-left, so the slide follows
+    // the direction the user reads in.
+    val forward = if (LocalLayoutDirection.current == LayoutDirection.Rtl) -1 else 1
+    val openTab: (String) -> Unit = { route ->
+        navController.navigate(route) {
+            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+            launchSingleTop = true
+            restoreState = true
+        }
+    }
 
     Scaffold(
         bottomBar = {
@@ -102,13 +136,7 @@ private fun MainNavigation() {
                         NavigationBarItem(
                             selected = currentRoute == destination.route,
                             onClick = {
-                                if (currentRoute != destination.route) {
-                                    navController.navigate(destination.route) {
-                                        popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                                        launchSingleTop = true
-                                        restoreState = true
-                                    }
-                                }
+                                if (currentRoute != destination.route) openTab(destination.route)
                             },
                             icon = { Icon(destination.icon, contentDescription = null) },
                             label = { Text(stringResource(destination.labelRes)) },
@@ -122,13 +150,38 @@ private fun MainNavigation() {
             navController = navController,
             startDestination = Routes.HOME,
             modifier = Modifier.padding(bottom = innerPadding.calculateBottomPadding()),
+            enterTransition = {
+                if (isPushed(targetState)) {
+                    slideInHorizontally(animationSpec = tween(300)) { width -> forward * width } +
+                        fadeIn(animationSpec = tween(200))
+                } else {
+                    fadeIn(animationSpec = tween(200)) +
+                        scaleIn(initialScale = 0.97f, animationSpec = tween(260))
+                }
+            },
+            exitTransition = {
+                if (isPushed(targetState)) {
+                    fadeOut(animationSpec = tween(150)) +
+                        slideOutHorizontally(animationSpec = tween(300)) { width -> -forward * width / 4 }
+                } else {
+                    fadeOut(animationSpec = tween(150))
+                }
+            },
+            popEnterTransition = {
+                fadeIn(animationSpec = tween(200)) + scaleIn(initialScale = 0.99f, animationSpec = tween(240))
+            },
+            popExitTransition = {
+                slideOutHorizontally(animationSpec = tween(280)) { width -> forward * width / 3 } +
+                    fadeOut(animationSpec = tween(200))
+            },
         ) {
             composable(Routes.HOME) {
                 DashboardScreen(
                     onMatchClick = { navController.navigate(Routes.matchDetail(it)) },
                     onOpenDataSources = { navController.navigate(Routes.DATA_SOURCES) },
                     onOpenSettings = { navController.navigate(Routes.SETTINGS) },
-                    onOpenMatches = { navController.navigate(Routes.MATCHES) },
+                    onOpenMatches = { openTab(Routes.MATCHES) },
+                    onOpenPredictions = { openTab(Routes.PREDICTIONS) },
                 )
             }
             composable(Routes.MATCHES) {

@@ -71,6 +71,8 @@ import com.footballai.app.domain.model.PredictionView
 import com.footballai.app.domain.model.StatisticType
 import com.footballai.app.ui.LocalAppContainer
 import com.footballai.app.ui.LocalLanguageTag
+import com.footballai.app.domain.catalog.NameLocalization
+import com.footballai.app.domain.model.TeamRef
 import com.footballai.app.ui.components.ConfidenceChip
 import com.footballai.app.ui.components.EmptyState
 import com.footballai.app.ui.components.ErrorState
@@ -84,7 +86,9 @@ import com.footballai.app.ui.components.ScoreChip
 import com.footballai.app.ui.components.SectionHeader
 import com.footballai.app.ui.components.StatComparisonRow
 import com.footballai.app.ui.components.StatusChip
+import com.footballai.app.ui.components.TeamBadge
 import com.footballai.app.ui.components.TeamMonogram
+import com.footballai.app.ui.components.TeamNameLines
 import com.footballai.app.ui.errorLabel
 import com.footballai.app.ui.evidenceGapLabel
 import com.footballai.app.ui.explanationLabel
@@ -205,8 +209,16 @@ fun MatchDetailScreen(
                         error = state.lastError?.let { errorLabel(it) },
                         isLiveMatch = detail.summary.status.isLive,
                         isFinished = detail.summary.status.isFinished,
-                        homeName = detail.summary.home.name,
-                        awayName = detail.summary.away.name,
+                        homeName = NameLocalization.displayName(
+                            detail.summary.home.name,
+                            languageTag,
+                            detail.summary.home.shortName,
+                        ),
+                        awayName = NameLocalization.displayName(
+                            detail.summary.away.name,
+                            languageTag,
+                            detail.summary.away.shortName,
+                        ),
                         canPredict = state.lastError?.code != com.footballai.app.core.ErrorCode.INVALID_MATCH_STATE &&
                             !detail.summary.status.isFinished &&
                             (detail.summary.status.isLive || detail.summary.status == com.footballai.app.domain.model.MatchStatus.SCHEDULED),
@@ -278,8 +290,7 @@ private fun MatchHeader(detail: MatchDetail, languageTag: String, onTeamClick: (
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 TeamColumn(
-                    name = summary.home.name,
-                    id = summary.home.id,
+                    team = summary.home,
                     goals = summary.homeGoals.takeIf { summary.status.hasScore },
                     languageTag = languageTag,
                     onClick = onTeamClick,
@@ -309,8 +320,7 @@ private fun MatchHeader(detail: MatchDetail, languageTag: String, onTeamClick: (
                     )
                 }
                 TeamColumn(
-                    name = summary.away.name,
-                    id = summary.away.id,
+                    team = summary.away,
                     goals = summary.awayGoals.takeIf { summary.status.hasScore },
                     languageTag = languageTag,
                     onClick = onTeamClick,
@@ -332,8 +342,7 @@ private fun MatchHeader(detail: MatchDetail, languageTag: String, onTeamClick: (
 
 @Composable
 private fun TeamColumn(
-    name: String,
-    id: String,
+    team: TeamRef,
     goals: Int?,
     languageTag: String,
     onClick: (String) -> Unit,
@@ -341,16 +350,16 @@ private fun TeamColumn(
     alignEnd: Boolean = false,
 ) {
     Column(
-        modifier = modifier.clickable { onClick(id) },
+        modifier = modifier.clickable { onClick(team.id) },
         horizontalAlignment = if (alignEnd) Alignment.End else Alignment.Start,
     ) {
-        TeamMonogram(name, size = 40)
+        TeamBadge(team, size = 40)
         Spacer(Modifier.height(6.dp))
-        Text(
-            text = name,
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.SemiBold,
-            maxLines = 2,
+        TeamNameLines(
+            team = team,
+            languageTag = languageTag,
+            primaryStyle = MaterialTheme.typography.titleSmall,
+            primaryMaxLines = 2,
         )
         if (goals != null) {
             Text(
@@ -1074,13 +1083,19 @@ private fun HeadToHeadTab(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
-                        Text(text = match.home.name, style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            text = NameLocalization.displayName(match.home.name, languageTag, match.home.shortName),
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
                         Text(
                             text = Formatters.localizeDigits("${match.homeGoals ?: 0} - ${match.awayGoals ?: 0}", languageTag),
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.Bold,
                         )
-                        Text(text = match.away.name, style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            text = NameLocalization.displayName(match.away.name, languageTag, match.away.shortName),
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
                     }
                 }
             }

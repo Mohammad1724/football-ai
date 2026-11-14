@@ -512,4 +512,20 @@
     <string name="setting_auto_refresh_body">When what is stored is no longer current — a new day, or an old timestamp — the app refreshes by itself on opening. It never runs while you are offline, and never twice at once.</string>
     <string name="pull_refresh_hint">Pull down to refresh.</string>
     <string name="day_swipe_hint">Swipe left or right over the list to change the day.</string>
+    <!-- What each tab is for. Three screens showing the same fixtures was confusing; each
+         of them now says in one sentence what it is the place for. -->
+    <string name="home_intro_title">Today at a glance</string>
+    <string name="home_intro_body">This tab answers one question: what is happening today. It shows live matches, today\'s fixtures and how many predictions are saved. The full browsable list — every day, every filter — lives in the Matches tab, and the saved predictions live in Predictions.</string>
+    <string name="home_open_all_matches">All matches</string>
+    <string name="home_predictions_title">Predictions ready</string>
+    <string name="home_predictions_body">%1$s predictions are saved for fixtures in the next days. They are listed, with their probabilities, in the Predictions tab.</string>
+    <string name="home_predictions_empty_body">No prediction is saved yet. Open a match to see its analysis, or let the daily analysis run.</string>
+    <string name="home_predictions_action">Open predictions</string>
+    <string name="predictions_intro_body">This tab lists only fixtures that already have a saved prediction: the probability, the model\'s pick, and — once the match is over — whether it was right and how large the error was. Fixtures without a prediction are in the Matches tab.</string>
+    <string name="performance_intro_title">What this screen answers</string>
+    <string name="performance_intro_body">Performance is the answer to \"how much can I trust these predictions?\". It has three parts. Stored predictions: of the forecasts whose matches have finished, how many were right, and how large the scoring error is. Calibration: whether the probabilities the model prints match how often they actually happen. Backtest: the same model replayed over older fixtures it was not fitted on, which is the only honest measure of future accuracy.</string>
+    <string name="performance_action_hint">What to do here: pull the list down (or tap refresh) to recompute the stored-prediction statistics; tap the play button to replay the model over the historical fixtures you already have. Nothing here changes a prediction — it only measures them.</string>
+    <string name="performance_reading_title">How to read the numbers</string>
+    <string name="performance_reading_body">Accuracy is the share of correct outright picks; with three outcomes (home, draw, away) guessing scores about one in three, and the model should beat that clearly. Brier and log-loss measure error, and lower is better. As a rule of thumb for three-outcome football, a Brier score near 0.55 is what a well-informed model produces, and anything above 0.65 means the model is barely better than chance. Percentages are only shown when enough forecasts have been graded; a small sample says so instead of a number.</string>
+    <string name="predictions_intro_short">Only fixtures that already have a saved prediction</string>
 </resources>
