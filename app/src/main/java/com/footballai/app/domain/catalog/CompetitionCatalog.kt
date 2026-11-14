@@ -162,9 +162,15 @@ object CompetitionCatalog {
 
     private val womenClues = listOf("women", "women's", "womens", "ladies", "feminine", "frauen", "femminile")
 
+    /**
+     * Provider keys are only meaningful inside the provider that publishes them:
+     * `EC` is football-data.org's European Championship but an English fifth-tier
+     * league in the football-data.co.uk CSV catalogue. Keys are therefore scoped by
+     * provider id, and an unscoped entry belongs to football-data.org.
+     */
     private val byProviderKey: Map<String, Entry> = providerKeys
         .filter { it.providerKey != null }
-        .associateBy { it.providerKey!! }
+        .associateBy { (it.providerId ?: DEFAULT_KEY_PROVIDER) + "|" + it.providerKey!! }
 
     private val byName: Map<String, Entry> = international.flatMap { entry ->
         (listOf(entry.name) + entry.aliases).map { normalize(it) to entry }
@@ -189,7 +195,7 @@ object CompetitionCatalog {
                 region = country,
             )
         }
-        byProviderKey[providerKey]?.let { entry ->
+        byProviderKey[providerId + "|" + providerKey]?.let { entry ->
             return CompetitionClassification(
                 type = entry.type,
                 gender = entry.gender,
@@ -208,10 +214,14 @@ object CompetitionCatalog {
                 persianName = entry.persian,
             )
         }
+        // A women's competition is decided before any men's name containment runs, so
+        // "Women's World Cup 2027" can never inherit the men's tournament entry.
+        val women = womenClues.any { normalized.contains(it) }
+        if (women) return womenClassification(normalized, country)
         // Partial name containment is a weaker signal than an exact catalogue hit, and
-        // is reported as such.
+        // is reported as such. Only men's entries participate here.
         international.firstOrNull { entry ->
-            entry.name.length >= 6 && normalized.contains(normalize(entry.name))
+            entry.gender == Gender.MEN && entry.name.length >= 6 && normalized.contains(normalize(entry.name))
         }?.let { entry ->
             return CompetitionClassification(
                 type = entry.type,
@@ -221,38 +231,32 @@ object CompetitionCatalog {
                 persianName = entry.persian,
             )
         }
-        val women = womenClues.any { normalized.contains(it) }
         // Qualifiers and friendlies are international by definition; testing them before
         // the generic "cup" heuristic is what stops "World Cup - Qualification" from
         // being classified as a club knockout competition.
         if (qualifierClues.any { normalized.contains(it) }) {
             return CompetitionClassification(
-                type = if (women) CompetitionType.WOMEN_INTERNATIONAL else CompetitionType.INTERNATIONAL_QUALIFIER,
-                gender = if (women) Gender.WOMEN else Gender.MEN,
+                type = CompetitionType.INTERNATIONAL_QUALIFIER,
+                gender = Gender.MEN,
                 source = ClassificationSource.NAME_RULE,
                 region = country,
-                persianName = if (women) null else "مقدماتی مسابقات ملی",
+                persianName = "مقدماتی مسابقات ملی",
             )
         }
         if (friendlyClues.any { normalized.contains(it) }) {
             return CompetitionClassification(
-                type = if (women) CompetitionType.WOMEN_INTERNATIONAL else CompetitionType.INTERNATIONAL_FRIENDLY,
-                gender = if (women) Gender.WOMEN else Gender.MEN,
+                type = CompetitionType.INTERNATIONAL_FRIENDLY,
+                gender = Gender.MEN,
                 source = ClassificationSource.NAME_RULE,
                 region = country,
-                persianName = if (women) null else "بازی دوستانه ملی",
+                persianName = "بازی دوستانه ملی",
             )
         }
         val knockoutHint = knockoutClues.any { normalized.contains(it) }
-        if (women || knockoutHint) {
-            val type = when {
-                women && womenInternationalClues.any { normalized.contains(it) } -> CompetitionType.WOMEN_INTERNATIONAL
-                women -> CompetitionType.WOMEN_CLUB_LEAGUE
-                else -> CompetitionType.CLUB_KNOCKOUT
-            }
+        if (knockoutHint) {
             return CompetitionClassification(
-                type = type,
-                gender = if (women) Gender.WOMEN else Gender.MEN,
+                type = CompetitionType.CLUB_KNOCKOUT,
+                gender = Gender.MEN,
                 source = ClassificationSource.NAME_RULE,
                 region = country,
             )
@@ -265,6 +269,30 @@ object CompetitionCatalog {
         )
     }
 
+
+    /**
+     * Women's competitions, resolved without ever borrowing a men's entry.
+     *
+     * The order mirrors the men's path: an explicit women's international clue wins,
+     * then a knock-out/qualifier clue, and anything else is a women's club competition.
+     * The gender is never inferred from a club or country name.
+     */
+    private fun womenClassification(normalized: String, country: String?): CompetitionClassification {
+        val international = womenInternationalClues.any { normalized.contains(it) }
+        val type = when {
+            international -> CompetitionType.WOMEN_INTERNATIONAL
+            qualifierClues.any { normalized.contains(it) } -> CompetitionType.WOMEN_INTERNATIONAL
+            friendlyClues.any { normalized.contains(it) } -> CompetitionType.WOMEN_INTERNATIONAL
+            else -> CompetitionType.WOMEN_CLUB_LEAGUE
+        }
+        return CompetitionClassification(
+            type = type,
+            gender = Gender.WOMEN,
+            source = ClassificationSource.NAME_RULE,
+            region = country,
+        )
+    }
+
     /** Every catalogue entry, used by the competition picker and the documentation. */
     fun cataloguedCompetitions(): List<Pair<String, CompetitionClassification>> =
         international.map { it.name to classify("catalog", "", it.name) } +
@@ -272,6 +300,8 @@ object CompetitionCatalog {
 
     fun persianName(providerId: String, providerKey: String, name: String): String? =
         classify(providerId, providerKey, name).persianName
+
+    private const val DEFAULT_KEY_PROVIDER = "football-data-org"
 
     /** Feeds whose every row is a men's club league. */
     private val clubLeagueOnlyProviders = setOf("football-data-co-uk", "open-matchday")
@@ -282,7 +312,10 @@ object CompetitionCatalog {
 
     private val friendlyClues = listOf("friendlies", "friendly")
 
-    private val womenInternationalClues = listOf("world cup", "euro", "nations", "olympic", "cup of nations", "asian cup", "gold cup")
+    private val womenInternationalClues = listOf(
+        "world cup", "euro", "nations", "olympic", "cup of nations", "asian cup",
+        "gold cup", "copa america", "shebelieves", "algarve cup",
+    )
 
     private fun normalize(value: String): String {
         val decomposed = Normalizer.normalize(value, Normalizer.Form.NFD)

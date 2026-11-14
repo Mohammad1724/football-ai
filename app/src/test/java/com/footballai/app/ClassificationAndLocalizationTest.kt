@@ -56,6 +56,16 @@ class ClassificationAndLocalizationTest {
     }
 
     @Test
+    fun `a provider key means only what its own provider publishes`() {
+        // football-data.org: EC = European Championship. football-data.co.uk: EC = the
+        // English fifth tier. Scoping keys by provider is what keeps them apart.
+        assertEquals(CompetitionType.INTERNATIONAL_TOURNAMENT, fdo("EC", "European Championship").type)
+        val csvNationalLeague = CompetitionCatalog.classify("football-data-co-uk", "EC", "National League", "England")
+        assertEquals(CompetitionType.CLUB_LEAGUE, csvNationalLeague.type)
+        assertEquals(TeamKind.CLUB, csvNationalLeague.teamKind)
+    }
+
+    @Test
     fun `dynamically published competitions are classified by explicit name rules`() {
         assertEquals(CompetitionType.INTERNATIONAL_TOURNAMENT, dynamic("AFC Asian Cup").type)
         assertEquals(CompetitionType.INTERNATIONAL_QUALIFIER, dynamic("World Cup - Qualification Asia").type)
@@ -64,6 +74,16 @@ class ClassificationAndLocalizationTest {
         assertEquals(CompetitionType.WOMEN_INTERNATIONAL, dynamic("Women's World Cup").type)
         assertEquals(CompetitionType.WOMEN_CLUB_LEAGUE, dynamic("Women's Super League").type)
         assertEquals(CompetitionType.CLUB_LEAGUE, dynamic("Persian Gulf Pro League").type)
+    }
+
+    @Test
+    fun `a women's competition is never classified from a men's entry`() {
+        // "World Cup" is a men's tournament in the catalogue; the women's edition must
+        // not inherit it just because the name contains the same words.
+        assertEquals(CompetitionType.WOMEN_INTERNATIONAL, dynamic("Women's World Cup 2027").type)
+        assertEquals(CompetitionType.WOMEN_INTERNATIONAL, dynamic("Women's Copa America").type)
+        assertEquals(CompetitionType.WOMEN_CLUB_LEAGUE, dynamic("Women's Super League").type)
+        assertEquals(CompetitionType.WOMEN_CLUB_LEAGUE, dynamic("Frauen Bundesliga").type)
     }
 
     @Test
