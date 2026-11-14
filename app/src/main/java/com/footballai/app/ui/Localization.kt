@@ -164,29 +164,40 @@ fun missingDataLabel(code: String): String = text(
     },
 )
 
+/**
+ * The label for an error, plus a short technical line when the app itself failed.
+ *
+ * An unexpected failure used to be invisible: the screen either kept showing the old
+ * prediction or closed the app. The detail is the exception type and message — enough to
+ * report a defect, and free of any user data.
+ */
 @Composable
-fun errorLabel(error: AppError): String = text(
-    when (error.code) {
-        ErrorCode.INSUFFICIENT_HISTORY -> R.string.error_insufficient_history
-        ErrorCode.STALE_DATA -> R.string.error_stale_data
-        ErrorCode.INVALID_MATCH_STATE -> R.string.error_match_state
-        ErrorCode.UNKNOWN_MATCH_TIME -> R.string.error_match_time
-        ErrorCode.NETWORK_UNAVAILABLE -> R.string.error_network
-        ErrorCode.REQUEST_FAILED -> R.string.error_request
-        ErrorCode.RATE_LIMITED -> R.string.error_rate_limited
-        ErrorCode.QUOTA_EXHAUSTED -> R.string.error_quota
-        ErrorCode.MISSING_API_KEY -> R.string.error_missing_key
-        ErrorCode.ACCESS_DENIED -> R.string.error_access_denied
-        ErrorCode.PLAN_RESTRICTED -> R.string.error_plan_restricted
-        ErrorCode.SUBSCRIPTION_INACTIVE -> R.string.error_subscription_inactive
-        ErrorCode.INVALID_API_KEY -> R.string.error_invalid_key
-        ErrorCode.PARSE_ERROR -> R.string.error_parse
-        ErrorCode.EMPTY_RESPONSE -> R.string.error_empty
-        ErrorCode.NOT_FOUND -> R.string.error_not_found
-        ErrorCode.STORAGE_ERROR -> R.string.error_storage
-        ErrorCode.UNKNOWN -> R.string.error_unknown
-    },
-)
+fun errorLabel(error: AppError): String {
+    val label = text(
+        when (error.code) {
+            ErrorCode.INSUFFICIENT_HISTORY -> R.string.error_insufficient_history
+            ErrorCode.STALE_DATA -> R.string.error_stale_data
+            ErrorCode.INVALID_MATCH_STATE -> R.string.error_match_state
+            ErrorCode.UNKNOWN_MATCH_TIME -> R.string.error_match_time
+            ErrorCode.NETWORK_UNAVAILABLE -> R.string.error_network
+            ErrorCode.REQUEST_FAILED -> R.string.error_request
+            ErrorCode.RATE_LIMITED -> R.string.error_rate_limited
+            ErrorCode.QUOTA_EXHAUSTED -> R.string.error_quota
+            ErrorCode.MISSING_API_KEY -> R.string.error_missing_key
+            ErrorCode.ACCESS_DENIED -> R.string.error_access_denied
+            ErrorCode.PLAN_RESTRICTED -> R.string.error_plan_restricted
+            ErrorCode.SUBSCRIPTION_INACTIVE -> R.string.error_subscription_inactive
+            ErrorCode.INVALID_API_KEY -> R.string.error_invalid_key
+            ErrorCode.PARSE_ERROR -> R.string.error_parse
+            ErrorCode.EMPTY_RESPONSE -> R.string.error_empty
+            ErrorCode.NOT_FOUND -> R.string.error_not_found
+            ErrorCode.STORAGE_ERROR -> R.string.error_storage
+            ErrorCode.UNKNOWN -> R.string.error_unknown
+        },
+    )
+    val detail = error.detail
+    return if (error.code == ErrorCode.UNKNOWN && !detail.isNullOrBlank()) "$label — $detail" else label
+}
 
 @Composable
 fun relativeLabel(label: RelativeLabel, isPast: Boolean): String = when (label.unit) {

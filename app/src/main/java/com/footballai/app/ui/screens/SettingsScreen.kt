@@ -29,6 +29,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -45,6 +46,7 @@ import com.footballai.app.R
 import com.footballai.app.core.Formatters
 import com.footballai.app.data.settings.AppLanguage
 import com.footballai.app.data.settings.ThemeMode
+import com.footballai.app.core.CrashLog
 import com.footballai.app.ui.LocalAppContainer
 import com.footballai.app.ui.LocalLanguageTag
 import com.footballai.app.ui.components.InfoCard
@@ -62,6 +64,8 @@ fun SettingsScreen(onOpenDataSources: () -> Unit) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val languageTag = LocalLanguageTag.current
     var confirmClear by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    var crashReport by remember(context) { mutableStateOf(CrashLog.last(context)) }
 
     Scaffold(
         topBar = {
@@ -192,6 +196,43 @@ fun SettingsScreen(onOpenDataSources: () -> Unit) {
                     containerColor = MaterialTheme.colorScheme.surfaceVariant,
                 )
             }
+            // A crash closes the app before anything can be shown, so the record of the
+            // last one is surfaced here on the next launch — the only way to report a
+            // defect from a phone that has no developer tools attached.
+            item { SectionHeader(title = stringResource(R.string.section_diagnostics)) }
+            crashReport?.let { report ->
+                item {
+                    InfoCard(
+                        title = stringResource(R.string.crash_report_title),
+                        body = stringResource(R.string.crash_report_body),
+                        containerColor = MaterialTheme.colorScheme.errorContainer,
+                    )
+                }
+                item {
+                    Text(
+                        text = report,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    )
+                }
+                item {
+                    TextButton(
+                        onClick = {
+                            CrashLog.clear(context)
+                            crashReport = null
+                        },
+                        modifier = Modifier.padding(horizontal = 8.dp),
+                    ) { Text(stringResource(R.string.action_clear_crash_report)) }
+                }
+            } ?: item {
+                Text(
+                    text = stringResource(R.string.crash_report_none),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                )
+            }
+
             state.lastError?.let { error ->
                 item { Text(text = errorLabel(error), color = MaterialTheme.colorScheme.error) }
             }

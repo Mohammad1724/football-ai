@@ -1,6 +1,7 @@
 package com.footballai.app
 
 import android.app.Application
+import com.footballai.app.core.CrashLog
 import com.footballai.app.data.sync.SyncScheduler
 import com.footballai.app.di.AppContainer
 import kotlinx.coroutines.CoroutineScope
@@ -18,6 +19,8 @@ class FootballAiApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        // Installed before anything else so a failure during start-up is recorded too.
+        CrashLog.install(this)
         container = AppContainer(this)
         // Honour the user's background-sync preference instead of re-arming the worker
         // on every launch: reading DataStore is a suspend call, so it happens off the

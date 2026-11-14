@@ -10,6 +10,7 @@ import com.footballai.app.domain.model.MatchSummary
 import com.footballai.app.domain.model.PredictionWithMatch
 import com.footballai.app.domain.model.TeamProfile
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
@@ -103,6 +104,10 @@ class PredictionsViewModel(private val container: AppContainer) : ViewModel() {
                     it.match.id.startsWith("football-data-co-uk:") && it.prediction.kind == com.footballai.app.domain.model.PredictionKind.PRE_MATCH &&
                         it.prediction.modelVersion == com.footballai.app.data.repository.PredictionRepository.MODEL_VERSION
                 } else items
+            }.catch { error ->
+                if (error is kotlinx.coroutines.CancellationException) throw error
+                // A stored row that cannot be read must not close the whole tab.
+                _state.update { it.copy(isLoading = false) }
             }.collect { items ->
                 latestItems = items
                 _state.update { state ->

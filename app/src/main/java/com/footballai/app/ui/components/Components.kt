@@ -339,10 +339,12 @@ fun ProbabilityBar(
     showLegend: Boolean = true,
 ) {
     val colors = FootballAiThemeExtra.colors
+    // `coerceIn` passes NaN straight through, and a NaN fraction makes Compose throw
+    // while measuring the bar. A probability that is not a number is drawn as zero.
     val segments = listOf(
-        homeWin.coerceIn(0.0, 1.0) to colors.homeSeries,
-        draw.coerceIn(0.0, 1.0) to colors.drawSeries,
-        awayWin.coerceIn(0.0, 1.0) to colors.awaySeries,
+        homeWin.chartFraction() to colors.homeSeries,
+        draw.chartFraction() to colors.drawSeries,
+        awayWin.chartFraction() to colors.awaySeries,
     )
     Column(modifier = modifier.fillMaxWidth()) {
         Row(
@@ -355,7 +357,7 @@ fun ProbabilityBar(
                 if (probability <= 0.0) continue
                 Box(
                     modifier = Modifier
-                        .weight(probability.toFloat().coerceAtLeast(0.001f))
+                        .weight(probability.chartFraction().toFloat().coerceAtLeast(0.001f))
                         .height(12.dp)
                         .background(color),
                 )
@@ -454,7 +456,7 @@ fun MarketBarRow(
         ) {
             Box(
                 modifier = Modifier
-                    .fillMaxWidth(probability.coerceIn(0.0, 1.0).toFloat())
+                    .fillMaxWidth(probability.chartFraction().toFloat())
                     .height(6.dp)
                     .clip(RoundedCornerShape(3.dp))
                     .background(if (highlight) MaterialTheme.colorScheme.primary else colors.homeSeries),
@@ -821,3 +823,12 @@ fun ConfidenceChip(level: String?, modifier: Modifier = Modifier) {
     }
     StatusChip(text = confidenceLevelLabel(level), color = color)
 }
+
+/**
+ * A value that is safe to hand to Compose as a layout fraction.
+ *
+ * Kotlin's `coerceIn` returns NaN unchanged, and Compose rejects a NaN fraction with an
+ * exception — which on Android closes the app. Any number that is not finite becomes
+ * zero here, and the rest is clamped to the unit interval.
+ */
+private fun Double.chartFraction(): Double = if (isFinite()) coerceIn(0.0, 1.0) else 0.0

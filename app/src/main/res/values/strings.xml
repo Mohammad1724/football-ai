@@ -492,4 +492,9 @@
     <string name="action_enable_global_coverage">Load worldwide fixtures</string>
     <string name="switching_source">Loading the worldwide source…</string>
     <string name="source_label">Source: %1$s</string>
+    <string name="section_diagnostics">Diagnostics</string>
+    <string name="crash_report_title">The previous run closed unexpectedly</string>
+    <string name="crash_report_body">This is the technical report the app saved on the phone. It contains code locations only: no personal data, no tokens, no history. Send it if a screen keeps failing.</string>
+    <string name="crash_report_none">No unexpected shutdown was recorded.</string>
+    <string name="action_clear_crash_report">Delete this report</string>
 </resources>

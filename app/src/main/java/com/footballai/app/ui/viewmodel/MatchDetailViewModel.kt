@@ -53,45 +53,49 @@ class MatchDetailViewModel(
 
     fun load(refreshFromNetwork: Boolean = true) {
         viewModelScope.launch {
-            val detail = container.matchRepository.matchDetail(matchId)
-            _state.update { it.copy(detail = detail, isLoading = false) }
-            if (detail != null) {
-                val headToHead = container.matchRepository.headToHead(
-                    matchId = matchId,
-                    homeTeamId = detail.summary.home.id,
-                    awayTeamId = detail.summary.away.id,
-                )
-                _state.update { it.copy(headToHead = headToHead) }
-            }
-            if (refreshFromNetwork) {
-                val entity = container.matchRepository.matchEntity(matchId)
-                if (entity != null) {
-                    if (!syncFresh()) {
-                        if (!parseStatus(entity.status).isLive) predict()
-                        maybeStartTracking()
-                        return@launch
-                    }
-                    val refreshed = container.matchRepository.matchDetail(matchId)
-                    _state.update { it.copy(detail = refreshed ?: it.detail) }
+            guarded {
+                val detail = container.matchRepository.matchDetail(matchId)
+                _state.update { it.copy(detail = detail, isLoading = false) }
+                if (detail != null) {
+                    val headToHead = container.matchRepository.headToHead(
+                        matchId = matchId,
+                        homeTeamId = detail.summary.home.id,
+                        awayTeamId = detail.summary.away.id,
+                    )
+                    _state.update { it.copy(headToHead = headToHead) }
                 }
+                if (refreshFromNetwork) {
+                    val entity = container.matchRepository.matchEntity(matchId)
+                    if (entity != null) {
+                        if (!syncFresh()) {
+                            if (!parseStatus(entity.status).isLive) predict()
+                            maybeStartTracking()
+                            return@guarded
+                        }
+                        val refreshed = container.matchRepository.matchDetail(matchId)
+                        _state.update { it.copy(detail = refreshed ?: it.detail) }
+                    }
+                }
+                predict()
+                maybeStartTracking()
             }
-            predict()
-            maybeStartTracking()
         }
     }
 
     fun refresh() {
         viewModelScope.launch {
-            _state.update { it.copy(isRefreshing = true) }
-            if (!syncFresh()) {
-                if (_state.value.detail?.summary?.status?.isLive == false) predict()
-                _state.update { it.copy(isRefreshing = false) }
-                return@launch
+            guarded {
+                _state.update { it.copy(isRefreshing = true) }
+                if (!syncFresh()) {
+                    if (_state.value.detail?.summary?.status?.isLive == false) predict()
+                    _state.update { it.copy(isRefreshing = false) }
+                    return@guarded
+                }
+                val detail = container.matchRepository.matchDetail(matchId)
+                _state.update { it.copy(detail = detail, isRefreshing = false) }
+                predict()
+                maybeStartTracking()
             }
-            val detail = container.matchRepository.matchDetail(matchId)
-            _state.update { it.copy(detail = detail, isRefreshing = false) }
-            predict()
-            maybeStartTracking()
         }
     }
 
@@ -99,19 +103,49 @@ class MatchDetailViewModel(
         if (_state.value.isPredicting) return
         _state.update { it.copy(isPredicting = true) }
         viewModelScope.launch {
-            _state.update { it.copy(isPredicting = true) }
-            val entity = container.matchRepository.matchEntity(matchId)
-            val isLive = entity != null && parseStatus(entity.status).isLive
-            val now = container.clock.nowEpochMs()
-            // Live screens poll every few minutes; only one stored snapshot per 15 minutes
-            // keeps the local history readable and the database small.
-            val persist = !isLive || PredictionPolicy.shouldStoreLive(now, lastLivePredictionAt, forcePersist)
-            when (val result = container.predictionRepository.predict(matchId, persist = persist)) {
-                is Outcome.Failure -> _state.update { it.copy(isPredicting = false, prediction = null, lastError = result.error) }
-                is Outcome.Success -> {
-                    if (isLive && persist) lastLivePredictionAt = now
-                    _state.update { it.copy(isPredicting = false, prediction = result.value) }
+            guarded {
+                val entity = container.matchRepository.matchEntity(matchId)
+                val isLive = entity != null && parseStatus(entity.status).isLive
+                val now = container.clock.nowEpochMs()
+                // Live screens poll every few minutes; only one stored snapshot per 15 minutes
+                // keeps the local history readable and the database small.
+                val persist = !isLive || PredictionPolicy.shouldStoreLive(now, lastLivePredictionAt, forcePersist)
+                when (val result = container.predictionRepository.predict(matchId, persist = persist)) {
+                    is Outcome.Failure -> _state.update {
+                        it.copy(isPredicting = false, prediction = null, lastError = result.error)
+                    }
+                    is Outcome.Success -> {
+                        if (isLive && persist) lastLivePredictionAt = now
+                        _state.update { it.copy(isPredicting = false, prediction = result.value, lastError = null) }
+                    }
                 }
+            }
+        }
+    }
+
+    /**
+     * Runs a unit of screen work and converts any unexpected exception into an error
+     * state. Without this, an exception inside a screen coroutine reaches the default
+     * Android handler and the process is killed — the user sees the app close with no
+     * message and no way to report what happened.
+     */
+    private suspend fun guarded(block: suspend () -> Unit) {
+        try {
+            block()
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
+        } catch (error: Throwable) {
+            _state.update {
+                it.copy(
+                    isLoading = false,
+                    isPredicting = false,
+                    isRefreshing = false,
+                    lastError = AppError(
+                        code = com.footballai.app.core.ErrorCode.UNKNOWN,
+                        detail = "${error::class.java.simpleName}: ${error.message}",
+                        cause = error,
+                    ),
+                )
             }
         }
     }

@@ -492,4 +492,9 @@
     <string name="action_enable_global_coverage">بارگذاری مسابقات جهانی</string>
     <string name="switching_source">در حال بارگذاری منبع جهانی…</string>
     <string name="source_label">منبع: %1$s</string>
+    <string name="section_diagnostics">تشخیص خطا</string>
+    <string name="crash_report_title">اجرای قبلی به‌طور غیرمنتظره بسته شد</string>
+    <string name="crash_report_body">این گزارش فنی را برنامه روی گوشی ذخیره کرده است. فقط محل کد در آن هست؛ هیچ داده شخصی، کلید یا سابقه‌ای در آن نیست. اگر صفحه‌ای مدام خطا می‌دهد، همین متن را بفرستید.</string>
+    <string name="crash_report_none">هیچ بسته‌شدن غیرمنتظره‌ای ثبت نشده است.</string>
+    <string name="action_clear_crash_report">حذف این گزارش</string>
 </resources>

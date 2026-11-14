@@ -59,8 +59,28 @@ class PredictionRepository(
     private val calibrationRepository: CalibrationRepository,
 ) {
 
+    /**
+     * Runs one prediction.
+     *
+     * Every failure, including an unexpected one, is returned as [Outcome.Failure].
+     * This is deliberate: the call is made from a screen's coroutine, so an exception
+     * escaping here would not be shown to the user — it would close the app. A broken
+     * forecast is a bad outcome; a closed app loses the user's place entirely.
+     */
     suspend fun predict(matchId: String, persist: Boolean = true): Outcome<PredictionView> = withContext(Dispatchers.Default) {
-        predictInternal(matchId, persist)
+        try {
+            predictInternal(matchId, persist)
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
+        } catch (error: Throwable) {
+            Outcome.Failure(
+                AppError(
+                    code = ErrorCode.UNKNOWN,
+                    detail = "prediction failed: ${error::class.java.simpleName}: ${error.message}",
+                    cause = error,
+                ),
+            )
+        }
     }
 
     private suspend fun predictInternal(matchId: String, persist: Boolean): Outcome<PredictionView> {
