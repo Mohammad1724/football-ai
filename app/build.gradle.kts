@@ -5,16 +5,51 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
+/**
+ * A stable signing key.
+ *
+ * The debug APKs this project used to publish were signed with a keystore that Gradle
+ * generated fresh on every CI runner, so each download carried a different signature and
+ * Android refused to install it over the previous version — the app had to be uninstalled
+ * first, losing its local history every time.
+ *
+ * This key lives in `signing/` on purpose: the same certificate is used for every build,
+ * so an update installs over the installed app and keeps its data. It is a personal,
+ * self-signed key and is not suitable for Play Store distribution. Anyone who can read
+ * this repository can sign a build that Android accepts as an update to this app, which
+ * is the trade-off for a phone-only, no-secrets workflow.
+ */
+val stableKeystore = rootProject.file("signing/footballai-release.p12")
+val stableStorePassword = System.getenv("FOOTBALLAI_STORE_PASSWORD") ?: "footballai-signing-2026"
+val stableKeyAlias = System.getenv("FOOTBALLAI_KEY_ALIAS") ?: "footballai"
+
+/** Each CI run gets a higher version code, so Android treats a download as an update. */
+val ciRunNumber = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull()
+
 android {
     namespace = "com.footballai.app"
     compileSdk = 34
+
+    signingConfigs {
+        if (stableKeystore.exists()) {
+            create("stable") {
+                storeFile = stableKeystore
+                // PKCS#12 keeps the key password equal to the store password.
+                storeType = "PKCS12"
+                storePassword = stableStorePassword
+                keyAlias = stableKeyAlias
+                keyPassword = stableStorePassword
+            }
+        }
+    }
 
     defaultConfig {
         applicationId = "com.footballai.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 19
-        versionName = "0.7.0"
+        // A new build must never look older than the installed one.
+        versionCode = 20 + (ciRunNumber ?: 0)
+        versionName = ciRunNumber?.let { "0.7.$it" } ?: "0.7.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         resourceConfigurations += listOf("en", "fa")
     }
@@ -22,10 +57,17 @@ android {
     buildTypes {
         debug {
             isMinifyEnabled = false
+            // Signed with the stable key when it is present, so a debug build also
+            // installs as an update instead of demanding an uninstall.
+            signingConfig = signingConfigs.findByName("stable")
         }
         release {
-            isMinifyEnabled = true
-            isShrinkResources = true
+            signingConfig = signingConfigs.findByName("stable")
+            // Shrinking stays off until its output has been checked on a device. A
+            // smaller APK is worth little next to an app that cannot be run at all, and
+            // this environment has no device to test a minified build on.
+            isMinifyEnabled = false
+            isShrinkResources = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",

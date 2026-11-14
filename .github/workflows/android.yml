@@ -18,7 +18,7 @@ permissions:
 
 jobs:
   test-and-build:
-    name: Test and build debug APK
+    name: Test and build signed APKs
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -46,10 +46,44 @@ jobs:
           set -o pipefail
           gradle :app:testDebugUnitTest --stacktrace 2>&1 | tee -a build-output.txt
 
-      - name: Assemble debug APK
+      - name: Assemble signed APKs
         run: |
           set -o pipefail
-          gradle :app:assembleDebug --stacktrace 2>&1 | tee -a build-output.txt
+          gradle :app:assembleDebug :app:assembleRelease --stacktrace 2>&1 | tee -a build-output.txt
+
+      # The whole point of the stable key: an update must install over the installed
+      # app. That only works if every build carries the same certificate, so the build
+      # fails here rather than on the phone if the signature ever changes.
+      - name: Verify the stable signature
+        run: |
+          set -o pipefail
+          SDK="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          APKSIGNER=$(ls -d "$SDK"/build-tools/*/apksigner 2>/dev/null | tail -1)
+          if [ -z "$APKSIGNER" ]; then
+            echo "::error::apksigner not found under $SDK/build-tools"
+            exit 1
+          fi
+          echo "using $APKSIGNER" >> build-output.txt
+          for APK in app/build/outputs/apk/release/*.apk app/build/outputs/apk/debug/*.apk; do
+            echo "== $APK ($(stat -c%s "$APK") bytes)"
+            CERT=$("$APKSIGNER" verify --print-certs "$APK")
+            echo "$CERT" >> build-output.txt
+            DIGEST=$(echo "$CERT" | grep 'certificate SHA-256 digest' | head -1 | sed "s/.*digest: //" | tr -d ":" | tr "A-Z" "a-z")
+            if [ "$DIGEST" != "7cd605244926555fa5e51be08601d89e908e6df474f10b592ecf71b35f73d668" ]; then
+              echo "::error::$APK is not signed with the stable key (got $DIGEST)"
+              exit 1
+            fi
+          done
+
+      - name: Upload signed APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: football-ai-signed-apk
+          path: |
+            app/build/outputs/apk/release/*.apk
+            app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 30
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
