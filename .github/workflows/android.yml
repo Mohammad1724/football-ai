@@ -69,7 +69,7 @@ jobs:
         run: |
           if [ -f build-output.txt ]; then
             echo "## Failure: run $GITHUB_RUN_ID ($GITHUB_SHA)" > report.md
-            grep -n -E "^e: |error:|FAILURE|FAILED|Caused by|Execution failed|> Task .* FAILED|Unresolved|warning: unable" build-output.txt | head -200 >> report.md || true
+            grep -n -E "^e: |error:|FAILURE|FAILED|Caused by|Execution failed|> Task .* FAILED|Unresolved|warning: unable|AssertionError|expected:|NoSuchElementException|IllegalStateException" build-output.txt | head -200 >> report.md || true
             echo "" >> report.md
             echo "### Tail" >> report.md
             tail -120 build-output.txt >> report.md

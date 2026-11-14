@@ -225,8 +225,12 @@ class EspnOpenProvider(
     private fun EspnEvent.toRemoteMatch(competition: EspnCompetitionInfo): RemoteMatch? {
         val id = id ?: return null
         val event = competitions.firstOrNull() ?: return null
-        val kickoff = (event.date ?: date)?.let {
-            runCatching { Instant.parse(it).toEpochMilli() }.getOrNull()
+        // ESPN publishes "2026-11-15T14:00Z" without seconds, which Instant.parse
+        // rejects; OffsetDateTime handles both forms and still yields a UTC instant.
+        val kickoff = (event.date ?: date)?.let { timestamp ->
+            runCatching { java.time.OffsetDateTime.parse(timestamp).toInstant().toEpochMilli() }
+                .recoverCatching { Instant.parse(timestamp).toEpochMilli() }
+                .getOrNull()
         } ?: return null
         val home = event.competitors.firstOrNull { it.homeAway.equals("home", ignoreCase = true) } ?: return null
         val away = event.competitors.firstOrNull { it.homeAway.equals("away", ignoreCase = true) } ?: return null

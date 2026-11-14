@@ -148,6 +148,16 @@ class EspnScoreboardTest {
     }
 
     @Test
+    fun `a timestamp without seconds still parses`() {
+        // The live endpoint publishes "2026-11-15T14:00Z"; Instant.parse rejects it, and
+        // dropping the event for that reason would have emptied the whole screen.
+        val withSeconds = payload.replace("2026-11-15T14:00Z", "2026-11-15T14:00:00Z")
+        val result = provider.parse(withSeconds, nations)
+        val matches = assertIs<Outcome.Success<List<com.footballai.app.data.provider.RemoteMatch>>>(result).value
+        assertEquals(1_794_751_200_000L, matches.first { it.providerKey == "401861172" }.kickoffEpochMs)
+    }
+
+    @Test
     fun `malformed json is a parse error, not an empty success`() {
         val result = provider.parse("{not json", nations)
         assertIs<Outcome.Failure>(result)
