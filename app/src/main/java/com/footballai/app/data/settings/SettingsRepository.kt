@@ -22,6 +22,10 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
             }.getOrDefault(ThemeMode.SYSTEM),
             activeProviderId = preferences[KEY_ACTIVE_PROVIDER].orEmpty(),
             followedCompetitionKeys = preferences[KEY_FOLLOWED] ?: emptySet(),
+            competitionOrder = preferences[KEY_COMPETITION_ORDER]
+                ?.split(ORDER_SEPARATOR)
+                ?.filter { it.isNotBlank() }
+                ?: emptyList(),
             dailyAnalysisEnabled = preferences[KEY_DAILY_ANALYSIS] ?: true,
             livePollingEnabled = !(preferences[KEY_DAILY_ANALYSIS] ?: true) && (preferences[KEY_LIVE_POLLING] ?: false),
             backgroundSyncEnabled = preferences[KEY_BACKGROUND_SYNC] ?: true,
@@ -48,6 +52,11 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         val current = preferences[KEY_FOLLOWED]?.toMutableSet() ?: mutableSetOf()
         if (followed) current.add(key) else current.remove(key)
         preferences[KEY_FOLLOWED] = current
+    }
+
+    /** Stores the user's competition order as one separated string: a set would lose it. */
+    suspend fun setCompetitionOrder(ids: List<String>) = edit {
+        it[KEY_COMPETITION_ORDER] = ids.joinToString(ORDER_SEPARATOR)
     }
 
     suspend fun setDailyAnalysis(enabled: Boolean) = edit { it[KEY_DAILY_ANALYSIS] = enabled }
@@ -82,6 +91,10 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         private val KEY_THEME = stringPreferencesKey("theme")
         private val KEY_ACTIVE_PROVIDER = stringPreferencesKey("active_provider")
         private val KEY_FOLLOWED = stringSetPreferencesKey("followed_competitions")
+        private val KEY_COMPETITION_ORDER = stringPreferencesKey("competition_order")
+
+        /** Competition ids never contain a newline, so it is a safe separator. */
+        private const val ORDER_SEPARATOR = "\n"
         private val KEY_DAILY_ANALYSIS = booleanPreferencesKey("daily_analysis")
         private val KEY_LIVE_POLLING = booleanPreferencesKey("live_polling")
         private val KEY_BACKGROUND_SYNC = booleanPreferencesKey("background_sync")

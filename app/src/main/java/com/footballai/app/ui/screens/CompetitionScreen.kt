@@ -25,6 +25,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.footballai.app.R
+import com.footballai.app.domain.catalog.NameLocalization
 import com.footballai.app.ui.LocalAppContainer
 import com.footballai.app.ui.LocalLanguageTag
 import com.footballai.app.ui.components.EmptyState
@@ -55,7 +56,14 @@ fun CompetitionScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
                     }
                 },
-                title = { Text(state.competition?.name ?: stringResource(R.string.title_competition)) },
+                title = {
+                    val competition = state.competition
+                    Text(
+                        competition?.let {
+                            NameLocalization.competitionNamePair(it.name, it.id, languageTag).first
+                        } ?: stringResource(R.string.title_competition),
+                    )
+                },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
             )
         },

@@ -39,6 +39,7 @@ import com.footballai.app.R
 import com.footballai.app.data.settings.AppSettings
 import com.footballai.app.ui.LocalAppContainer
 import com.footballai.app.ui.components.LoadingState
+import com.footballai.app.ui.screens.CompetitionOrderScreen
 import com.footballai.app.ui.screens.CompetitionScreen
 import com.footballai.app.ui.screens.DashboardScreen
 import com.footballai.app.ui.screens.DataSourcesScreen
@@ -56,6 +57,7 @@ object Routes {
     const val PREDICTIONS = "predictions"
     const val PERFORMANCE = "performance"
     const val DATA_SOURCES = "data-sources"
+    const val COMPETITION_ORDER = "competition-order"
     const val SETTINGS = "settings"
     const val MATCH_DETAIL = "match/{matchId}"
     const val TEAM = "team/{teamId}"
@@ -91,6 +93,7 @@ private val pushedRoutes = setOf(
     Routes.COMPETITION,
     Routes.DATA_SOURCES,
     Routes.SETTINGS,
+    Routes.COMPETITION_ORDER,
 )
 
 private fun isPushed(entry: NavBackStackEntry): Boolean = entry.destination.route in pushedRoutes
@@ -197,7 +200,13 @@ private fun MainNavigation() {
                 DataSourcesScreen(onBack = { navController.popBackStack() })
             }
             composable(Routes.SETTINGS) {
-                SettingsScreen(onOpenDataSources = { navController.navigate(Routes.DATA_SOURCES) })
+                SettingsScreen(
+                    onOpenDataSources = { navController.navigate(Routes.DATA_SOURCES) },
+                    onOpenCompetitionOrder = { navController.navigate(Routes.COMPETITION_ORDER) },
+                )
+            }
+            composable(Routes.COMPETITION_ORDER) {
+                CompetitionOrderScreen(onBack = { navController.popBackStack() })
             }
             composable(
                 route = Routes.MATCH_DETAIL,

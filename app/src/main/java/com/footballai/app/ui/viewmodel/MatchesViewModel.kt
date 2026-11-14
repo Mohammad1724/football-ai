@@ -6,6 +6,7 @@ import com.footballai.app.core.AppError
 import com.footballai.app.core.ErrorCode
 import com.footballai.app.core.Outcome
 import com.footballai.app.data.sync.SyncTrigger
+import com.footballai.app.domain.catalog.CompetitionOrder
 import com.footballai.app.domain.catalog.NameLocalization
 import com.footballai.app.di.AppContainer
 import com.footballai.app.domain.model.Competition
@@ -41,6 +42,7 @@ private data class MatchScope(
     val selection: MatchSelection,
     val dailyAnalysis: Boolean,
     val sourceName: String,
+    val competitionOrder: List<String>,
 )
 
 private data class MatchListData(
@@ -124,7 +126,12 @@ class MatchesViewModel(private val container: AppContainer) : ViewModel() {
                 refreshVersion,
                 container.settingsRepository.settings,
             ) { selected, _, settings ->
-                MatchScope(selected, settings.dailyAnalysisEnabled, container.providerRegistry.activeInfo(settings)?.displayName.orEmpty())
+                MatchScope(
+                    selection = selected,
+                    dailyAnalysis = settings.dailyAnalysisEnabled,
+                    sourceName = container.providerRegistry.activeInfo(settings)?.displayName.orEmpty(),
+                    competitionOrder = settings.competitionOrder,
+                )
             }
                 .flatMapLatest { scope ->
                     val selected = scope.selection
@@ -135,11 +142,18 @@ class MatchesViewModel(private val container: AppContainer) : ViewModel() {
                         container.matchRepository.observeBetween(from, to),
                         container.matchRepository.observeCompetitions(),
                     ) { matches, competitions ->
-                        val availableCompetitions = if (dailyAnalysis) {
-                            competitions.filter { it.providerId == "football-data-co-uk" }
-                        } else {
-                            competitions
-                        }
+                        // The user's own order wins over the app's alphabetical guess.
+                        val availableCompetitions = CompetitionOrder.sorted(
+                            if (dailyAnalysis) {
+                                competitions.filter { it.providerId == "football-data-co-uk" }
+                            } else {
+                                competitions
+                            },
+                            scope.competitionOrder,
+                        )
+                        val competitionRanks = availableCompetitions
+                            .mapIndexed { index, competition -> competition.id to index }
+                            .toMap()
                         val followedIds = availableCompetitions.filter { it.isFollowed }.map { it.id }.toSet()
                         val visible = matches.filter { match ->
                             (!dailyAnalysis || match.id.startsWith("football-data-co-uk:")) &&
@@ -156,7 +170,12 @@ class MatchesViewModel(private val container: AppContainer) : ViewModel() {
                                     MatchGenderFilter.MEN -> !match.isWomen
                                     MatchGenderFilter.WOMEN -> match.isWomen
                                 }
-                        }.sortedBy { it.kickoffEpochMs }
+                        }.sortedWith(
+                            compareBy(
+                                { competitionRanks[it.competitionId] ?: Int.MAX_VALUE },
+                                { it.kickoffEpochMs },
+                            ),
+                        )
                         MatchListData(visible, availableCompetitions, dailyAnalysis, scope.sourceName)
                     }
                 }.collect { data ->

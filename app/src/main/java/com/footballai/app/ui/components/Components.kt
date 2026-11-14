@@ -168,11 +168,13 @@ fun MatchCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
-                    text = match.competitionName.ifBlank { "—" },
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                CompetitionNameText(
+                    name = match.competitionName.ifBlank { "—" },
+                    competitionId = match.competitionId,
+                    languageTag = languageTag,
                     modifier = Modifier.weight(1f),
+                    primaryStyle = MaterialTheme.typography.labelSmall,
+                    secondaryStyle = MaterialTheme.typography.labelSmall,
                 )
                 StatusChip(
                     text = if (isLive && match.minute != null) {
@@ -279,7 +281,10 @@ fun MatchCard(
  */
 @Composable
 fun TeamBadge(team: TeamRef, size: Int = 26) {
+    // A nation is shown by its flag; a club by its crest, and by the flag of its country
+    // when the crest cannot be shown at all.
     val flag = NameLocalization.flagEmoji(team.name, team.shortName)
+        ?: NameLocalization.clubCountryFlag(team.name, team.shortName)
     val crest = team.crestUrl?.takeIf { it.isNotBlank() }
     Box(
         modifier = Modifier
@@ -288,20 +293,61 @@ fun TeamBadge(team: TeamRef, size: Int = 26) {
             .background(MaterialTheme.colorScheme.surfaceVariant),
         contentAlignment = Alignment.Center,
     ) {
+        // Drawn first and always: whatever happens to the image, the badge is never empty.
+        TeamMonogram(team.name, size = size)
         if (flag != null) {
             Text(text = flag, style = MaterialTheme.typography.bodyMedium)
-        } else {
-            TeamMonogram(team.name, size = size)
-            if (crest != null) {
-                AsyncImage(
-                    model = crest,
-                    contentDescription = null,
-                    contentScale = ContentScale.Fit,
-                    modifier = Modifier
-                        .size(size.dp)
-                        .clip(CircleShape),
-                )
-            }
+        }
+        if (crest != null) {
+            AsyncImage(
+                model = crest,
+                contentDescription = null,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier
+                    .size(size.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+            )
+        }
+    }
+}
+
+/**
+ * A competition name in both languages.
+ *
+ * Competitions were the last thing shown only in English, which is odd in an app whose
+ * whole point is Persian naming: "UEFA Nations League" is written here as
+ * "لیگ ملت‌های اروپا" with the published name underneath.
+ */
+@Composable
+fun CompetitionNameText(
+    name: String,
+    competitionId: String?,
+    languageTag: String,
+    modifier: Modifier = Modifier,
+    primaryStyle: TextStyle = MaterialTheme.typography.labelMedium,
+    secondaryStyle: TextStyle = MaterialTheme.typography.labelSmall,
+    primaryMaxLines: Int = 2,
+    showLatin: Boolean = true,
+) {
+    val pair = NameLocalization.competitionNamePair(name, competitionId, languageTag)
+    Column(modifier = modifier) {
+        Text(
+            text = pair.first,
+            style = primaryStyle,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = primaryMaxLines,
+            overflow = TextOverflow.Ellipsis,
+        )
+        val secondary = pair.second
+        if (showLatin && secondary != null && secondary != pair.first) {
+            Text(
+                text = "\u200E" + secondary,
+                style = secondaryStyle,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }

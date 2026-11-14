@@ -52,6 +52,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.footballai.app.R
+import com.footballai.app.domain.catalog.NameLocalization
 import com.footballai.app.core.Formatters
 import com.footballai.app.data.repository.HistoricalSourceOption
 import com.footballai.app.data.repository.SyncSummary
@@ -291,7 +292,13 @@ fun DataSourcesScreen(onBack: () -> Unit) {
                                 horizontalArrangement = Arrangement.SpaceBetween,
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
-                                    Text(text = competition.name, style = MaterialTheme.typography.bodyMedium)
+                                    CompetitionNameText(
+                                        name = competition.name,
+                                        competitionId = competition.id,
+                                        languageTag = languageTag,
+                                        primaryStyle = MaterialTheme.typography.bodyMedium,
+                                        secondaryStyle = MaterialTheme.typography.labelSmall,
+                                    )
                                     Text(
                                         text = competition.country ?: competition.providerId,
                                         style = MaterialTheme.typography.labelSmall,
@@ -496,7 +503,10 @@ private fun HistorySourceCard(
             )
             source.competitions.take(4).forEach { competition ->
                 Text(
-                    text = "• ${competition.name} (${Formatters.integer(competition.matches, languageTag)})",
+                    text = "• " + (
+                        NameLocalization.persianCompetitionName(null, competition.name)
+                            ?: competition.name
+                        ) + " (${Formatters.integer(competition.matches, languageTag)})",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

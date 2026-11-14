@@ -18,6 +18,8 @@ data class AppSettings(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val activeProviderId: String = "",
     val followedCompetitionKeys: Set<String> = emptySet(),
+    /** Competition ids in the order the user arranged them; empty means the default order. */
+    val competitionOrder: List<String> = emptyList(),
     val dailyAnalysisEnabled: Boolean = true,
     val livePollingEnabled: Boolean = false,
     val backgroundSyncEnabled: Boolean = true,

@@ -529,4 +529,14 @@
     <string name="predictions_intro_short">فقط بازی‌هایی که برایشان پیش‌بینی ذخیره شده است</string>
     <string name="refresh_failed_keep_stored">به‌روزرسانی از منبع انجام نشد. همین داده‌هایی که ذخیره شده است در ادامه نمایش داده می‌شود.</string>
     <string name="live_tracking_unsupported_source">این منبع کل برنامهٔ یک روز را منتشر می‌کند، پس یک بازی تنها در حین اجرا قابل به‌روزرسانی نیست. نتیجهٔ اینجا همان چیزی است که آخرین همگام‌سازی دریافت کرده است.</string>
+    <!-- ترتیب مسابقات: کاربر خودش تعیین می‌کند کدام لیگ اول باشد. -->
+    <string name="title_competition_order">ترتیب مسابقات</string>
+    <string name="competition_order_hint_short">انتخاب کنید کدام مسابقه اول فهرست شود.</string>
+    <string name="competition_order_hint">با دکمه‌های بالا و پایین جای هر مسابقه را عوض کنید. این ترتیب روی انتخاب مسابقه و بخش‌های فهرست بازی‌ها اثر می‌گذارد و همان لحظه ذخیره می‌شود.</string>
+    <string name="action_move_up">بالا</string>
+    <string name="action_move_down">پایین</string>
+    <string name="action_reset_order">ترتیب پیش‌فرض</string>
+    <string name="empty_competition_order_title">هنوز مسابقه‌ای ذخیره نشده است</string>
+    <string name="empty_competition_order_message">مسابقات پس از نخستین همگام‌سازی اینجا می‌آیند و بعد می‌توانید ترتیبشان را تغییر دهید.</string>
+    <string name="live_auto_refresh_note">بازی زنده: تا وقتی این صفحه باز است، نتیجه حدوداً هر دقیقه خودش به‌روزرسانی می‌شود.</string>
 </resources>

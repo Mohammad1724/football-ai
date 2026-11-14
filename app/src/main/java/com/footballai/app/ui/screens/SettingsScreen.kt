@@ -56,7 +56,7 @@ import com.footballai.app.ui.viewmodel.SettingsViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(onOpenDataSources: () -> Unit) {
+fun SettingsScreen(onOpenDataSources: () -> Unit, onOpenCompetitionOrder: () -> Unit) {
     val container = LocalAppContainer.current
     val viewModel: SettingsViewModel = viewModel(
         factory = viewModelFactory { initializer { SettingsViewModel(container) } },
@@ -87,6 +87,13 @@ fun SettingsScreen(onOpenDataSources: () -> Unit) {
                     title = stringResource(R.string.title_data_sources),
                     subtitle = stringResource(R.string.data_sources_hint),
                     onClick = onOpenDataSources,
+                )
+            }
+            item {
+                NavigationRow(
+                    title = stringResource(R.string.title_competition_order),
+                    subtitle = stringResource(R.string.competition_order_hint_short),
+                    onClick = onOpenCompetitionOrder,
                 )
             }
 

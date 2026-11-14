@@ -180,15 +180,6 @@ class MatchDetailViewModel(
         }
     }
 
-    fun setLiveTrackingEnabled(enabled: Boolean) {
-        _state.update { it.copy(liveTrackingEnabled = enabled) }
-        if (!enabled) {
-            stopTracking()
-        } else {
-            viewModelScope.launch { maybeStartTracking() }
-        }
-    }
-
     fun onScreenVisible() {
         screenVisible = true
         if (freshnessJob?.isActive != true) freshnessJob = viewModelScope.launch {

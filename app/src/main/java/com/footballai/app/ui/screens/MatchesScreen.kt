@@ -90,6 +90,7 @@ import com.footballai.app.domain.model.MatchSummary
 import com.footballai.app.domain.model.TeamRef
 import com.footballai.app.ui.LocalAppContainer
 import com.footballai.app.ui.LocalLanguageTag
+import com.footballai.app.ui.components.CompetitionNameText
 import com.footballai.app.ui.components.EmptyState
 import com.footballai.app.ui.components.LoadingState
 import com.footballai.app.ui.components.ScrollableRefreshContent
@@ -419,7 +420,11 @@ private fun MatchSearchDialog(
                             items(state.searchResults.competitions.size) { index ->
                                 val competition = state.searchResults.competitions[index]
                                 SearchResultRow(
-                                    title = competition.name,
+                                    title = NameLocalization.competitionNamePair(
+                                        competition.name,
+                                        competition.id,
+                                        languageTag,
+                                    ).first,
                                     subtitle = competition.country ?: stringResource(R.string.search_competitions),
                                     icon = { Icon(Icons.Rounded.Groups, contentDescription = null) },
                                     onClick = { onCompetitionClick(competition.id) },
@@ -728,10 +733,20 @@ private fun GroupedMatchList(
     languageTag: String,
     onMatchClick: (String) -> Unit,
 ) {
+    // Matches already arrive sorted by the user's competition order, and groupBy keeps
+    // the order in which each competition first appears, so the sections follow it too.
+    val competitionRank = state.competitions
+        .mapIndexed { index, competition -> competition.id to index }
+        .toMap()
     val groups = state.matches
         .groupBy { it.competitionId }
         .values
-        .sortedBy { group -> group.minOf { it.kickoffEpochMs } }
+        .sortedWith(
+            compareBy(
+                { group -> competitionRank[group.first().competitionId] ?: Int.MAX_VALUE },
+                { group -> group.minOf { it.kickoffEpochMs } },
+            ),
+        )
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 8.dp, bottom = 24.dp),
@@ -742,6 +757,7 @@ private fun GroupedMatchList(
                 val competition = state.competitions.firstOrNull { it.id == group.first().competitionId }
                 CompetitionCard(
                     competitionName = group.first().competitionName,
+                    competId = group.first().competitionId,
                     country = competition?.country,
                     matches = group,
                     languageTag = languageTag,
@@ -755,6 +771,7 @@ private fun GroupedMatchList(
 @Composable
 private fun CompetitionCard(
     competitionName: String,
+    competId: String?,
     country: String?,
     matches: List<MatchSummary>,
     languageTag: String,
@@ -772,15 +789,23 @@ private fun CompetitionCard(
         ) {
             TeamMonogram(competitionName, size = 30)
             Spacer(Modifier.width(10.dp))
-            Text(
-                text = listOfNotNull(country?.takeIf { it.isNotBlank() }, competitionName.ifBlank { null })
-                    .joinToString(" · ")
-                    .ifBlank { stringResource(R.string.unknown_competition) },
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
+            Column(modifier = Modifier.weight(1f)) {
+                CompetitionNameText(
+                    name = competitionName.ifBlank { stringResource(R.string.unknown_competition) },
+                    competitionId = competId,
+                    languageTag = languageTag,
+                    primaryStyle = MaterialTheme.typography.titleSmall,
+                )
+                country?.takeIf { it.isNotBlank() }?.let { region ->
+                    Text(
+                        text = region,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
         matches.forEachIndexed { index, match ->

@@ -19,7 +19,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -33,7 +32,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
@@ -73,7 +71,7 @@ import com.footballai.app.ui.LocalAppContainer
 import com.footballai.app.ui.LocalLanguageTag
 import com.footballai.app.domain.catalog.NameLocalization
 import com.footballai.app.domain.model.TeamRef
-import com.footballai.app.ui.components.ConfidenceChip
+import com.footballai.app.ui.components.CompetitionNameText
 import com.footballai.app.ui.components.EmptyState
 import com.footballai.app.ui.components.ErrorState
 import com.footballai.app.ui.components.InfoCard
@@ -150,9 +148,14 @@ fun MatchDetailScreen(
                     }
                 },
                 title = {
+                    val summary = detail?.summary
+                    val competitionName = summary?.competitionName?.takeIf { it.isNotBlank() }
                     Text(
-                        text = detail?.summary?.competitionName?.takeIf { it.isNotBlank() }
-                            ?: stringResource(R.string.title_match),
+                        // The Persian name is what the bar shows; the published name is in
+                        // the header card below, where there is room for both.
+                        text = competitionName?.let {
+                            NameLocalization.competitionNamePair(it, summary?.competitionId, languageTag).first
+                        } ?: stringResource(R.string.title_match),
                         style = MaterialTheme.typography.titleMedium,
                         maxLines = 1,
                     )
@@ -226,9 +229,6 @@ fun MatchDetailScreen(
                         needsNationalHistory = missingArchive,
                         isImportingHistory = state.isImportingHistory,
                         onImportNationalHistory = viewModel::importNationalHistory,
-                        liveTrackingEnabled = state.liveTrackingEnabled,
-                        isLiveTracking = state.isLiveTracking,
-                        onToggleTracking = viewModel::setLiveTrackingEnabled,
                         liveTrackingSupported = state.liveTrackingSupported,
                         refreshWarning = state.refreshWarning?.let { errorLabel(it) },
                         onRetryRefresh = viewModel::refresh,
@@ -273,11 +273,14 @@ private fun MatchHeader(detail: MatchDetail, languageTag: String, onTeamClick: (
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
-                    text = summary.competitionName.ifBlank { stringResource(R.string.unknown_competition) },
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                CompetitionNameText(
+                    name = summary.competitionName.ifBlank { stringResource(R.string.unknown_competition) },
+                    competitionId = summary.competitionId,
+                    languageTag = languageTag,
+                    modifier = Modifier.weight(1f),
+                    primaryStyle = MaterialTheme.typography.labelMedium,
                 )
+                Spacer(Modifier.width(8.dp))
                 StatusChip(
                     text = if (summary.status.isLive && summary.minute != null) {
                         "${matchStatusLabel(summary.status)} ${Formatters.elapsedLabel(summary.minute, languageTag)}"
@@ -389,9 +392,6 @@ private fun AnalysisTab(
     needsNationalHistory: Boolean,
     isImportingHistory: Boolean,
     onImportNationalHistory: () -> Unit,
-    liveTrackingEnabled: Boolean,
-    isLiveTracking: Boolean,
-    onToggleTracking: (Boolean) -> Unit,
     liveTrackingSupported: Boolean,
     refreshWarning: String?,
     onRetryRefresh: () -> Unit,
@@ -420,42 +420,20 @@ private fun AnalysisTab(
                 }
             }
         }
-        if (isLiveMatch && !liveTrackingSupported) {
+        if (isLiveMatch) {
+            // The switch that used to sit here said "live tracking is off" and did not say
+            // what it tracked. The app now does the useful thing by itself and says so;
+            // a control that has to be explained twice is not a control.
             item {
                 Text(
-                    text = stringResource(R.string.live_tracking_unsupported_source),
+                    text = stringResource(
+                        if (liveTrackingSupported) R.string.live_auto_refresh_note
+                        else R.string.live_tracking_unsupported_source,
+                    ),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
                 )
-            }
-        }
-        if (isLiveMatch && liveTrackingSupported) {
-            item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.Bolt,
-                            contentDescription = null,
-                            tint = FootballAiThemeExtra.colors.live,
-                            modifier = Modifier.size(16.dp),
-                        )
-                        Spacer(Modifier.width(6.dp))
-                        Text(
-                            text = stringResource(
-                                if (isLiveTracking) R.string.live_tracking_active else R.string.live_tracking_idle,
-                            ),
-                            style = MaterialTheme.typography.labelMedium,
-                        )
-                    }
-                    Switch(checked = liveTrackingEnabled, onCheckedChange = onToggleTracking)
-                }
             }
         }
 

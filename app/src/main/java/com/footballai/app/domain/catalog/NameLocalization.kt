@@ -111,7 +111,7 @@ object NameLocalization {
                 return Entry(it.persian, it.iso2.ifBlank { null }, true)
             }
             for (variant in variants(candidate)) {
-                clubByKey[variant]?.let { return Entry(it.persian, null, false) }
+                clubByKey[variant]?.let { return Entry(it.persian, it.countryIso2, false) }
             }
         }
         // "Spain Women", "Japan U21": the same nation, written with a suffix.
@@ -162,9 +162,47 @@ object NameLocalization {
     fun persianCompetitionName(providerId: String, providerKey: String, name: String): String? =
         CompetitionCatalog.classify(providerId, providerKey, name).persianName
 
+    /**
+     * Persian name of a competition from the id the app stores for it.
+     *
+     * A competition id is "providerId:league:providerKey", so the key survives even when
+     * the published name changes between seasons — which is what the catalogue keys on.
+     * An unknown competition returns null and the caller shows its published name.
+     */
+    fun persianCompetitionName(competitionId: String?, name: String): String? {
+        if (competitionId.isNullOrBlank()) return CompetitionCatalog.classify("", "", name).persianName
+        val providerId = competitionId.substringBefore(':')
+        val providerKey = competitionId.substringAfterLast(':')
+        return CompetitionCatalog.classify(providerId, providerKey, name).persianName
+    }
+
+    /**
+     * The two names a competition is shown with: Persian when the catalogue knows it,
+     * plus the published Latin name. Nothing is invented for an unknown competition.
+     */
+    fun competitionNamePair(name: String, competitionId: String?, languageTag: String): Pair<String, String?> {
+        val persian = persianCompetitionName(competitionId, name)
+        val persianScreen = languageTag.lowercase(Locale.ROOT).startsWith("fa")
+        return when {
+            persian == null -> name to null
+            persianScreen -> persian to name.takeIf { it != persian }
+            else -> name to persian
+        }
+    }
+
     /** Flag emoji for a national team, or null when the team has no flag. */
     fun flagEmoji(name: String, shortName: String? = null): String? =
         resolve(name, shortName)?.iso2?.let { emojiFor(it) }
+
+    /**
+     * The flag of the country a club plays in, used only when its crest is unavailable.
+     * Null when the club is unknown or its country is not recorded — never guessed.
+     */
+    fun clubCountryFlag(name: String, shortName: String? = null): String? {
+        val entry = resolve(name, shortName) ?: return null
+        if (entry.national) return null
+        return entry.iso2?.let { emojiFor(it) }
+    }
 
     fun isNationalTeamName(name: String, shortName: String? = null): Boolean =
         resolve(name, shortName)?.national == true
