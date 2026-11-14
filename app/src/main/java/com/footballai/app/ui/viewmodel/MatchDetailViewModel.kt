@@ -31,6 +31,8 @@ data class MatchDetailUiState(
     val liveTrackingEnabled: Boolean = true,
     val headToHead: List<MatchSummary> = emptyList(),
     val lastError: AppError? = null,
+    /** True while the international archive is being downloaded and stored. */
+    val isImportingHistory: Boolean = false,
 )
 
 class MatchDetailViewModel(
@@ -146,6 +148,31 @@ class MatchDetailViewModel(
                         cause = error,
                     ),
                 )
+            }
+        }
+    }
+
+    /**
+     * Downloads the international results archive, then retries the prediction.
+     *
+     * This is the one action that can turn "not enough history" into a real forecast for
+     * a national-team fixture, so it lives next to the error it fixes rather than in a
+     * settings screen the user has no reason to visit.
+     */
+    fun importNationalHistory() {
+        if (_state.value.isImportingHistory) return
+        _state.update { it.copy(isImportingHistory = true, lastError = null) }
+        viewModelScope.launch {
+            guarded {
+                when (val result = container.nationalHistoryRepository.importArchive()) {
+                    is Outcome.Failure -> _state.update {
+                        it.copy(isImportingHistory = false, lastError = result.error)
+                    }
+                    is Outcome.Success -> {
+                        _state.update { it.copy(isImportingHistory = false) }
+                        predict()
+                    }
+                }
             }
         }
     }

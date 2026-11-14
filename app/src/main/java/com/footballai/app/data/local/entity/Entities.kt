@@ -226,6 +226,13 @@ data class HistoricalMatchEntity(
     val drawOdds: Double?,
     val awayOdds: Double?,
     val importedAt: Long,
+    /**
+     * True when the archive states the match was played on neutral ground.
+     *
+     * National-team results are full of neutral venues (tournaments, play-offs) and the
+     * Elo replay would award a home advantage that did not exist without this flag.
+     */
+    val neutralVenue: Boolean = false,
 )
 
 @Entity(tableName = "standings", primaryKeys = ["competitionId", "season", "teamId"])

@@ -401,6 +401,22 @@ interface HistoricalDao {
 
     @Query("DELETE FROM historical_matches WHERE source = :source")
     suspend fun deleteForSource(source: String): Int
+
+    @Query("SELECT COUNT(*) FROM historical_matches WHERE source = :source")
+    suspend fun countForSource(source: String): Int
+
+    @Query("SELECT MIN(kickoffEpochMs) FROM historical_matches WHERE source = :source")
+    suspend fun earliestForSource(source: String): Long?
+
+    @Query("SELECT MAX(kickoffEpochMs) FROM historical_matches WHERE source = :source")
+    suspend fun latestForSource(source: String): Long?
+
+    @Query(
+        "SELECT COUNT(*) FROM (" +
+            "SELECT homeTeamId AS teamId FROM historical_matches WHERE source = :source " +
+            "UNION SELECT awayTeamId FROM historical_matches WHERE source = :source)",
+    )
+    suspend fun teamCountForSource(source: String): Int
 }
 
 data class HistoricalSummaryRow(

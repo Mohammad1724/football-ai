@@ -3,6 +3,7 @@ package com.footballai.app.data.repository
 import com.footballai.app.core.TimeProvider
 import com.footballai.app.data.local.FootballDatabase
 import com.footballai.app.data.local.entity.HistoricalMatchEntity
+import com.footballai.app.domain.catalog.NationalTeamKeys
 import com.footballai.engine.model.LambdaAdjustment
 import com.footballai.engine.model.LeagueBaseline
 import com.footballai.engine.model.TeamStrength
@@ -35,7 +36,18 @@ class RatingsRepository(
 
     private class Entry(val historyCount: Int, val latestKickoff: Long, val book: RatingBook)
 
+    /** Same idea as [Entry], but a national book is a different type, never mixed with it. */
+    private class NationalEntry(
+        val historyCount: Int,
+        val latestKickoff: Long,
+        val book: NationalTeamRatingBook,
+    )
+
     private val cache = HashMap<Key, Entry>()
+
+    /** The national archive is a single book, so it needs a single cache slot. */
+    private var nationalCache: NationalEntry? = null
+
     private val mutex = Mutex()
 
     private suspend fun history(source: String, competitionId: String, asOf: Long): List<HistoricalMatchEntity> {
@@ -79,23 +91,44 @@ class RatingsRepository(
     /**
      * National-team strengths for an international fixture.
      *
-     * A separate [NationalTeamRatingBook] is built from the same stored history, so the
-     * national Elo replay, the international goal baseline and the national shrinkage
-     * can never be confused with the club model. Historical fixtures are treated as
-     * "home/away as designated" because the feeds do not record whether a past match
-     * was played on neutral ground; only the fixture being predicted carries an
-     * explicit neutral flag.
+     * The ratings come from the imported international archive, not from the fixture
+     * provider: no feed in this app publishes past national results, and a national
+     * team's strength is built from every match it played, not from one competition.
+     * Team identifiers are the canonical keys from [NationalTeamKeys], which the caller
+     * derives from the published team names.
+     *
+     * The book is cached by (history size, latest kickoff) so repeated screen visits do
+     * not replay thousands of matches.
      */
     suspend fun nationalPrepared(
-        source: String,
-        competitionId: String,
         homeTeamId: String,
         awayTeamId: String,
         asOfEpochMs: Long,
-        importance: Double,
+        neutralVenue: Boolean,
     ): NationalPrepared? = withContext(Dispatchers.Default) {
-        val rows = history(source, competitionId, asOfEpochMs)
-        if (rows.isEmpty()) return@withContext null
+        val book = nationalBook(asOfEpochMs) ?: return@withContext null
+        // Each past result carries the weight it deserves, assigned when the archive was
+        // imported; the fixture's own importance only matters for future results.
+        book.prepare(
+            homeTeamId = homeTeamId,
+            awayTeamId = awayTeamId,
+            asOfEpochMs = asOfEpochMs,
+            neutralVenue = neutralVenue,
+        )
+    }
+
+    /** How many international results are available at all (0 = archive not imported). */
+    suspend fun nationalHistoryCount(): Int =
+        withContext(Dispatchers.Default) { db.historicalDao().countForSource(NationalTeamKeys.SOURCE) }
+
+    private suspend fun nationalBook(asOfEpochMs: Long): NationalTeamRatingBook? = mutex.withLock {
+        val rows = db.historicalDao().forSource(NationalTeamKeys.SOURCE, asOfEpochMs)
+        if (rows.isEmpty()) return null
+        val latest = rows.last().kickoffEpochMs
+        val cached = nationalCache
+        if (cached != null && cached.historyCount == rows.size && cached.latestKickoff == latest) {
+            return cached.book
+        }
         val book = NationalTeamRatingBook()
         book.addAll(
             rows.map { row ->
@@ -105,12 +138,30 @@ class RatingsRepository(
                     homeGoals = row.homeGoals,
                     awayGoals = row.awayGoals,
                     kickoffEpochMs = row.kickoffEpochMs,
-                    importance = importance,
-                    neutralVenue = false,
+                    importance = nationalImportance(row.competitionName),
+                    neutralVenue = row.neutralVenue,
                 )
             },
         )
-        book.prepare(homeTeamId, awayTeamId, asOfEpochMs, neutralVenue = false)
+        nationalCache = NationalEntry(rows.size, latest, book)
+        return book
+    }
+
+    /**
+     * Weight of a past international, taken from the tournament name the archive prints.
+     * The scale matches the one used for fixtures: a friendly counts least, a qualifier
+     * normally, a finals tournament a little more.
+     */
+    private fun nationalImportance(tournament: String): Double {
+        val name = tournament.lowercase()
+        return when {
+            name.contains("friendly") -> 0.5
+            name.contains("qualification") || name.contains("qualifier") -> 1.0
+            name.contains("world cup") || name.contains("euro") || name.contains("copa") ||
+                name.contains("cup of nations") || name.contains("gold cup") ||
+                name.contains("nations league") || name.contains("confederations") -> 1.25
+            else -> 1.0
+        }
     }
 
     suspend fun adjustments(
@@ -140,7 +191,10 @@ class RatingsRepository(
         history(source, competitionId, clock.nowEpochMs()).size
 
     /** Invalidates the cache, e.g. after a historical import or a fixture sync. */
-    suspend fun invalidate() = mutex.withLock { cache.clear() }
+    suspend fun invalidate() = mutex.withLock {
+        cache.clear()
+        nationalCache = null
+    }
 }
 
 fun HistoricalMatchEntity.toRatingMatch(): RatingMatch = RatingMatch(

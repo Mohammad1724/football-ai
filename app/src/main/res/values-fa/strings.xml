@@ -497,4 +497,9 @@
     <string name="crash_report_body">این گزارش فنی را برنامه روی گوشی ذخیره کرده است. فقط محل کد در آن هست؛ هیچ داده شخصی، کلید یا سابقه‌ای در آن نیست. اگر صفحه‌ای مدام خطا می‌دهد، همین متن را بفرستید.</string>
     <string name="crash_report_none">هیچ بسته‌شدن غیرمنتظره‌ای ثبت نشده است.</string>
     <string name="action_clear_crash_report">حذف این گزارش</string>
+    <string name="error_no_national_history">برای این تیم ملی هنوز سابقه‌ای نداریم. هیچ‌کدام از منابع بازی در این برنامه نتایج گذشتهٔ مسابقات ملی را منتشر نمی‌کند، پس تا زمانی که تاریخچهٔ مسابقات ملی دریافت نشود، تحلیل قابل محاسبه نیست. دکمهٔ زیر آن را یک‌بار می‌گیرد.</string>
+    <string name="national_history_title">آرشیو نتایج مسابقات ملی</string>
+    <string name="national_history_body">حدود ۲۵ هزار بازی ملی تمام‌شده از سال ۲۰۰۰، از آرشیو عمومی CC0 با نام martj42/international_results (حدود ۴ مگابایت، یک‌بار دریافت). فقط نتیجه، تاریخ و این‌که زمین بی‌طرف بوده یا نه استفاده می‌شود و هیچ چیزی جایی فرستاده نمی‌شود.</string>
+    <string name="national_history_running">در حال دریافت و ذخیرهٔ آرشیو…</string>
+    <string name="national_history_action">دریافت تاریخچهٔ بازی‌های ملی</string>
 </resources>

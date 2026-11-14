@@ -111,15 +111,27 @@ class PredictionRepository(
         val profile = classification.profile(neutralVenue = match.isNeutralVenue)
         val calibration = calibrationRepository.modelFor(classification.label(), MODEL_VERSION)
 
+        // An international fixture is rated from the imported international archive,
+        // keyed by the teams' canonical names. The fixture provider has no history of its
+        // own, and a national team's strength comes from all of its matches, not from one
+        // competition.
         val national = if (profile.isInternational) {
+            if (classification.gender == Gender.WOMEN) {
+                // The archive is men's international football. Using it for a women's
+                // fixture would be a silent, wrong answer; refusing is the honest one.
+                return Outcome.Failure(
+                    AppError(ErrorCode.NO_NATIONAL_HISTORY, detail = "women's international history is unavailable"),
+                )
+            }
+            if (ratingsRepository.nationalHistoryCount() == 0) {
+                return Outcome.Failure(AppError(ErrorCode.NO_NATIONAL_HISTORY))
+            }
             ratingsRepository.nationalPrepared(
-                source = source,
-                competitionId = match.competitionId,
-                homeTeamId = match.homeTeamId,
-                awayTeamId = match.awayTeamId,
+                homeTeamId = NationalTeamKeys.teamId(homeTeam.name),
+                awayTeamId = NationalTeamKeys.teamId(awayTeam.name),
                 asOfEpochMs = now,
-                importance = importanceOf(classification.type),
-            )
+                neutralVenue = match.isNeutralVenue,
+            ) ?: return Outcome.Failure(AppError(ErrorCode.NO_NATIONAL_HISTORY))
         } else {
             null
         }
@@ -139,11 +151,30 @@ class PredictionRepository(
         val adjustments = ratingsRepository.adjustments(
             source, match.competitionId, match.homeTeamId, match.awayTeamId, now,
         )
-        val historyCount = ratingsRepository.matchCount(source, match.competitionId)
-        if (!DailyAnalysisPolicy.hasEnoughHistory(historyCount, strengths.first.matchesUsed, strengths.second.matchesUsed)) {
+        // The league threshold is a club-league rule: it asks for 40 results in the
+        // competition. A national fixture has no league, and is judged by the national
+        // model's own evidence rule instead.
+        val historyCount = if (national != null) {
+            national.sampleSize
+        } else {
+            ratingsRepository.matchCount(source, match.competitionId)
+        }
+        if (national == null &&
+            !DailyAnalysisPolicy.hasEnoughHistory(historyCount, strengths.first.matchesUsed, strengths.second.matchesUsed)
+        ) {
             return Outcome.Failure(AppError(ErrorCode.INSUFFICIENT_HISTORY))
         }
         if (national != null && !national.enoughEvidence) {
+            // A team the archive has never seen is a data problem, not a thin sample: say
+            // so, because the remedy (a name that does not match) is different.
+            if (strengths.first.matchesUsed == 0 || strengths.second.matchesUsed == 0) {
+                return Outcome.Failure(
+                    AppError(
+                        code = ErrorCode.NO_NATIONAL_HISTORY,
+                        detail = "team not in the international archive: ${homeTeam.name} / ${awayTeam.name}",
+                    ),
+                )
+            }
             // The national model refuses to claim strength from one or two matches.
             return Outcome.Failure(AppError(ErrorCode.INSUFFICIENT_HISTORY))
         }
@@ -604,14 +635,6 @@ class PredictionRepository(
     }
 
     /** Elo importance of an international match, used only by the national model. */
-    private fun importanceOf(type: CompetitionType): Double = when (type) {
-        CompetitionType.INTERNATIONAL_FRIENDLY -> 0.5
-        CompetitionType.INTERNATIONAL_QUALIFIER -> 1.0
-        CompetitionType.INTERNATIONAL_TOURNAMENT -> 1.25
-        CompetitionType.WOMEN_INTERNATIONAL -> 1.0
-        else -> 1.0
-    }
-
     private fun DataQualityLevel.toDomain(): QualityLevel = when (this) {
         DataQualityLevel.HIGH -> QualityLevel.HIGH
         DataQualityLevel.MEDIUM -> QualityLevel.MEDIUM

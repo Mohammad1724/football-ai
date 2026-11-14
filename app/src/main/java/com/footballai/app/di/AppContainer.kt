@@ -92,6 +92,18 @@ class AppContainer(context: Context) {
 
     val matchRepository: MatchRepository = MatchRepository(database, clock, ratingsRepository)
 
+    /**
+     * The only history this app owns for national teams. No fixture provider publishes
+     * past international results, so it is imported once from a CC0 archive.
+     */
+    val nationalHistoryRepository: com.footballai.app.data.repository.NationalHistoryRepository =
+        com.footballai.app.data.repository.NationalHistoryRepository(
+            db = database,
+            client = apiClient,
+            clock = clock,
+            ratingsRepository = ratingsRepository,
+        )
+
     val calibrationRepository: CalibrationRepository = CalibrationRepository(database, clock)
 
     val predictionRepository: PredictionRepository = PredictionRepository(

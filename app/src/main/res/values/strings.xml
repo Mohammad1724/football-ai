@@ -497,4 +497,9 @@
     <string name="crash_report_body">This is the technical report the app saved on the phone. It contains code locations only: no personal data, no tokens, no history. Send it if a screen keeps failing.</string>
     <string name="crash_report_none">No unexpected shutdown was recorded.</string>
     <string name="action_clear_crash_report">Delete this report</string>
+    <string name="error_no_national_history">There is no history for this national team yet. No fixture source in this app publishes past international results, so the analysis cannot be computed until the international archive is downloaded. The button below fetches it once.</string>
+    <string name="national_history_title">International results archive</string>
+    <string name="national_history_body">About 25 000 finished international matches since 2000, from the public CC0 archive martj42/international_results (roughly 4 MB, one download). Only the score, the date and whether the venue was neutral are used; nothing is sent anywhere.</string>
+    <string name="national_history_running">Downloading and storing the archive…</string>
+    <string name="national_history_action">Download international history</string>
 </resources>

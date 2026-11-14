@@ -43,6 +43,18 @@ object HistoryMigration {
     }
 
     /**
+     * 3 -> 4: remember whether a historical result was played on neutral ground.
+     *
+     * Additive only. Existing rows keep their data and are treated as normal home/away
+     * matches, which is what the app assumed before this column existed.
+     */
+    val MIGRATION_3_4 = object : Migration(3, 4) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE historical_matches ADD COLUMN neutralVenue INTEGER NOT NULL DEFAULT 0")
+        }
+    }
+
+    /**
      * 2 -> 3: entity classification (club vs national team, competition type, gender,
      * neutral venue).
      *

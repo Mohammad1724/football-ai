@@ -22,6 +22,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -198,6 +200,9 @@ fun MatchDetailScreen(
                         !detail.summary.status.isFinished &&
                         (detail.summary.status.isLive || detail.summary.status == com.footballai.app.domain.model.MatchStatus.SCHEDULED),
                     onPredict = { viewModel.predict(forcePersist = true) },
+                    needsNationalHistory = state.lastError?.code == com.footballai.app.core.ErrorCode.NO_NATIONAL_HISTORY,
+                    isImportingHistory = state.isImportingHistory,
+                    onImportNationalHistory = viewModel::importNationalHistory,
                     liveTrackingEnabled = state.liveTrackingEnabled,
                     isLiveTracking = state.isLiveTracking,
                     onToggleTracking = viewModel::setLiveTrackingEnabled,
@@ -359,6 +364,9 @@ private fun AnalysisTab(
     awayName: String,
     canPredict: Boolean,
     onPredict: () -> Unit,
+    needsNationalHistory: Boolean,
+    isImportingHistory: Boolean,
+    onImportNationalHistory: () -> Unit,
     liveTrackingEnabled: Boolean,
     isLiveTracking: Boolean,
     onToggleTracking: (Boolean) -> Unit,
@@ -409,6 +417,14 @@ private fun AnalysisTab(
             item {
                 if (canPredict) ErrorState(message = error, onRetry = onPredict)
                 else EmptyState(title = stringResource(R.string.analysis_unavailable), message = error)
+            }
+            if (needsNationalHistory) {
+                item {
+                    NationalHistoryCard(
+                        isImporting = isImportingHistory,
+                        onImport = onImportNationalHistory,
+                    )
+                }
             }
             if (prediction == null) return@LazyColumn
         }
@@ -1058,5 +1074,53 @@ private fun HeadToHeadTab(
             }
         }
         item { Spacer(Modifier.height(24.dp)) }
+    }
+}
+
+/**
+ * The one action that can make a national-team forecast possible.
+ *
+ * A club league has its results in the CSV archive; national teams do not, and no feed
+ * in this app publishes them. The archive used here is CC0, updated continuously and
+ * about the size of a photo, so downloading it is a reasonable one-tap request — and the
+ * card says what it is instead of pretending the button does something vague.
+ */
+@Composable
+private fun NationalHistoryCard(
+    isImporting: Boolean,
+    onImport: () -> Unit,
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = stringResource(R.string.national_history_title),
+                style = MaterialTheme.typography.titleSmall,
+            )
+            Spacer(Modifier.height(6.dp))
+            Text(
+                text = stringResource(R.string.national_history_body),
+                style = MaterialTheme.typography.bodySmall,
+            )
+            Spacer(Modifier.height(10.dp))
+            if (isImporting) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                    Spacer(Modifier.width(10.dp))
+                    Text(
+                        text = stringResource(R.string.national_history_running),
+                        style = MaterialTheme.typography.labelMedium,
+                    )
+                }
+            } else {
+                Button(onClick = onImport) {
+                    Text(stringResource(R.string.national_history_action))
+                }
+            }
+        }
     }
 }

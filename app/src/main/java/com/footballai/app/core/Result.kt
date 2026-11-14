@@ -3,6 +3,8 @@ package com.footballai.app.core
 /** Error taxonomy shown to the user; every branch has a localised message. */
 enum class ErrorCode {
     INSUFFICIENT_HISTORY,
+    /** National-team history is missing (not imported) or this team is not in it. */
+    NO_NATIONAL_HISTORY,
     STALE_DATA,
     INVALID_MATCH_STATE,
     UNKNOWN_MATCH_TIME,

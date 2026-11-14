@@ -176,6 +176,7 @@ fun errorLabel(error: AppError): String {
     val label = text(
         when (error.code) {
             ErrorCode.INSUFFICIENT_HISTORY -> R.string.error_insufficient_history
+            ErrorCode.NO_NATIONAL_HISTORY -> R.string.error_no_national_history
             ErrorCode.STALE_DATA -> R.string.error_stale_data
             ErrorCode.INVALID_MATCH_STATE -> R.string.error_match_state
             ErrorCode.UNKNOWN_MATCH_TIME -> R.string.error_match_time

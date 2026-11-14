@@ -543,6 +543,9 @@ class SyncRepository(
                 drawOdds = match.oddsDraw,
                 awayOdds = match.oddsAway,
                 importedAt = now,
+                // Keep the venue fact: a national-team result on neutral ground must not
+                // be replayed as if the home side had its own crowd.
+                neutralVenue = match.isNeutralVenue,
             )
         }
         if (rows.isEmpty()) return 0
