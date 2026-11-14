@@ -1,6 +1,6 @@
 package com.footballai.app.ui.components
 
-import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animate
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -28,6 +28,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
@@ -77,7 +78,10 @@ fun SwipeRefresh(
     val maxPullPx = with(density) { 140.dp.toPx() }
     val indicatorSizePx = with(density) { 40.dp.toPx() }
 
-    val pull = remember { Animatable(0f) }
+    // A plain state, not Animatable: in this Compose version the nested-scroll drag
+    // callbacks are not suspend, so the offset has to be writable synchronously to stay
+    // glued to the finger. Settling is animated explicitly.
+    var pull by remember { mutableStateOf(0f) }
     val scope = rememberCoroutineScope()
     val enabledState = rememberUpdatedState(enabled)
     val refreshingState = rememberUpdatedState(isRefreshing)
@@ -85,44 +89,50 @@ fun SwipeRefresh(
     // the indicator.
     var pullTriggered by remember { mutableStateOf(false) }
 
+    fun settle(target: Float) {
+        scope.launch {
+            animate(initialValue = pull, targetValue = target) { value, _ -> pull = value }
+        }
+    }
+
     LaunchedEffect(isRefreshing) {
         if (isRefreshing && pullTriggered) {
-            pull.animateTo(thresholdPx)
+            pull = thresholdPx
         } else if (!isRefreshing) {
             pullTriggered = false
-            pull.animateTo(0f)
+            if (pull > 0f) settle(0f)
         }
     }
 
     val connection = remember(thresholdPx, maxPullPx) {
         object : NestedScrollConnection {
-            override suspend fun onPostScroll(
+            override fun onPostScroll(
                 consumed: Offset,
                 available: Offset,
                 source: NestedScrollSource,
             ): Offset {
                 if (source != NestedScrollSource.Drag) return Offset.Zero
                 // Only leftover movement reaches here: the content is already at its top,
-                // so this pull cannot be confused with a normal scroll.
-                if (available.y < 0f && pull.value > 0f) {
+                // so this pull can never be confused with a normal scroll.
+                if (available.y < 0f && pull > 0f) {
                     // Dragging back up collapses the indicator first.
-                    pull.snapTo((pull.value + available.y).coerceAtLeast(0f))
+                    pull = (pull + available.y).coerceAtLeast(0f)
                     return Offset(0f, available.y)
                 }
                 if (available.y <= 0f) return Offset.Zero
                 if (!enabledState.value || refreshingState.value) return Offset.Zero
-                pull.snapTo((pull.value + available.y * 0.5f).coerceIn(0f, maxPullPx))
+                pull = (pull + available.y * 0.5f).coerceIn(0f, maxPullPx)
                 return Offset(0f, available.y)
             }
 
             override suspend fun onPreFling(available: Velocity): Velocity {
-                if (pull.value <= 0f) return Velocity.Zero
-                val shouldRefresh = pull.value >= thresholdPx &&
+                if (pull <= 0f) return Velocity.Zero
+                val shouldRefresh = pull >= thresholdPx &&
                     enabledState.value &&
                     !refreshingState.value
                 if (shouldRefresh) {
                     pullTriggered = true
-                    pull.animateTo(thresholdPx)
+                    pull = thresholdPx
                     onRefresh()
                     // If nothing actually started (the screen refused, or the sync ended
                     // before it began), the indicator must not stay pinned forever.
@@ -130,32 +140,35 @@ fun SwipeRefresh(
                         delay(2_000L)
                         if (!refreshingState.value) {
                             pullTriggered = false
-                            pull.animateTo(0f)
+                            settle(0f)
                         }
                     }
                 } else {
-                    pull.animateTo(0f)
+                    animate(initialValue = pull, targetValue = 0f) { value, _ -> pull = value }
                 }
                 return Velocity(0f, available.y)
             }
         }
     }
 
+    val indicatorVisible by remember { derivedStateOf { pull > 0f } }
+
     Box(modifier = modifier.nestedScroll(connection)) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .graphicsLayer { translationY = pull.value },
+                .graphicsLayer { translationY = pull },
             content = content,
         )
-        if (pull.value > 0f) {
-            val progress = (pull.value / thresholdPx).coerceIn(0f, 1f)
+        if (indicatorVisible) {
+            val indicatorColor = MaterialTheme.colorScheme.surfaceVariant
+            val iconColor = MaterialTheme.colorScheme.onSurfaceVariant
             Box(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
-                    .graphicsLayer { translationY = pull.value - indicatorSizePx - 8f }
+                    .graphicsLayer { translationY = pull - indicatorSizePx - 8f }
                     .size(40.dp)
-                    .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape),
+                    .background(indicatorColor, CircleShape),
                 contentAlignment = Alignment.Center,
             ) {
                 if (isRefreshing) {
@@ -166,8 +179,8 @@ fun SwipeRefresh(
                         contentDescription = null,
                         modifier = Modifier
                             .size(20.dp)
-                            .graphicsLayer { rotationZ = progress * 240f },
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            .graphicsLayer { rotationZ = (pull / thresholdPx).coerceIn(0f, 1f) * 240f },
+                        tint = iconColor,
                     )
                 }
             }

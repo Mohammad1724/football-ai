@@ -58,6 +58,7 @@ import com.footballai.app.data.repository.SyncSummary
 import com.footballai.app.ui.LocalAppContainer
 import com.footballai.app.ui.LocalLanguageTag
 import com.footballai.app.ui.components.SectionHeader
+import com.footballai.app.ui.components.SwipeRefresh
 import com.footballai.app.ui.components.StatusChip
 import com.footballai.app.ui.errorLabel
 import com.footballai.app.ui.viewmodel.DataSourcesViewModel
