@@ -470,8 +470,8 @@
     <string name="class_international_tournament">National tournament</string>
     <string name="class_international_qualifier">National qualifier</string>
     <string name="class_international_friendly">National friendly</string>
-    <string name="class_women_club_league">Women's club league</string>
-    <string name="class_women_international">Women's international</string>
+    <string name="class_women_club_league">Women\'s club league</string>
+    <string name="class_women_international">Women\'s international</string>
     <string name="filter_all">All</string>
     <string name="filter_clubs">Clubs</string>
     <string name="filter_national">National</string>
