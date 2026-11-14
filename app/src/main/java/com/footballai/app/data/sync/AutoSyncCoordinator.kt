@@ -143,6 +143,23 @@ class AutoSyncCoordinator(
             )
         }
         try {
+            val previous = _state.value
+            val justFinished = previous.lastSuccessEpochMs
+            if (trigger == SyncTrigger.MANUAL && justFinished != null &&
+                now - justFinished < DUPLICATE_WINDOW_MS
+            ) {
+                // A sync finished a moment ago; repeating it would download the same
+                // answer again and make the button feel slow for no gain.
+                return Outcome.Success(
+                    SyncRun(
+                        added = previous.lastAdded,
+                        warnings = previous.lastWarnings,
+                        fallbackProviderId = previous.lastFallbackProviderId,
+                        dailyReport = null,
+                        providerName = null,
+                    ),
+                )
+            }
             if (!networkMonitor.isOnlineNow()) {
                 return fail(AppError(ErrorCode.NETWORK_UNAVAILABLE), now)
             }
@@ -255,6 +272,9 @@ class AutoSyncCoordinator(
 
         /** Two automatic attempts closer than this would only duplicate work. */
         private const val MIN_RETRY_GAP_MS: Long = 60_000L
+
+        /** A second manual press inside this window reuses the sync that just finished. */
+        private const val DUPLICATE_WINDOW_MS: Long = 5_000L
 
         /** The match list reaches ten days ahead; two days back keeps yesterday correct. */
         const val DAYS_BACK = 2

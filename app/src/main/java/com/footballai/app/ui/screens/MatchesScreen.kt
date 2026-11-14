@@ -130,8 +130,11 @@ fun MatchesScreen(onMatchClick: (String) -> Unit) {
                     IconButton(onClick = { calendarOpen = true }) {
                         Icon(Icons.Default.CalendarMonth, contentDescription = stringResource(R.string.open_calendar))
                     }
-                    IconButton(onClick = { viewModel.refresh() }, enabled = !state.isSyncing) {
-                        if (state.isSyncing) {
+                    IconButton(
+                        onClick = { viewModel.refresh() },
+                        enabled = !state.isSyncing && !state.autoSyncing,
+                    ) {
+                        if (state.isSyncing || state.autoSyncing) {
                             CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
                         } else {
                             Icon(
@@ -163,7 +166,7 @@ fun MatchesScreen(onMatchClick: (String) -> Unit) {
             }
 
             SyncStatusStrip(
-                isSyncing = state.isSyncing,
+                isSyncing = state.isSyncing || state.autoSyncing,
                 isAuto = state.autoSyncing,
                 progressDone = 0,
                 progressTotal = 0,
@@ -210,12 +213,12 @@ fun MatchesScreen(onMatchClick: (String) -> Unit) {
                                     else -> stringResource(R.string.empty_upcoming_message)
                                 },
                                 actionLabel = when {
-                                    state.isSyncing || state.switchingSource -> null
+                                    state.isSyncing || state.autoSyncing || state.switchingSource -> null
                                     state.dailyAnalysisMode -> stringResource(R.string.action_enable_global_coverage)
                                     else -> stringResource(R.string.action_sync)
                                 },
                                 onAction = when {
-                                    state.isSyncing || state.switchingSource -> null
+                                    state.isSyncing || state.autoSyncing || state.switchingSource -> null
                                     state.dailyAnalysisMode -> ({ viewModel.enableGlobalCoverage() })
                                     else -> ({ viewModel.refresh() })
                                 },

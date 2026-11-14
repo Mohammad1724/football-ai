@@ -114,8 +114,8 @@ fun DashboardScreen(
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
             SyncStatusStrip(
-                isSyncing = state.isSyncing,
-                isAuto = false,
+                isSyncing = state.isSyncing || state.autoSyncing,
+                isAuto = state.autoSyncing,
                 progressDone = state.syncDone,
                 progressTotal = state.syncTotal,
                 lastSyncEpochMs = state.sync.lastSuccessfulSyncEpochMs,

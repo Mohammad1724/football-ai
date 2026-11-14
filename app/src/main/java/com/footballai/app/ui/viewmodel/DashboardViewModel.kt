@@ -57,6 +57,8 @@ data class DashboardUiState(
     val justSynced: Int = 0,
     /** False when the phone has no connection; the screen says so instead of spinning. */
     val isOnline: Boolean = true,
+    /** True while the app refreshes itself, so the screen can say so without a spinner. */
+    val autoSyncing: Boolean = false,
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -78,6 +80,11 @@ class DashboardViewModel(private val container: AppContainer) : ViewModel() {
     init {
         viewModelScope.launch {
             container.dailyAnalysisRepository.reports.collect { report -> _state.update { it.copy(dailyReport = report) } }
+        }
+        viewModelScope.launch {
+            container.autoSyncCoordinator.state.collect { sync ->
+                _state.update { it.copy(autoSyncing = sync.isSyncing && !it.isSyncing) }
+            }
         }
         viewModelScope.launch {
             container.networkMonitor.isOnline.collect { online ->
