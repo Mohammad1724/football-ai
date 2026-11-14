@@ -10,6 +10,11 @@ import com.footballai.app.data.local.Serialized
 import com.footballai.app.data.local.entity.PredictionEntity
 import com.footballai.app.data.local.entity.PredictionMarketEntity
 import com.footballai.app.data.local.mapper.parseStatus
+import com.footballai.app.domain.catalog.CompetitionCatalog
+import com.footballai.app.domain.catalog.CompetitionClassification
+import com.footballai.app.domain.catalog.ClassificationSource
+import com.footballai.engine.model.CompetitionType
+import com.footballai.engine.model.Gender
 import com.footballai.app.domain.model.ExplanationView
 import com.footballai.app.domain.model.MarketRow
 import com.footballai.app.domain.model.MarketType
@@ -51,6 +56,7 @@ class PredictionRepository(
     private val engine: MatchPredictionEngine,
     private val clock: TimeProvider,
     private val settingsRepository: com.footballai.app.data.settings.SettingsRepository,
+    private val calibrationRepository: CalibrationRepository,
 ) {
 
     suspend fun predict(matchId: String, persist: Boolean = true): Outcome<PredictionView> = withContext(Dispatchers.Default) {
@@ -78,14 +84,37 @@ class PredictionRepository(
         val liveMinute = PredictionPolicy.minute(match)
         val source = match.providerId
 
-        val strengths = ratingsRepository.strengths(
-            source = source,
-            competitionId = match.competitionId,
-            homeTeamId = match.homeTeamId,
-            awayTeamId = match.awayTeamId,
-            asOfEpochMs = now,
-        )
-        val baseline = ratingsRepository.baseline(source, match.competitionId, now)
+        // The competition decides which model runs: club ratings and national-team
+        // ratings are different objects and are never mixed in one prediction.
+        val competition = db.competitionDao().byId(match.competitionId)
+        val classification = classificationOf(competition)
+        val profile = classification.profile(neutralVenue = match.isNeutralVenue)
+        val calibration = calibrationRepository.modelFor(classification.label(), MODEL_VERSION)
+
+        val national = if (profile.isInternational) {
+            ratingsRepository.nationalPrepared(
+                source = source,
+                competitionId = match.competitionId,
+                homeTeamId = match.homeTeamId,
+                awayTeamId = match.awayTeamId,
+                asOfEpochMs = now,
+                importance = importanceOf(classification.type),
+            )
+        } else {
+            null
+        }
+        val strengths = if (national != null) {
+            Pair(national.home, national.away)
+        } else {
+            ratingsRepository.strengths(
+                source = source,
+                competitionId = match.competitionId,
+                homeTeamId = match.homeTeamId,
+                awayTeamId = match.awayTeamId,
+                asOfEpochMs = now,
+            )
+        }
+        val baseline = national?.baseline ?: ratingsRepository.baseline(source, match.competitionId, now)
         val fit = ratingsRepository.fit(source, match.competitionId, now)
         val adjustments = ratingsRepository.adjustments(
             source, match.competitionId, match.homeTeamId, match.awayTeamId, now,
@@ -94,8 +123,13 @@ class PredictionRepository(
         if (!DailyAnalysisPolicy.hasEnoughHistory(historyCount, strengths.first.matchesUsed, strengths.second.matchesUsed)) {
             return Outcome.Failure(AppError(ErrorCode.INSUFFICIENT_HISTORY))
         }
+        if (national != null && !national.enoughEvidence) {
+            // The national model refuses to claim strength from one or two matches.
+            return Outcome.Failure(AppError(ErrorCode.INSUFFICIENT_HISTORY))
+        }
         val statistics = db.statisticsDao().byMatch(matchId)
             ?.takeIf { !isLive || now - it.updatedAt in 0..LIVE_TTL_MS }
+        val hasStandings = db.standingDao().countForCompetition(match.competitionId) > 0
 
         val quality = DataQualityAssessor.assess(
             QualityInputs(
@@ -103,11 +137,13 @@ class PredictionRepository(
                 homeMatchesUsed = strengths.first.matchesUsed,
                 awayMatchesUsed = strengths.second.matchesUsed,
                 hasLineups = match.hasLineups,
+                // No source in this app publishes reliable injury data; recording it as
+                // present would inflate the completeness score without changing the model.
                 hasInjuries = false,
                 hasOdds = match.oddsHome != null && match.oddsDraw != null && match.oddsAway != null,
                 hasLiveStatistics = statistics != null,
                 hasExpectedGoalsData = statistics?.homeExpectedGoals != null,
-                hasStandings = false,
+                hasStandings = hasStandings,
                 leagueBaselineIsFallback = baseline.sampleSize == 0,
                 isLive = isLive,
             ),
@@ -116,6 +152,7 @@ class PredictionRepository(
         if (quality.level == com.footballai.engine.model.DataQualityLevel.INSUFFICIENT) {
             return Outcome.Failure(AppError(ErrorCode.INSUFFICIENT_HISTORY))
         }
+        val freshnessMinutes = ((now - match.lastSyncedAt) / 60_000L).coerceAtLeast(0L)
         val preMatchInput = PreMatchInput(
             home = strengths.first,
             away = strengths.second,
@@ -127,6 +164,9 @@ class PredictionRepository(
             asOfEpochMs = now,
             modelVersion = MODEL_VERSION,
             fittedMatches = fit?.matchesUsed ?: 0,
+            competition = profile,
+            calibration = calibration,
+            dataFreshnessMinutes = freshnessMinutes,
         )
 
         val result: PredictionResult = if (isLive) {
@@ -211,6 +251,8 @@ class PredictionRepository(
             outcomeCorrect = null,
             brier = null,
             logLoss = null,
+            confidenceLevel = view.confidence?.level ?: "INSUFFICIENT",
+            confidenceJson = Serialized.encodeConfidence(view.confidence, view.calibration),
         )
         val markets = view.markets.mapIndexed { index, row ->
             PredictionMarketEntity(
@@ -298,10 +340,17 @@ class PredictionRepository(
             )
             resolved++
         }
+        if (resolved > 0) calibrationRepository.invalidate()
         return resolved
     }
 
     suspend fun countAll(): Int = db.predictionDao().count()
+
+    /**
+     * Drops the calibration cache. Called after new results are resolved and after
+     * local data is cleared, so a fit never survives the sample it was built from.
+     */
+    suspend fun invalidateCalibration() = calibrationRepository.invalidate()
 
     // ------------------------------------------------------------------ mapping
 
@@ -354,6 +403,32 @@ class PredictionRepository(
             odds = odds,
             isStale = false,
             resolution = null,
+            confidence = confidence?.let { assessment ->
+                com.footballai.app.domain.model.ConfidenceView(
+                    level = assessment.level.name,
+                    gaps = assessment.gaps.map { it.name },
+                    uncertainty = assessment.uncertainty,
+                    topGap = assessment.topGap,
+                    effectiveSample = assessment.effectiveSample,
+                    calibrationSamples = assessment.calibrationSamples,
+                    calibrationError = assessment.calibrationError,
+                    dataCompleteness = assessment.dataCompleteness,
+                    freshnessMinutes = assessment.freshnessMinutes,
+                )
+            },
+            calibration = calibration?.let { info ->
+                com.footballai.app.domain.model.CalibrationView(
+                    method = info.method,
+                    temperature = info.temperature,
+                    sampleCount = info.sampleCount,
+                    holdoutCount = info.holdoutCount,
+                    logLossBefore = info.holdoutLogLossBefore,
+                    logLossAfter = info.holdoutLogLossAfter,
+                    rawHomeWin = info.rawHomeWin,
+                    rawDraw = info.rawDraw,
+                    rawAwayWin = info.rawAwayWin,
+                )
+            },
         )
     }
 
@@ -422,6 +497,7 @@ class PredictionRepository(
                 val away = parts[1].toIntOrNull() ?: return@mapNotNull null
                 ScoreLine(home, away, row.probability)
             }
+        val storedConfidence = Serialized.decodeConfidence(entity.confidenceJson)
         val resolution = if (entity.resolvedAtEpochMs != null && entity.actualHomeGoals != null && entity.actualAwayGoals != null) {
             PredictionResolution(
                 actualHomeGoals = entity.actualHomeGoals,
@@ -466,7 +542,54 @@ class PredictionRepository(
             },
             isStale = abs(clock.nowEpochMs() - entity.createdAtEpochMs) > (if (entity.kind == PredictionKind.LIVE.name) LIVE_TTL_MS else STALE_AFTER_MS),
             resolution = resolution,
+            confidence = storedConfidence.first,
+            calibration = storedConfidence.second,
         )
+    }
+
+    /**
+     * Reads the stored classification, and only falls back to the catalogue rules when
+     * the stored value is still UNKNOWN (for example right after a migration).
+     */
+    private fun classificationOf(
+        competition: com.footballai.app.data.local.entity.CompetitionEntity?,
+    ): CompetitionClassification {
+        if (competition == null) {
+            return CompetitionCatalog.classify("", "", "")
+        }
+        val storedType = runCatching { CompetitionType.valueOf(competition.competitionClass) }.getOrNull()
+        val storedGender = runCatching { Gender.valueOf(competition.gender) }.getOrNull()
+        if (storedType != null && storedGender != null &&
+            competition.classificationSource != ClassificationSource.UNKNOWN.name
+        ) {
+            return CompetitionClassification(
+                type = storedType,
+                gender = storedGender,
+                source = runCatching { ClassificationSource.valueOf(competition.classificationSource) }
+                    .getOrDefault(ClassificationSource.UNKNOWN),
+                region = competition.country,
+                persianName = CompetitionCatalog.persianName(
+                    competition.providerId,
+                    competition.providerKey,
+                    competition.name,
+                ),
+            )
+        }
+        return CompetitionCatalog.classify(
+            providerId = competition.providerId,
+            providerKey = competition.providerKey,
+            name = competition.name,
+            country = competition.country,
+        )
+    }
+
+    /** Elo importance of an international match, used only by the national model. */
+    private fun importanceOf(type: CompetitionType): Double = when (type) {
+        CompetitionType.INTERNATIONAL_FRIENDLY -> 0.5
+        CompetitionType.INTERNATIONAL_QUALIFIER -> 1.0
+        CompetitionType.INTERNATIONAL_TOURNAMENT -> 1.25
+        CompetitionType.WOMEN_INTERNATIONAL -> 1.0
+        else -> 1.0
     }
 
     private fun DataQualityLevel.toDomain(): QualityLevel = when (this) {
@@ -477,7 +600,7 @@ class PredictionRepository(
     }
 
     companion object {
-        const val MODEL_VERSION = "football-ai/engine-1.3.0"
+        const val MODEL_VERSION = "football-ai/engine-1.4.0"
         const val ELO_BLEND_WEIGHT = 0.15
         const val LIVE_TTL_MS = PredictionPolicy.LIVE_TTL_MS
         private const val STALE_AFTER_MS = 6 * TimeConstants.HOUR_MS

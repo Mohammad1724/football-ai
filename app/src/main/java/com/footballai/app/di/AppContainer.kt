@@ -12,6 +12,7 @@ import com.footballai.app.data.remote.ApiFootballProvider
 import com.footballai.app.data.remote.FootballDataCoUkProvider
 import com.footballai.app.data.remote.FootballDataOrgProvider
 import com.footballai.app.data.remote.QuotaGuard
+import com.footballai.app.data.repository.CalibrationRepository
 import com.footballai.app.data.repository.MatchRepository
 import com.footballai.app.data.repository.PerformanceRepository
 import com.footballai.app.data.repository.PredictionRepository
@@ -87,6 +88,8 @@ class AppContainer(context: Context) {
 
     val matchRepository: MatchRepository = MatchRepository(database, clock, ratingsRepository)
 
+    val calibrationRepository: CalibrationRepository = CalibrationRepository(database, clock)
+
     val predictionRepository: PredictionRepository = PredictionRepository(
         db = database,
         matchRepository = matchRepository,
@@ -94,6 +97,7 @@ class AppContainer(context: Context) {
         engine = engine,
         clock = clock,
         settingsRepository = settingsRepository,
+        calibrationRepository = calibrationRepository,
     )
 
     val syncRepository: SyncRepository = SyncRepository(
@@ -112,5 +116,6 @@ class AppContainer(context: Context) {
         db = database,
         clock = clock,
         predictionRepository = predictionRepository,
+        calibrationRepository = calibrationRepository,
     )
 }

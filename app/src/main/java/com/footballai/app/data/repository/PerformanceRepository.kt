@@ -12,6 +12,10 @@ import com.footballai.app.domain.model.PerformanceReport
 import com.footballai.engine.eval.BacktestConfig
 import com.footballai.engine.eval.Backtester
 import com.footballai.engine.eval.HistoricalRecord
+import com.footballai.engine.calibration.CalibrationModel
+import com.footballai.engine.calibration.CalibrationSample
+import com.footballai.engine.calibration.Calibrator
+import com.footballai.engine.eval.CalibrationStudy
 import com.footballai.engine.eval.Metrics
 import com.footballai.engine.eval.OutcomeSample
 import com.footballai.engine.model.MatchOutcome
@@ -35,6 +39,23 @@ data class CompetitionPerformanceSource(
 )
 
 /** Performance of the predictions the user actually stored (not a backtest). */
+/** Measured, out-of-sample effect of the calibration layer for one competition class. */
+data class CalibrationStudyResult(
+    val competitionClass: String,
+    val sampleCount: Int,
+    val adopted: Boolean,
+    val method: String,
+    val rawLogLoss: Double = Double.NaN,
+    val calibratedLogLoss: Double = Double.NaN,
+    val rawBrier: Double = Double.NaN,
+    val calibratedBrier: Double = Double.NaN,
+    val rawCalibrationError: Double = Double.NaN,
+    val calibratedCalibrationError: Double = Double.NaN,
+    val note: String? = null,
+) {
+    val logLossGain: Double get() = rawLogLoss - calibratedLogLoss
+}
+
 data class StoredPredictionStats(
     val resolved: Int,
     val correct: Int,
@@ -56,6 +77,7 @@ class PerformanceRepository(
     private val db: FootballDatabase,
     private val clock: TimeProvider,
     private val predictionRepository: PredictionRepository,
+    private val calibrationRepository: CalibrationRepository,
 ) {
 
     suspend fun historicalSources(): List<HistoricalSourceOption> = withContext(Dispatchers.IO) {
@@ -173,14 +195,16 @@ class PerformanceRepository(
     suspend fun storedPredictionStats(): StoredPredictionStats = withContext(Dispatchers.IO) {
         val resolved = db.predictionDao().evaluatedPreMatch(PredictionRepository.MODEL_VERSION)
         if (resolved.isEmpty()) return@withContext StoredPredictionStats.EMPTY
-        val samples = resolved.map { entity ->
+        val samples = resolved.mapNotNull { entity ->
+            val home = entity.actualHomeGoals ?: return@mapNotNull null
+            val away = entity.actualAwayGoals ?: return@mapNotNull null
             OutcomeSample(
                 homeWin = entity.homeWin,
                 draw = entity.draw,
                 awayWin = entity.awayWin,
                 actual = when {
-                    (entity.actualHomeGoals ?: 0) > (entity.actualAwayGoals ?: 0) -> MatchOutcome.HOME_WIN
-                    (entity.actualHomeGoals ?: 0) == (entity.actualAwayGoals ?: 0) -> MatchOutcome.DRAW
+                    home > away -> MatchOutcome.HOME_WIN
+                    home == away -> MatchOutcome.DRAW
                     else -> MatchOutcome.AWAY_WIN
                 },
             )
@@ -202,6 +226,60 @@ class PerformanceRepository(
         predictionRepository.resolveFinishedPredictions()
         return storedPredictionStats()
     }
+
+    /**
+     * Out-of-sample calibration study for the stored forecasts, split by competition
+     * class so a club-league calibration is never reported as if it covered
+     * international football.
+     */
+    suspend fun calibrationStudy(
+        competitionClass: String,
+        version: String = PredictionRepository.MODEL_VERSION,
+    ): CalibrationStudyResult = withContext(Dispatchers.Default) {
+        val samples = withContext(Dispatchers.IO) {
+            db.predictionDao().resolvedForClass(version, competitionClass, 3000)
+        }.mapNotNull { entity ->
+            val home = entity.actualHomeGoals ?: return@mapNotNull null
+            val away = entity.actualAwayGoals ?: return@mapNotNull null
+            val outcome = when {
+                home > away -> MatchOutcome.HOME_WIN
+                home == away -> MatchOutcome.DRAW
+                else -> MatchOutcome.AWAY_WIN
+            }
+            CalibrationSample(entity.homeWin, entity.draw, entity.awayWin, outcome)
+        }
+        if (samples.size < CalibrationStudy.Config().minimumWarmupSamples) {
+            return@withContext CalibrationStudyResult(
+                competitionClass = competitionClass,
+                sampleCount = samples.size,
+                adopted = false,
+                method = "NONE",
+                note = "NOT_ENOUGH_SAMPLES",
+            )
+        }
+        val study = CalibrationStudy.run(samples)
+        CalibrationStudyResult(
+            competitionClass = competitionClass,
+            sampleCount = study.evaluatedMatches,
+            adopted = study.adoptedFolds > 0,
+            method = study.folds.firstOrNull { it.method != "NONE" }?.method ?: "NONE",
+            rawLogLoss = study.rawLogLoss,
+            calibratedLogLoss = study.calibratedLogLoss,
+            rawBrier = study.rawBrier,
+            calibratedBrier = study.calibratedBrier,
+            rawCalibrationError = study.rawCalibrationError,
+            calibratedCalibrationError = study.calibratedCalibrationError,
+            note = study.skippedReason,
+        )
+    }
+
+    /** Which sample size the current on-device calibration was fitted on. */
+    suspend fun calibrationSampleCount(competitionClass: String): Int = withContext(Dispatchers.IO) {
+        calibrationRepository.resolvedCount(competitionClass, PredictionRepository.MODEL_VERSION)
+    }
+
+    suspend fun activeCalibration(competitionClass: String): CalibrationModel =
+        calibrationRepository.modelFor(competitionClass, PredictionRepository.MODEL_VERSION)
 
     suspend fun personalLogLossReference(): Double = ln(3.0)
 

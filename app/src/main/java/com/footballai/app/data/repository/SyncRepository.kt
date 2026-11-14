@@ -20,11 +20,14 @@ import com.footballai.app.data.provider.FootballDataProvider
 import com.footballai.app.data.provider.RemoteHistoryMatch
 import com.footballai.app.data.provider.RemoteMatch
 import com.footballai.app.data.settings.SettingsRepository
+import com.footballai.app.domain.catalog.ClassificationSource
+import com.footballai.app.domain.catalog.CompetitionCatalog
 import com.footballai.app.domain.model.MatchStatus
 import com.footballai.app.domain.model.StatisticType
 import androidx.room.withTransaction
 import com.footballai.app.data.remote.CsvFixtureIdentity
 import com.footballai.app.data.remote.FootballDataCoUkProvider
+import com.footballai.engine.model.TeamKind
 import java.time.Instant
 import java.time.ZoneOffset
 
@@ -85,6 +88,12 @@ class SyncRepository(
                 val entities = result.value.map { competition ->
                     val id = Ids.competition(providerId, competition.providerKey)
                     val previous = existing[id]
+                    val classification = CompetitionCatalog.classify(
+                        providerId = providerId,
+                        providerKey = competition.providerKey,
+                        name = competition.name,
+                        country = competition.country,
+                    )
                     CompetitionEntity(
                         id = id,
                         providerId = providerId,
@@ -97,6 +106,9 @@ class SyncRepository(
                         isFollowed = previous?.isFollowed
                             ?: settings.followedCompetitionKeys.contains(competition.providerKey),
                         updatedAt = now,
+                        competitionClass = classification.label(),
+                        gender = classification.gender.name,
+                        classificationSource = classification.source.name,
                     )
                 }
                 db.competitionDao().upsertAll(entities)
@@ -551,10 +563,24 @@ class SyncRepository(
         val competitionName = matches.firstOrNull()?.competitionName?.takeIf { it.isNotBlank() }
             ?: existingCompetition?.name
             ?: competitionKey
-        if (existingCompetition == null) {
+        val classification = CompetitionCatalog.classify(
+            providerId = providerId,
+            providerKey = competitionKey,
+            name = competitionName,
+            country = existingCompetition?.country,
+        )
+        val refreshed = existingCompetition?.copy(
+            competitionClass = classification.label(),
+            gender = classification.gender.name,
+            classificationSource = classification.source.name,
+            updatedAt = now,
+        )
+        val needsClassification = existingCompetition == null ||
+            existingCompetition.classificationSource == ClassificationSource.UNKNOWN.name
+        if (needsClassification) {
             db.competitionDao().upsertAll(
                 listOf(
-                    CompetitionEntity(
+                    refreshed ?: CompetitionEntity(
                         id = competitionId,
                         providerId = providerId,
                         providerKey = competitionKey,
@@ -565,15 +591,32 @@ class SyncRepository(
                         hasFullCoverage = registry.provider(providerId)?.info?.capabilities?.liveScores ?: false,
                         isFollowed = true,
                         updatedAt = now,
+                        competitionClass = classification.label(),
+                        gender = classification.gender.name,
+                        classificationSource = classification.source.name,
                     ),
                 ),
             )
         }
 
+        val teamIds = matches.flatMap {
+            listOf(Ids.team(providerId, it.home.providerKey), Ids.team(providerId, it.away.providerKey))
+        }
+        val knownTeams = db.teamDao().byIds(teamIds.distinct()).associateBy { it.id }
         val teams = LinkedHashMap<String, TeamEntity>()
         for (match in matches) {
-            teams[Ids.team(providerId, match.home.providerKey)] = match.home.toEntity(providerId, now)
-            teams[Ids.team(providerId, match.away.providerKey)] = match.away.toEntity(providerId, now)
+            for (remote in listOf(match.home, match.away)) {
+                val id = Ids.team(providerId, remote.providerKey)
+                val entity = remote.toEntity(providerId, now, classification.teamKind)
+                // A team discovered as a national team keeps that identity; a club-league
+                // fixture can never silently downgrade it.
+                val previous = knownTeams[id]
+                teams[id] = if (previous?.kind == TeamKind.NATIONAL.name && entity.kind != TeamKind.NATIONAL.name) {
+                    entity.copy(kind = previous.kind, countryCode = entity.countryCode ?: previous.countryCode)
+                } else {
+                    entity
+                }
+            }
         }
         db.teamDao().upsertAll(teams.values.toList())
 

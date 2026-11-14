@@ -319,6 +319,12 @@ interface PredictionDao {
     @Query("SELECT COUNT(*) FROM predictions")
     suspend fun count(): Int
 
+    @Query(
+        "SELECT * FROM predictions WHERE matchId IN (:matchIds) AND kind = 'PRE_MATCH' " +
+            "AND modelVersion = :version ORDER BY createdAtEpochMs ASC",
+    )
+    suspend fun preMatchForMatches(matchIds: List<String>, version: String): List<PredictionEntity>
+
     @Query("SELECT * FROM predictions WHERE resolvedAtEpochMs IS NULL")
     suspend fun unresolved(): List<PredictionEntity>
 
@@ -335,6 +341,36 @@ interface PredictionDao {
 
     @Query("SELECT * FROM predictions WHERE resolvedAtEpochMs IS NOT NULL ORDER BY resolvedAtEpochMs DESC LIMIT :limit")
     suspend fun resolved(limit: Int): List<PredictionEntity>
+
+    /**
+     * Chronologically ordered, one pre-match forecast per match, for the competition
+     * class and model version. This is the only sample a calibration may be fitted on:
+     * duplicate snapshots of one match, live forecasts and other model versions would
+     * all bias the fit.
+     */
+    @Query(
+        "SELECT p.* FROM predictions p " +
+            "INNER JOIN matches m ON m.id = p.matchId " +
+            "INNER JOIN competitions c ON c.id = m.competitionId " +
+            "WHERE p.resolvedAtEpochMs IS NOT NULL AND p.kind = 'PRE_MATCH' " +
+            "AND p.modelVersion = :version AND c.competitionClass = :competitionClass " +
+            "AND m.scoreScope = 'REGULATION' " +
+            "AND p.id = (SELECT p2.id FROM predictions p2 WHERE p2.matchId = p.matchId AND p2.kind = 'PRE_MATCH' " +
+            "AND p2.modelVersion = :version AND p2.createdAtEpochMs < m.kickoffEpochMs " +
+            "ORDER BY p2.createdAtEpochMs ASC, p2.id ASC LIMIT 1) " +
+            "ORDER BY p.createdAtEpochMs ASC LIMIT :limit",
+    )
+    suspend fun resolvedForClass(version: String, competitionClass: String, limit: Int): List<PredictionEntity>
+
+    @Query(
+        "SELECT COUNT(*) FROM predictions p " +
+            "INNER JOIN matches m ON m.id = p.matchId " +
+            "INNER JOIN competitions c ON c.id = m.competitionId " +
+            "WHERE p.resolvedAtEpochMs IS NOT NULL AND p.kind = 'PRE_MATCH' " +
+            "AND p.modelVersion = :version AND c.competitionClass = :competitionClass " +
+            "AND m.scoreScope = 'REGULATION'",
+    )
+    suspend fun resolvedCountForClass(version: String, competitionClass: String): Int
 
     @Query("SELECT * FROM predictions WHERE matchId = :matchId AND kind = :kind ORDER BY createdAtEpochMs DESC LIMIT :limit")
     suspend fun historyForMatch(matchId: String, kind: String, limit: Int): List<PredictionEntity>
@@ -386,6 +422,9 @@ interface StandingDao {
 
     @Query("SELECT * FROM standings WHERE competitionId = :competitionId AND season = :season ORDER BY rank ASC")
     suspend fun byCompetition(competitionId: String, season: Int): List<StandingEntity>
+
+    @Query("SELECT COUNT(*) FROM standings WHERE competitionId = :competitionId")
+    suspend fun countForCompetition(competitionId: String): Int
 }
 
 @Dao

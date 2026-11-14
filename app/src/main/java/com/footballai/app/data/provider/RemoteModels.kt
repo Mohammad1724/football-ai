@@ -26,6 +26,8 @@ data class RemoteTeam(
     val name: String,
     val shortName: String? = null,
     val crestUrl: String? = null,
+    /** ISO-3166 alpha-2 only when the provider publishes it. */
+    val countryCode: String? = null,
 )
 
 data class RemoteMatch(
@@ -47,6 +49,8 @@ data class RemoteMatch(
     val odds: MatchOdds?,
     /** Only REGULATION scores may train or settle the 90-minute markets. */
     val scoreScope: String = "REGULATION",
+    /** True only when the provider states the fixture is played at a neutral venue. */
+    val isNeutralVenue: Boolean = false,
 )
 
 data class RemoteTeamStatistics(

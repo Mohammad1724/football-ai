@@ -1,5 +1,7 @@
 package com.footballai.app.data.local
 
+import com.footballai.app.domain.model.CalibrationView
+import com.footballai.app.domain.model.ConfidenceView
 import com.footballai.app.domain.model.ExplanationView
 import com.footballai.app.domain.model.LiveSnapshot
 import com.footballai.app.domain.model.QualityView
@@ -48,6 +50,93 @@ object Serialized {
         val remainingOver: Map<String, Double> = emptyMap(),
         val adjustments: List<String> = emptyList(),
     )
+
+    @Serializable
+    data class CalibrationDto(
+        val method: String,
+        val temperature: Double = 1.0,
+        val sampleCount: Int = 0,
+        val holdoutCount: Int = 0,
+        val logLossBefore: Double = Double.NaN,
+        val logLossAfter: Double = Double.NaN,
+        val rawHomeWin: Double = Double.NaN,
+        val rawDraw: Double = Double.NaN,
+        val rawAwayWin: Double = Double.NaN,
+    )
+
+    @Serializable
+    data class ConfidenceDto(
+        val level: String = "INSUFFICIENT",
+        val gaps: List<String> = emptyList(),
+        val uncertainty: Double = Double.NaN,
+        val topGap: Double = Double.NaN,
+        val effectiveSample: Int = 0,
+        val calibrationSamples: Int = 0,
+        val calibrationError: Double = Double.NaN,
+        val dataCompleteness: Double = Double.NaN,
+        val freshnessMinutes: Long? = null,
+        val calibration: CalibrationDto? = null,
+    )
+
+    fun encodeConfidence(confidence: ConfidenceView?, calibration: CalibrationView?): String? {
+        if (confidence == null) return null
+        val dto = ConfidenceDto(
+            level = confidence.level,
+            gaps = confidence.gaps,
+            uncertainty = confidence.uncertainty,
+            topGap = confidence.topGap,
+            effectiveSample = confidence.effectiveSample,
+            calibrationSamples = confidence.calibrationSamples,
+            calibrationError = confidence.calibrationError,
+            dataCompleteness = confidence.dataCompleteness,
+            freshnessMinutes = confidence.freshnessMinutes,
+            calibration = calibration?.let {
+                CalibrationDto(
+                    method = it.method,
+                    temperature = it.temperature,
+                    sampleCount = it.sampleCount,
+                    holdoutCount = it.holdoutCount,
+                    logLossBefore = it.logLossBefore,
+                    logLossAfter = it.logLossAfter,
+                    rawHomeWin = it.rawHomeWin,
+                    rawDraw = it.rawDraw,
+                    rawAwayWin = it.rawAwayWin,
+                )
+            },
+        )
+        return json.encodeToString(ConfidenceDto.serializer(), dto)
+    }
+
+    fun decodeConfidence(value: String?): Pair<ConfidenceView?, CalibrationView?> {
+        if (value.isNullOrBlank()) return null to null
+        val dto = runCatching { json.decodeFromString(ConfidenceDto.serializer(), value) }.getOrNull()
+            ?: return null to null
+        val confidence = ConfidenceView(
+            level = dto.level,
+            gaps = dto.gaps,
+            uncertainty = dto.uncertainty,
+            topGap = dto.topGap,
+            effectiveSample = dto.effectiveSample,
+            calibrationSamples = dto.calibrationSamples,
+            calibrationError = dto.calibrationError,
+            dataCompleteness = dto.dataCompleteness,
+            freshnessMinutes = dto.freshnessMinutes,
+        )
+        val calibration = dto.calibration?.let {
+            CalibrationView(
+                method = it.method,
+                temperature = it.temperature,
+                sampleCount = it.sampleCount,
+                holdoutCount = it.holdoutCount,
+                logLossBefore = it.logLossBefore,
+                logLossAfter = it.logLossAfter,
+                rawHomeWin = it.rawHomeWin,
+                rawDraw = it.rawDraw,
+                rawAwayWin = it.rawAwayWin,
+            )
+        }
+        return confidence to calibration
+    }
 
     fun encodeExplanations(explanations: List<ExplanationView>): String = json.encodeToString(
         kotlinx.serialization.builtins.ListSerializer(ExplanationDto.serializer()),

@@ -1,5 +1,7 @@
 package com.footballai.app.domain.model
 
+import com.footballai.engine.model.TeamKind
+
 /** Competition as understood by the app, independent of any provider payload. */
 data class Competition(
     val id: String,
@@ -11,14 +13,28 @@ data class Competition(
     val hasFullCoverage: Boolean,
     val isFollowed: Boolean = false,
     val providerKey: String = "",
-)
+    /** CLUB_LEAGUE, CLUB_KNOCKOUT, INTERNATIONAL_* , WOMEN_* (engine CompetitionType names). */
+    val competitionClass: String = "CLUB_LEAGUE",
+    val gender: String = "MEN",
+    /** CATALOG / PROVIDER_DEFAULT / NAME_RULE / UNKNOWN. */
+    val classificationSource: String = "UNKNOWN",
+) {
+    val isInternational: Boolean get() = competitionClass.startsWith("INTERNATIONAL") || competitionClass == "WOMEN_INTERNATIONAL"
+    val isWomen: Boolean get() = gender == "WOMEN"
+    val isKnockout: Boolean get() = competitionClass == "CLUB_KNOCKOUT" || competitionClass == "INTERNATIONAL_TOURNAMENT"
+}
 
 data class TeamRef(
     val id: String,
     val name: String,
     val shortName: String? = null,
     val crestUrl: String? = null,
-)
+    /** A national team is a distinct entity, never an ordinary club. */
+    val kind: TeamKind = TeamKind.CLUB,
+    val countryCode: String? = null,
+) {
+    val isNational: Boolean get() = kind == TeamKind.NATIONAL
+}
 
 enum class MatchStatus {
     SCHEDULED,
@@ -34,6 +50,22 @@ enum class MatchStatus {
     val isFinished: Boolean get() = this == FINISHED
     val hasScore: Boolean get() = isLive || isFinished
 }
+
+/**
+ * The stored pre-match 1X2 forecast attached to a list row.
+ *
+ * It is deliberately read-only: list screens never generate a prediction, they only
+ * show what already exists, together with the quality and confidence that were
+ * recorded when it was created.
+ */
+data class MatchProbability(
+    val homeWin: Double,
+    val draw: Double,
+    val awayWin: Double,
+    val qualityLevel: QualityLevel,
+    val confidenceLevel: String? = null,
+    val modelVersion: String = "",
+)
 
 data class MatchSummary(
     val id: String,
@@ -52,7 +84,21 @@ data class MatchSummary(
     val hasLineups: Boolean,
     val hasEvents: Boolean,
     val hasOdds: Boolean,
-)
+    val competitionClass: String = "CLUB_LEAGUE",
+    val gender: String = "MEN",
+    /** Only true when the source states a neutral ground. */
+    val isNeutralVenue: Boolean = false,
+    /** Stored pre-match forecast, when one exists for the current model version. */
+    val prediction: MatchProbability? = null,
+) {
+    val isInternational: Boolean
+        get() = competitionClass.startsWith("INTERNATIONAL") || competitionClass == "WOMEN_INTERNATIONAL"
+    val isWomen: Boolean get() = gender == "WOMEN"
+    /** True when the fixture is a national-team match, per the stored team kind. */
+    val isNational: Boolean get() = home.isNational || away.isNational
+    val isKnockout: Boolean
+        get() = competitionClass == "CLUB_KNOCKOUT" || competitionClass == "INTERNATIONAL_TOURNAMENT"
+}
 
 data class MatchOdds(
     val home: Double,
@@ -246,6 +292,38 @@ data class PredictionResolution(
     val resolvedAtEpochMs: Long,
 )
 
+/** Evidence-based confidence, stored with the prediction instead of recomputed. */
+data class ConfidenceView(
+    /** HIGH / MEDIUM / LOW / INSUFFICIENT. */
+    val level: String,
+    /** Machine codes such as NOT_CALIBRATED, SMALL_TEAM_SAMPLE, STALE_DATA. */
+    val gaps: List<String> = emptyList(),
+    /** Normalised entropy of the 1X2 distribution (0 = certain, 1 = uniform). */
+    val uncertainty: Double = Double.NaN,
+    /** Spread of the top two probabilities. Reported, never a confidence label. */
+    val topGap: Double = Double.NaN,
+    val effectiveSample: Int = 0,
+    val calibrationSamples: Int = 0,
+    val calibrationError: Double = Double.NaN,
+    val dataCompleteness: Double = Double.NaN,
+    val freshnessMinutes: Long? = null,
+)
+
+/** Which calibration was applied, with its measured out-of-sample effect. */
+data class CalibrationView(
+    val method: String,
+    val temperature: Double = 1.0,
+    val sampleCount: Int = 0,
+    val holdoutCount: Int = 0,
+    val logLossBefore: Double = Double.NaN,
+    val logLossAfter: Double = Double.NaN,
+    val rawHomeWin: Double = Double.NaN,
+    val rawDraw: Double = Double.NaN,
+    val rawAwayWin: Double = Double.NaN,
+) {
+    val improvement: Double get() = logLossBefore - logLossAfter
+}
+
 data class PredictionView(
     val id: String,
     val matchId: String,
@@ -268,6 +346,8 @@ data class PredictionView(
     val odds: MatchOdds?,
     val isStale: Boolean,
     val resolution: PredictionResolution?,
+    val confidence: ConfidenceView? = null,
+    val calibration: CalibrationView? = null,
 )
 
 data class PredictionWithMatch(

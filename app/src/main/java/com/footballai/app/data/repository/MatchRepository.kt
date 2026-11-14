@@ -162,6 +162,12 @@ class MatchRepository(
         val teamIds = matches.flatMap { listOf(it.homeTeamId, it.awayTeamId) }.distinct()
         val competitions = db.competitionDao().byIds(competitionIds).associateBy { it.id }
         val teams = db.teamDao().byIds(teamIds).associateBy { it.id }
+        // One extra read for the whole list: the stored pre-match forecast per match, so
+        // a card can show 1X2 probabilities without generating anything.
+        val predictions = db.predictionDao()
+            .preMatchForMatches(matches.map { it.id }, PredictionRepository.MODEL_VERSION)
+            .groupBy { it.matchId }
+            .mapValues { (_, rows) -> rows.minByOrNull { it.createdAtEpochMs }!! }
 
         return matches.mapNotNull { match ->
             val competition = competitions[match.competitionId]
@@ -176,6 +182,21 @@ class MatchRepository(
                     competitionEmblemUrl = competition?.emblemUrl,
                     home = home.toRef(),
                     away = away.toRef(),
+                    competitionClass = competition?.competitionClass ?: "CLUB_LEAGUE",
+                    gender = competition?.gender ?: "MEN",
+                ).copy(
+                    prediction = predictions[match.id]?.let { entity ->
+                        com.footballai.app.domain.model.MatchProbability(
+                            homeWin = entity.homeWin,
+                            draw = entity.draw,
+                            awayWin = entity.awayWin,
+                            qualityLevel = runCatching {
+                                com.footballai.app.domain.model.QualityLevel.valueOf(entity.qualityLevel)
+                            }.getOrDefault(com.footballai.app.domain.model.QualityLevel.INSUFFICIENT),
+                            confidenceLevel = entity.confidenceLevel,
+                            modelVersion = entity.modelVersion,
+                        )
+                    },
                 )
             }
         }

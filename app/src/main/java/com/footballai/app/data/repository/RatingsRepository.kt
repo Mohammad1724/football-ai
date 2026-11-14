@@ -7,6 +7,9 @@ import com.footballai.engine.model.LambdaAdjustment
 import com.footballai.engine.model.LeagueBaseline
 import com.footballai.engine.model.TeamStrength
 import com.footballai.engine.ratings.DixonColesFit
+import com.footballai.engine.ratings.NationalMatch
+import com.footballai.engine.ratings.NationalPrepared
+import com.footballai.engine.ratings.NationalTeamRatingBook
 import com.footballai.engine.ratings.RatingBook
 import com.footballai.engine.ratings.RatingBookConfig
 import com.footballai.engine.ratings.RatingMatch
@@ -71,6 +74,43 @@ class RatingsRepository(
         val book = book(source, competitionId, asOfEpochMs)
             ?: return@withContext Pair(TeamStrength.neutral(homeTeamId), TeamStrength.neutral(awayTeamId))
         book.strengths(competitionId, homeTeamId, awayTeamId, asOfEpochMs)
+    }
+
+    /**
+     * National-team strengths for an international fixture.
+     *
+     * A separate [NationalTeamRatingBook] is built from the same stored history, so the
+     * national Elo replay, the international goal baseline and the national shrinkage
+     * can never be confused with the club model. Historical fixtures are treated as
+     * "home/away as designated" because the feeds do not record whether a past match
+     * was played on neutral ground; only the fixture being predicted carries an
+     * explicit neutral flag.
+     */
+    suspend fun nationalPrepared(
+        source: String,
+        competitionId: String,
+        homeTeamId: String,
+        awayTeamId: String,
+        asOfEpochMs: Long,
+        importance: Double,
+    ): NationalPrepared? = withContext(Dispatchers.Default) {
+        val rows = history(source, competitionId, asOfEpochMs)
+        if (rows.isEmpty()) return@withContext null
+        val book = NationalTeamRatingBook()
+        book.addAll(
+            rows.map { row ->
+                NationalMatch(
+                    homeTeamId = row.homeTeamId,
+                    awayTeamId = row.awayTeamId,
+                    homeGoals = row.homeGoals,
+                    awayGoals = row.awayGoals,
+                    kickoffEpochMs = row.kickoffEpochMs,
+                    importance = importance,
+                    neutralVenue = false,
+                )
+            },
+        )
+        book.prepare(homeTeamId, awayTeamId, asOfEpochMs, neutralVenue = false)
     }
 
     suspend fun adjustments(

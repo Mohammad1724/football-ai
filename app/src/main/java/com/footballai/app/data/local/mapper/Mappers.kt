@@ -17,6 +17,7 @@ import com.footballai.app.domain.model.MatchStatus
 import com.footballai.app.domain.model.MatchSummary
 import com.footballai.app.domain.model.StatisticType
 import com.footballai.app.domain.model.TeamRef
+import com.footballai.engine.model.TeamKind
 
 /** Stable identifiers keep the same match identifiable across syncs. */
 object Ids {
@@ -36,7 +37,16 @@ object Ids {
         "$matchId:lineup:$teamId:$playerName"
 }
 
-fun RemoteTeam.toEntity(providerId: String, now: Long): TeamEntity = TeamEntity(
+/**
+ * Teams inherit their kind from the competition they play in: a fixture in an
+ * international competition is by definition played by national teams. The provider
+ * is never asked to guess, and an already known kind is not downgraded.
+ */
+fun RemoteTeam.toEntity(
+    providerId: String,
+    now: Long,
+    kind: TeamKind = TeamKind.CLUB,
+): TeamEntity = TeamEntity(
     id = Ids.team(providerId, providerKey),
     providerId = providerId,
     providerKey = providerKey,
@@ -44,6 +54,8 @@ fun RemoteTeam.toEntity(providerId: String, now: Long): TeamEntity = TeamEntity(
     shortName = shortName,
     crestUrl = crestUrl,
     updatedAt = now,
+    kind = kind.name,
+    countryCode = countryCode,
 )
 
 fun RemoteMatch.toEntity(providerId: String, homeTeamId: String, awayTeamId: String, competitionId: String, now: Long): MatchEntity =
@@ -73,6 +85,7 @@ fun RemoteMatch.toEntity(providerId: String, homeTeamId: String, awayTeamId: Str
         statisticsSyncedAt = null,
         lastSyncedAt = now,
         scoreScope = scoreScope,
+        isNeutralVenue = isNeutralVenue,
     )
 
 fun CompetitionEntity.toDomain(): Competition = Competition(
@@ -85,6 +98,9 @@ fun CompetitionEntity.toDomain(): Competition = Competition(
     hasFullCoverage = hasFullCoverage,
     isFollowed = isFollowed,
     providerKey = providerKey,
+    competitionClass = competitionClass,
+    gender = gender,
+    classificationSource = classificationSource,
 )
 
 fun TeamEntity.toRef(): TeamRef = TeamRef(
@@ -92,6 +108,8 @@ fun TeamEntity.toRef(): TeamRef = TeamRef(
     name = name,
     shortName = shortName,
     crestUrl = crestUrl,
+    kind = runCatching { TeamKind.valueOf(kind) }.getOrDefault(TeamKind.CLUB),
+    countryCode = countryCode,
 )
 
 fun MatchEntity.toSummary(
@@ -99,6 +117,8 @@ fun MatchEntity.toSummary(
     competitionEmblemUrl: String?,
     home: TeamRef,
     away: TeamRef,
+    competitionClass: String = "CLUB_LEAGUE",
+    gender: String = "MEN",
 ): MatchSummary = MatchSummary(
     id = id,
     competitionId = competitionId,
@@ -116,6 +136,9 @@ fun MatchEntity.toSummary(
     hasLineups = hasLineups,
     hasEvents = hasEvents,
     hasOdds = oddsHome != null && oddsDraw != null && oddsAway != null,
+    competitionClass = competitionClass,
+    gender = gender,
+    isNeutralVenue = isNeutralVenue,
 )
 
 fun MatchEntity.toDetail(

@@ -54,6 +54,7 @@ class DailyAnalysisRepository(
     suspend fun clearLocalData() = mutex.withLock {
         withContext(Dispatchers.IO) { db.clearAllTables() }
         ratings.invalidate()
+        predictions.invalidateCalibration()
     }
 
     suspend fun needsRefresh(): Boolean {

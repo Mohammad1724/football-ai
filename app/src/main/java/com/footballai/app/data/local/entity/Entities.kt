@@ -1,5 +1,6 @@
 package com.footballai.app.data.local.entity
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
@@ -17,6 +18,15 @@ data class CompetitionEntity(
     val hasFullCoverage: Boolean,
     val isFollowed: Boolean,
     val updatedAt: Long,
+    /** CompetitionType name: CLUB_LEAGUE, CLUB_KNOCKOUT, INTERNATIONAL_* , WOMEN_*. */
+    @ColumnInfo(defaultValue = "'CLUB_LEAGUE'")
+    val competitionClass: String = "CLUB_LEAGUE",
+    /** MEN or WOMEN. Never inferred from a team name. */
+    @ColumnInfo(defaultValue = "'MEN'")
+    val gender: String = "MEN",
+    /** CATALOG / PROVIDER_DEFAULT / NAME_RULE / UNKNOWN, so the UI can be honest. */
+    @ColumnInfo(defaultValue = "'UNKNOWN'")
+    val classificationSource: String = "UNKNOWN",
 )
 
 @Entity(tableName = "teams")
@@ -28,6 +38,11 @@ data class TeamEntity(
     val shortName: String?,
     val crestUrl: String?,
     val updatedAt: Long,
+    /** CLUB or NATIONAL. National teams are a distinct entity, never a club. */
+    @ColumnInfo(defaultValue = "'CLUB'")
+    val kind: String = "CLUB",
+    /** ISO-3166 alpha-2 when the source publishes it; null otherwise (never guessed). */
+    val countryCode: String? = null,
 )
 
 @Entity(
@@ -64,8 +79,11 @@ data class MatchEntity(
     val hasLineups: Boolean,
     val statisticsSyncedAt: Long?,
     val lastSyncedAt: Long,
-    @androidx.room.ColumnInfo(defaultValue = "'REGULATION'")
+    @ColumnInfo(defaultValue = "'REGULATION'")
     val scoreScope: String = "REGULATION",
+    /** Only true when the source states the fixture is at a neutral ground. */
+    @ColumnInfo(defaultValue = "0")
+    val isNeutralVenue: Boolean = false,
 )
 
 @Entity(tableName = "match_statistics", primaryKeys = ["matchId"])
@@ -155,6 +173,10 @@ data class PredictionEntity(
     val outcomeCorrect: Boolean?,
     val brier: Double?,
     val logLoss: Double?,
+    /** Evidence-based confidence stored with the snapshot (never recomputed from the margin). */
+    @ColumnInfo(defaultValue = "'INSUFFICIENT'")
+    val confidenceLevel: String = "INSUFFICIENT",
+    val confidenceJson: String? = null,
 )
 
 @Entity(

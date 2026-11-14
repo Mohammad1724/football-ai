@@ -41,4 +41,52 @@ object HistoryMigration {
             db.execSQL("CREATE INDEX index_prediction_markets_predictionId ON prediction_markets(predictionId)")
         }
     }
+
+    /**
+     * 2 -> 3: entity classification (club vs national team, competition type, gender,
+     * neutral venue).
+     *
+     * Additive only: no table is dropped and no row is deleted. Existing rows keep
+     * their data and receive a conservative classification which is then refined by
+     * the next sync from the provider catalogue.
+     */
+    val MIGRATION_2_3 = object : Migration(2, 3) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE competitions ADD COLUMN competitionClass TEXT NOT NULL DEFAULT 'CLUB_LEAGUE'")
+            db.execSQL("ALTER TABLE competitions ADD COLUMN gender TEXT NOT NULL DEFAULT 'MEN'")
+            db.execSQL("ALTER TABLE competitions ADD COLUMN classificationSource TEXT NOT NULL DEFAULT 'UNKNOWN'")
+            db.execSQL("ALTER TABLE teams ADD COLUMN kind TEXT NOT NULL DEFAULT 'CLUB'")
+            db.execSQL("ALTER TABLE teams ADD COLUMN countryCode TEXT")
+            db.execSQL("ALTER TABLE matches ADD COLUMN isNeutralVenue INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE predictions ADD COLUMN confidenceLevel TEXT NOT NULL DEFAULT 'INSUFFICIENT'")
+            db.execSQL("ALTER TABLE predictions ADD COLUMN confidenceJson TEXT")
+
+            // A feed that only publishes men's club leagues is classified as such.
+            db.execSQL(
+                "UPDATE competitions SET competitionClass = 'CLUB_LEAGUE', gender = 'MEN', " +
+                    "classificationSource = 'PROVIDER_DEFAULT' " +
+                    "WHERE providerId IN ('football-data-co-uk', 'open-matchday')",
+            )
+            // Competitions whose provider key is a known international tournament.
+            db.execSQL(
+                "UPDATE competitions SET competitionClass = 'INTERNATIONAL_TOURNAMENT', " +
+                    "classificationSource = 'CATALOG' WHERE providerKey IN ('WC', 'EC')",
+            )
+            db.execSQL(
+                "UPDATE competitions SET competitionClass = 'CLUB_KNOCKOUT', " +
+                    "classificationSource = 'CATALOG' WHERE providerKey = 'CL'",
+            )
+            // Teams that appear in an international competition are national teams.
+            db.execSQL(
+                "UPDATE teams SET kind = 'NATIONAL' WHERE id IN (" +
+                    "SELECT homeTeamId FROM matches m INNER JOIN competitions c ON c.id = m.competitionId " +
+                    "WHERE c.competitionClass LIKE 'INTERNATIONAL%' OR c.competitionClass = 'WOMEN_INTERNATIONAL')",
+            )
+            db.execSQL(
+                "UPDATE teams SET kind = 'NATIONAL' WHERE id IN (" +
+                    "SELECT awayTeamId FROM matches m INNER JOIN competitions c ON c.id = m.competitionId " +
+                    "WHERE c.competitionClass LIKE 'INTERNATIONAL%' OR c.competitionClass = 'WOMEN_INTERNATIONAL')",
+            )
+        }
+    }
 }
