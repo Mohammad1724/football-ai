@@ -28,6 +28,11 @@ import androidx.room.withTransaction
 import com.footballai.app.data.remote.CsvFixtureIdentity
 import com.footballai.app.data.remote.FootballDataCoUkProvider
 import com.footballai.engine.model.TeamKind
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.time.Instant
 import java.time.ZoneOffset
 
@@ -205,36 +210,60 @@ class SyncRepository(
         }
 
         var summary = SyncSummary(requestsEstimated = keys.size)
-        val errors = mutableListOf<String>()
+        val errors = java.util.Collections.synchronizedList(mutableListOf<String>())
         var lastErrorCode: ErrorCode? = null
         var repeatedFailures = 0
+        val summaryLock = Mutex()
+        val finished = java.util.concurrent.atomic.AtomicInteger(0)
+        val nextKey = java.util.concurrent.atomic.AtomicInteger(-1)
+        val stop = java.util.concurrent.atomic.AtomicBoolean(false)
         onProgress(0, keys.size)
-        for ((index, key) in keys.withIndex()) {
-            when (val result = provider.matches(key, null, fromEpochMs, toEpochMs)) {
-                is Outcome.Failure -> {
-                    errors.add("${provider.info.displayName}/$key: ${result.error.syncDescription()}")
-                    repeatedFailures = if (result.error.code == lastErrorCode) repeatedFailures + 1 else 1
-                    lastErrorCode = result.error.code
-                }
-                is Outcome.Success -> {
-                    repeatedFailures = 0
-                    lastErrorCode = null
-                    val written = persistMatches(provider.info.id, key, result.value, now)
-                    summary = summary + SyncSummary(fixtures = written)
+
+        // Competitions are independent documents, so a few are fetched at a time instead
+        // of strictly one after another. The quota guard still enforces the provider's
+        // average rate; this removes the idle gap between requests, which is what made a
+        // refresh feel like it had stalled.
+        coroutineScope {
+            repeat(minOf(keys.size, PARALLEL_SYNCS)) {
+                launch(Dispatchers.IO) {
+                    while (!stop.get()) {
+                        val index = nextKey.incrementAndGet()
+                        if (index >= keys.size) break
+                        val key = keys[index]
+                        when (val result = provider.matches(key, null, fromEpochMs, toEpochMs)) {
+                            is Outcome.Failure -> {
+                                errors.add("${provider.info.displayName}/$key: ${result.error.syncDescription()}")
+                                summaryLock.withLock {
+                                    repeatedFailures =
+                                        if (result.error.code == lastErrorCode) repeatedFailures + 1 else 1
+                                    lastErrorCode = result.error.code
+                                    // A plan restriction fails identically for every
+                                    // competition, so stop instead of spending minutes and
+                                    // quota on a provider that cannot serve this request.
+                                    if (result.error.code in FATAL_CODES ||
+                                        repeatedFailures >= MAX_REPEATED_FAILURES
+                                    ) {
+                                        stop.set(true)
+                                    }
+                                }
+                            }
+                            is Outcome.Success -> {
+                                summaryLock.withLock {
+                                    repeatedFailures = 0
+                                    lastErrorCode = null
+                                }
+                                // Written as it arrives, so the list fills while the
+                                // sync is still running.
+                                val written = persistMatches(provider.info.id, key, result.value, now)
+                                summaryLock.withLock { summary = summary + SyncSummary(fixtures = written) }
+                            }
+                        }
+                        onProgress(finished.incrementAndGet(), keys.size)
+                    }
                 }
             }
-            // Free providers space requests out, so a full run can take a while; the
-            // caller wants to show which competition it is on.
-            onProgress(index + 1, keys.size)
-            // A plan restriction fails for every competition in exactly the same way, so
-            // stop instead of spending minutes (and quota) on a provider that cannot serve
-            // this request at all.
-            if (lastErrorCode in setOf(ErrorCode.INVALID_API_KEY, ErrorCode.MISSING_API_KEY,
-                    ErrorCode.QUOTA_EXHAUSTED, ErrorCode.RATE_LIMITED, ErrorCode.ACCESS_DENIED,
-                    ErrorCode.SUBSCRIPTION_INACTIVE, ErrorCode.PLAN_RESTRICTED) ||
-                repeatedFailures >= MAX_REPEATED_FAILURES) break
         }
-        return summary.copy(errors = errors)
+        return summary.copy(errors = errors.toList())
     }
 
     suspend fun syncLive(providerId: String): Outcome<SyncSummary> {
@@ -756,5 +785,22 @@ class SyncRepository(
 
         /** Abort a provider pass after this many identical consecutive failures. */
         private const val MAX_REPEATED_FAILURES = 3
+
+        /**
+         * How many competitions are fetched at once. Six keeps the request rate human on
+         * a public endpoint while removing the idle time between documents.
+         */
+        private const val PARALLEL_SYNCS = 6
+
+        /** Errors that mean "this provider cannot serve this request at all". */
+        private val FATAL_CODES = setOf(
+            ErrorCode.INVALID_API_KEY,
+            ErrorCode.MISSING_API_KEY,
+            ErrorCode.QUOTA_EXHAUSTED,
+            ErrorCode.RATE_LIMITED,
+            ErrorCode.ACCESS_DENIED,
+            ErrorCode.SUBSCRIPTION_INACTIVE,
+            ErrorCode.PLAN_RESTRICTED,
+        )
     }
 }

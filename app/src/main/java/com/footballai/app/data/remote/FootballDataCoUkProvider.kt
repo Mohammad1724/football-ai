@@ -56,7 +56,7 @@ class FootballDataCoUkProvider(
             standings = false,
             historicalSeasons = 25,
         ),
-        quota = QuotaPolicy(requestsPerMinute = 30, requestsPerDay = 0),
+        quota = QuotaPolicy(requestsPerMinute = 90, requestsPerDay = 0),
         attribution = "Current fixtures/results: open-matchday (github.com/oladeeayo/open-matchday). Historical results and odds: football-data.co.uk. Transport mirrors: TuncErdoganlar/futbol-veri-aynasi and huhao930422-debug/football-odds-mirror. Personal, non-commercial use; upstream terms apply.",
     )
 

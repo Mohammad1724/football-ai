@@ -21,6 +21,9 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 
@@ -117,9 +120,10 @@ class EspnOpenProvider(
             historicalSeasons = 0,
         ),
         // Self-imposed, not published by the provider: one request covers one day of one
-        // competition, so a full 19-competition, three-day sync is 57 requests. The
-        // spacing keeps the app a light client while still finishing in about a minute.
-        quota = QuotaPolicy(requestsPerMinute = 40, requestsPerDay = 1200),
+        // competition, so a full 19-competition, four-day sync is 76 requests. The rate is
+        // an average over a minute — the guard allows a small burst and then paces the
+        // rest — which keeps the app a light client without making a refresh wait.
+        quota = QuotaPolicy(requestsPerMinute = 150, requestsPerDay = 3000),
         attribution = "Fixture data provided by ESPN (unofficial public endpoint)",
     )
 
@@ -152,13 +156,19 @@ class EspnOpenProvider(
                 AppError(ErrorCode.NOT_FOUND, detail = "Unknown ESPN competition $competitionKey"),
             )
         val dates = windowDates(fromEpochMs, toEpochMs)
+        // The endpoint has no date-range form, so the days are separate documents; they
+        // are fetched together rather than one after another. The quota guard still
+        // paces them.
+        val results = coroutineScope {
+            dates.map { date -> async { fetchDay(competition, date) } }.awaitAll()
+        }
         val matches = ArrayList<RemoteMatch>()
         // One bad day must not erase the other days: a rate limit or a transient error
         // on Tuesday cannot hide the fixtures of Wednesday. A source error is only
         // reported when nothing at all could be read.
         var firstFailure: Outcome.Failure? = null
-        for (date in dates) {
-            when (val result = fetchDay(competition, date)) {
+        for (result in results) {
+            when (result) {
                 is Outcome.Failure -> if (firstFailure == null) firstFailure = result
                 is Outcome.Success -> matches.addAll(result.value)
             }
