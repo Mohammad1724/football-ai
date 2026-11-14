@@ -102,6 +102,9 @@ data class MatchesUiState(
     val lastSyncEpochMs: Long? = null,
     /** Live wall clock, so "3 minutes ago" keeps being true without a new sync. */
     val nowEpochMs: Long = System.currentTimeMillis(),
+    /** Competitions finished and total, while a sync runs. */
+    val syncDone: Int = 0,
+    val syncTotal: Int = 0,
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -190,6 +193,10 @@ class MatchesViewModel(private val container: AppContainer) : ViewModel() {
                         autoSyncing = sync.isSyncing && !it.isSyncing,
                         lastSyncEpochMs = sync.lastSuccessEpochMs ?: it.lastSyncEpochMs,
                         nowEpochMs = container.clock.nowEpochMs(),
+                        // Progress is only meaningful while a sync runs; a stale "7 of 40"
+                        // left on screen after it finished would be a lie.
+                        syncDone = if (sync.isSyncing) sync.progressDone else it.syncDone,
+                        syncTotal = if (sync.isSyncing) sync.progressTotal else it.syncTotal,
                     )
                 }
             }

@@ -168,8 +168,8 @@ fun MatchesScreen(onMatchClick: (String) -> Unit) {
             SyncStatusStrip(
                 isSyncing = state.isSyncing || state.autoSyncing,
                 isAuto = state.autoSyncing,
-                progressDone = 0,
-                progressTotal = 0,
+                progressDone = state.syncDone,
+                progressTotal = state.syncTotal,
                 lastSyncEpochMs = state.lastSyncEpochMs,
                 nowEpochMs = state.nowEpochMs,
                 added = state.justSynced,
