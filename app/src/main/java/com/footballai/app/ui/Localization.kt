@@ -204,3 +204,60 @@ fun relativeLabel(label: RelativeLabel, isPast: Boolean): String = when (label.u
         label.value,
     )
 }
+
+/** Evidence level of a forecast (never a probability). */
+@Composable
+fun confidenceLevelLabel(level: String): String = text(
+    when (level.uppercase()) {
+        "HIGH" -> R.string.confidence_high
+        "MEDIUM" -> R.string.confidence_medium
+        "LOW" -> R.string.confidence_low
+        else -> R.string.confidence_insufficient
+    },
+)
+
+/** Localised label for an engine [EvidenceGap] code. Unknown codes stay visible verbatim. */
+@Composable
+fun evidenceGapLabel(code: String): String = text(
+    when (code) {
+        "INVALID_PROBABILITIES" -> R.string.gap_invalid_probabilities
+        "NO_COMPETITION_HISTORY" -> R.string.gap_no_competition_history
+        "SMALL_COMPETITION_SAMPLE" -> R.string.gap_small_competition_sample
+        "SMALL_TEAM_SAMPLE" -> R.string.gap_small_team_sample
+        "NOT_CALIBRATED" -> R.string.gap_not_calibrated
+        "CALIBRATION_ERROR_HIGH" -> R.string.gap_calibration_error_high
+        "SMALL_CALIBRATION_SAMPLE" -> R.string.gap_small_calibration_sample
+        "STALE_DATA" -> R.string.gap_stale_data
+        "UNKNOWN_FRESHNESS" -> R.string.gap_unknown_freshness
+        "PARTIAL_DATA" -> R.string.gap_partial_data
+        "EXTREME_UNCERTAINTY" -> R.string.gap_extreme_uncertainty
+        "UNSUPPORTED_COMPETITION" -> R.string.gap_unsupported_competition
+        else -> R.string.confidence_insufficient
+    },
+)
+
+/** How a competition's type/gender was decided: catalogue, provider default, name rule or nothing. */
+@Composable
+fun classificationSourceLabel(source: String): String = text(
+    when (source.uppercase()) {
+        "CATALOG" -> R.string.source_catalog
+        "PROVIDER_DEFAULT" -> R.string.source_provider_default
+        "NAME_RULE" -> R.string.source_name_rule
+        else -> R.string.source_unknown
+    },
+)
+
+/** Localised name of an engine CompetitionType. */
+@Composable
+fun competitionClassLabel(code: String): String = text(
+    when (code.uppercase()) {
+        "CLUB_LEAGUE" -> R.string.class_club_league
+        "CLUB_KNOCKOUT" -> R.string.class_club_knockout
+        "INTERNATIONAL_TOURNAMENT" -> R.string.class_international_tournament
+        "INTERNATIONAL_QUALIFIER" -> R.string.class_international_qualifier
+        "INTERNATIONAL_FRIENDLY" -> R.string.class_international_friendly
+        "WOMEN_CLUB_LEAGUE" -> R.string.class_women_club_league
+        "WOMEN_INTERNATIONAL" -> R.string.class_women_international
+        else -> R.string.source_unknown
+    },
+)

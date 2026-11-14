@@ -3,6 +3,7 @@ package com.footballai.app.ui.components
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -42,10 +43,14 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.footballai.app.core.Formatters
 import com.footballai.app.domain.model.CalibrationPoint
+import com.footballai.app.domain.catalog.NameLocalization
+import com.footballai.app.domain.model.MatchStatus
 import com.footballai.app.domain.model.MatchSummary
 import com.footballai.app.domain.model.QualityLevel
 import com.footballai.app.domain.model.ScoreLine
+import com.footballai.app.domain.model.TeamRef
 import com.footballai.app.ui.LocalLanguageTag
+import com.footballai.app.ui.confidenceLevelLabel
 import com.footballai.app.ui.matchStatusLabel
 import com.footballai.app.ui.qualityLevelLabel
 import com.footballai.app.ui.theme.FootballAiThemeExtra
@@ -175,9 +180,46 @@ fun MatchCard(
                 )
             }
             Spacer(Modifier.height(8.dp))
-            TeamRow(match.home.name, match.homeGoals, match.kickoffEpochMs, match.status.hasScore, languageTag)
+            TeamRow(match.home, match.homeGoals, match.kickoffEpochMs, match.status.hasScore, languageTag)
             Spacer(Modifier.height(4.dp))
-            TeamRow(match.away.name, match.awayGoals, match.kickoffEpochMs, match.status.hasScore, languageTag)
+            TeamRow(match.away, match.awayGoals, match.kickoffEpochMs, match.status.hasScore, languageTag)
+            match.prediction?.let { prediction ->
+                Spacer(Modifier.height(10.dp))
+                ProbabilityBar(
+                    homeWin = prediction.homeWin,
+                    draw = prediction.draw,
+                    awayWin = prediction.awayWin,
+                    languageTag = languageTag,
+                    showLegend = false,
+                )
+                Spacer(Modifier.height(6.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = Formatters.percent(prediction.homeWin, languageTag),
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = colors.homeSeries,
+                    )
+                    Text(
+                        text = Formatters.percent(prediction.draw, languageTag),
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = colors.drawSeries,
+                    )
+                    Text(
+                        text = Formatters.percent(prediction.awayWin, languageTag),
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = colors.awaySeries,
+                    )
+                    Spacer(Modifier.weight(1f))
+                    ConfidenceChip(level = prediction.confidenceLevel)
+                }
+            }
             Spacer(Modifier.height(8.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -190,16 +232,29 @@ fun MatchCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    if (match.hasOdds) {
+                    when {
+                        match.prediction != null -> QualityDot(match.prediction.qualityLevel)
+                        match.status == MatchStatus.SCHEDULED -> StatusChip(
+                            text = androidx.compose.ui.res.stringResource(R.string.badge_no_analysis),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    if (match.isNational) {
                         StatusChip(
-                            text = androidx.compose.ui.res.stringResource(R.string.badge_odds),
+                            text = androidx.compose.ui.res.stringResource(R.string.badge_national),
+                            color = MaterialTheme.colorScheme.secondary,
+                        )
+                    }
+                    if (match.isWomen) {
+                        StatusChip(
+                            text = androidx.compose.ui.res.stringResource(R.string.badge_women),
                             color = MaterialTheme.colorScheme.tertiary,
                         )
                     }
-                    if (match.hasStatistics || match.hasLineups) {
+                    if (match.isNeutralVenue) {
                         StatusChip(
-                            text = androidx.compose.ui.res.stringResource(R.string.badge_data_rich),
-                            color = MaterialTheme.colorScheme.primary,
+                            text = androidx.compose.ui.res.stringResource(R.string.badge_neutral),
+                            color = MaterialTheme.colorScheme.secondary,
                         )
                     }
                 }
@@ -208,24 +263,51 @@ fun MatchCard(
     }
 }
 
+/**
+ * Team identity badge.
+ *
+ * A national team is shown with its flag when the name is a known nation, a club with
+ * its monogram. Provider crest URLs are stored but not rendered because the project
+ * deliberately ships no image-loading dependency yet; a wrong or missing crest is worse
+ * than an honest monogram.
+ */
+@Composable
+fun TeamBadge(team: TeamRef, size: Int = 26) {
+    val flag = if (team.isNational) NameLocalization.flagEmoji(team.name, team.shortName) else null
+    if (flag != null) {
+        Box(
+            modifier = Modifier
+                .size(size.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.surfaceVariant),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(text = flag, style = MaterialTheme.typography.bodyMedium)
+        }
+    } else {
+        TeamMonogram(team.name, size = size)
+    }
+}
+
 @Composable
 private fun TeamRow(
-    name: String,
+    team: TeamRef,
     goals: Int?,
     kickoffEpochMs: Long,
     showScore: Boolean,
     languageTag: String,
 ) {
+    val displayName = NameLocalization.displayName(team.name, languageTag, team.shortName)
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-            TeamMonogram(name, size = 26)
+            TeamBadge(team, size = 26)
             Spacer(Modifier.width(10.dp))
             Text(
-                text = name,
+                text = displayName,
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
@@ -672,4 +754,70 @@ fun StatComparisonRow(
             )
         }
     }
+}
+
+/** Tappable row that opens another screen (settings-style navigation). */
+@Composable
+fun NavigationRow(title: String, subtitle: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = title, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Text(text = "›", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+/** Small coloured dot that communicates analysis quality without numbers. */
+@Composable
+fun QualityDot(level: QualityLevel, modifier: Modifier = Modifier) {
+    val colors = FootballAiThemeExtra.colors
+    val color = when (level) {
+        QualityLevel.HIGH -> colors.positive
+        QualityLevel.MEDIUM -> MaterialTheme.colorScheme.primary
+        QualityLevel.LOW -> colors.warning
+        QualityLevel.INSUFFICIENT -> colors.danger
+    }
+    Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            modifier = Modifier
+                .size(8.dp)
+                .clip(CircleShape)
+                .background(color),
+        )
+        Spacer(Modifier.width(6.dp))
+        Text(
+            text = qualityLevelLabel(level),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/**
+ * Evidence level, not a probability. Kept visually distinct (outlined chip) so it is
+ * never read as a confidence percentage of the forecast.
+ */
+@Composable
+fun ConfidenceChip(level: String?, modifier: Modifier = Modifier) {
+    if (level.isNullOrBlank()) return
+    val colors = FootballAiThemeExtra.colors
+    val color = when (level) {
+        "HIGH" -> colors.positive
+        "MEDIUM" -> MaterialTheme.colorScheme.primary
+        "LOW" -> colors.warning
+        else -> colors.danger
+    }
+    StatusChip(text = confidenceLevelLabel(level), color = color)
 }

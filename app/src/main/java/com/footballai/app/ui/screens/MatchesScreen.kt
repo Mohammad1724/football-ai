@@ -139,6 +139,7 @@ fun MatchesScreen(onMatchClick: (String) -> Unit) {
                 onDaySelected = viewModel::selectDay,
             )
             MatchFilters(state = state, viewModel = viewModel)
+            MatchScopeFilters(state = state, viewModel = viewModel)
 
             state.lastError?.let { error ->
                 Text(
@@ -499,6 +500,65 @@ private fun MatchFilters(state: MatchesUiState, viewModel: MatchesViewModel) {
             onClick = viewModel::toggleLiveOnly,
             label = { Text(stringResource(R.string.filter_live_results)) },
         )
+    }
+}
+
+/**
+ * Second filter row: scope (clubs / national teams) and gender.
+ *
+ * Both are first-class because the catalogue covers club football, national teams and
+ * women's competitions, and a user must be able to see which of those a list contains.
+ */
+@Composable
+private fun MatchScopeFilters(state: MatchesUiState, viewModel: MatchesViewModel) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp, vertical = 2.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        MatchKindFilter.entries.forEach { kind ->
+            FilterChip(
+                selected = state.kind == kind,
+                onClick = { viewModel.setKindFilter(kind) },
+                label = {
+                    Text(
+                        stringResource(
+                            when (kind) {
+                                MatchKindFilter.ALL -> R.string.filter_all
+                                MatchKindFilter.CLUBS -> R.string.filter_clubs
+                                MatchKindFilter.NATIONAL -> R.string.filter_national
+                            },
+                        ),
+                    )
+                },
+            )
+        }
+        Box(
+            modifier = Modifier
+                .width(1.dp)
+                .height(20.dp)
+                .background(MaterialTheme.colorScheme.outlineVariant),
+        )
+        MatchGenderFilter.entries.forEach { gender ->
+            FilterChip(
+                selected = state.gender == gender,
+                onClick = { viewModel.setGenderFilter(gender) },
+                label = {
+                    Text(
+                        stringResource(
+                            when (gender) {
+                                MatchGenderFilter.ALL -> R.string.filter_all
+                                MatchGenderFilter.MEN -> R.string.filter_men
+                                MatchGenderFilter.WOMEN -> R.string.filter_women
+                            },
+                        ),
+                    )
+                },
+            )
+        }
     }
 }
 

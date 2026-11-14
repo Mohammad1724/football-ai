@@ -69,6 +69,7 @@ import com.footballai.app.domain.model.PredictionView
 import com.footballai.app.domain.model.StatisticType
 import com.footballai.app.ui.LocalAppContainer
 import com.footballai.app.ui.LocalLanguageTag
+import com.footballai.app.ui.components.ConfidenceChip
 import com.footballai.app.ui.components.EmptyState
 import com.footballai.app.ui.components.ErrorState
 import com.footballai.app.ui.components.InfoCard
@@ -82,6 +83,7 @@ import com.footballai.app.ui.components.StatComparisonRow
 import com.footballai.app.ui.components.StatusChip
 import com.footballai.app.ui.components.TeamMonogram
 import com.footballai.app.ui.errorLabel
+import com.footballai.app.ui.evidenceGapLabel
 import com.footballai.app.ui.explanationLabel
 import com.footballai.app.ui.marketSelectionLabel
 import com.footballai.app.ui.missingDataLabel
@@ -488,6 +490,10 @@ private fun AnalysisTab(
             }
         }
 
+        item {
+            EvidenceSection(prediction = prediction, languageTag = languageTag)
+        }
+
         if (prediction.topScores.isNotEmpty()) {
             item {
                 SectionHeader(title = stringResource(R.string.section_likely_scores))
@@ -722,6 +728,113 @@ private fun PredictionVerdictCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+    }
+}
+
+/**
+ * Evidence, not a second probability.
+ *
+ * Shows the recorded confidence level, the calibration that was actually applied and
+ * every machine-readable gap, so "no data" is visible instead of silently becoming a
+ * confident-looking number. Nothing here is recomputed on the UI side.
+ */
+@Composable
+private fun EvidenceSection(prediction: PredictionView, languageTag: String) {
+    val confidence = prediction.confidence
+    val calibration = prediction.calibration
+    Spacer(Modifier.height(12.dp))
+    SectionHeader(title = stringResource(R.string.evidence_title))
+    Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            ConfidenceChip(level = confidence?.level)
+            if (confidence != null && !confidence.uncertainty.isNaN()) {
+                Text(
+                    text = stringResource(
+                        R.string.evidence_uncertainty,
+                        Formatters.decimal(confidence.uncertainty, languageTag, 2),
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+        Text(
+            text = stringResource(R.string.confidence_disclaimer),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (confidence != null) {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = stringResource(R.string.evidence_sample, confidence.effectiveSample),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                text = confidence.freshnessMinutes?.let {
+                    stringResource(R.string.evidence_freshness, it)
+                } ?: stringResource(R.string.evidence_freshness_unknown),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (confidence.gaps.isNotEmpty()) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = stringResource(R.string.evidence_gaps),
+                    style = MaterialTheme.typography.labelMedium,
+                )
+                Spacer(Modifier.height(4.dp))
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    confidence.gaps.take(8).forEach { gap ->
+                        StatusChip(text = evidenceGapLabel(gap), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+        }
+        Spacer(Modifier.height(10.dp))
+        Text(
+            text = stringResource(R.string.calibration_title),
+            style = MaterialTheme.typography.labelMedium,
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = if (calibration == null || calibration.method == "NONE") {
+                stringResource(R.string.calibration_none)
+            } else {
+                stringResource(R.string.calibration_fitted, calibration.sampleCount)
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (calibration != null && calibration.method != "NONE") {
+            Text(
+                text = stringResource(R.string.calibration_method, calibration.method),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (!calibration.logLossBefore.isNaN() && !calibration.logLossAfter.isNaN()) {
+                Text(
+                    text = stringResource(
+                        R.string.calibration_holdout,
+                        Formatters.decimal(calibration.logLossBefore, languageTag, 3),
+                        Formatters.decimal(calibration.logLossAfter, languageTag, 3),
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        Text(
+            text = stringResource(R.string.calibration_ninety_note),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 

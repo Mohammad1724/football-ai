@@ -36,6 +36,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.footballai.app.data.repository.CalibrationStudyResult
+import com.footballai.app.ui.competitionClassLabel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.footballai.app.R
@@ -52,6 +54,7 @@ import com.footballai.app.ui.components.LoadingState
 import com.footballai.app.ui.components.SectionHeader
 import com.footballai.app.ui.errorLabel
 import com.footballai.app.ui.theme.FootballAiThemeExtra
+import com.footballai.app.ui.viewmodel.CALIBRATION_CLASSES
 import com.footballai.app.ui.viewmodel.PerformanceViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -100,6 +103,23 @@ fun PerformanceScreen() {
                         logLoss = state.storedStats.logLoss,
                         accuracy = state.storedStats.accuracy,
                         languageTag = languageTag,
+                    )
+                }
+
+                item {
+                    SectionHeader(
+                        title = stringResource(R.string.calibration_study_title),
+                        subtitle = stringResource(R.string.calibration_study_hint),
+                    )
+                }
+                item {
+                    CalibrationStudyCard(
+                        studyClass = state.studyClass,
+                        study = state.study,
+                        fittedSamples = state.fittedSamples,
+                        loading = state.studyLoading,
+                        languageTag = languageTag,
+                        onSelectClass = viewModel::selectStudyClass,
                     )
                 }
 
@@ -198,6 +218,92 @@ fun PerformanceScreen() {
                     )
                 }
                 item { Spacer(Modifier.height(24.dp)) }
+            }
+        }
+    }
+}
+
+/**
+ * Shows the measured, out-of-sample effect of calibration for one competition class,
+ * plus the sample count actually used by the on-device fitter. A class with too few
+ * resolved forecasts says so instead of showing a number.
+ */
+@Composable
+private fun CalibrationStudyCard(
+    studyClass: String,
+    study: CalibrationStudyResult?,
+    fittedSamples: Int,
+    loading: Boolean,
+    languageTag: String,
+    onSelectClass: (String) -> Unit,
+) {
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            CALIBRATION_CLASSES.forEach { option ->
+                FilterChip(
+                    selected = option == studyClass,
+                    onClick = { onSelectClass(option) },
+                    label = { Text(competitionClassLabel(option)) },
+                )
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        ) {
+            Column(modifier = Modifier.padding(14.dp)) {
+                when {
+                    loading -> Text(
+                        text = "…",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    study == null || study.sampleCount == 0 || study.note == "NOT_ENOUGH_SAMPLES" -> Text(
+                        text = stringResource(R.string.calibration_study_empty),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    else -> {
+                        Text(
+                            text = stringResource(R.string.calibration_fitted, study.sampleCount),
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = stringResource(R.string.calibration_gain, Formatters.decimal(study.logLossGain, languageTag, 4)),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = stringResource(
+                                R.string.calibration_holdout,
+                                Formatters.decimal(study.rawLogLoss, languageTag, 4),
+                                Formatters.decimal(study.calibratedLogLoss, languageTag, 4),
+                            ),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        if (!study.adopted) {
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                text = stringResource(R.string.calibration_not_adopted),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = stringResource(R.string.calibration_local_samples, fittedSamples),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
     }

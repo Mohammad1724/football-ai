@@ -11,12 +11,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
@@ -50,12 +48,13 @@ import com.footballai.app.data.settings.ThemeMode
 import com.footballai.app.ui.LocalAppContainer
 import com.footballai.app.ui.LocalLanguageTag
 import com.footballai.app.ui.components.InfoCard
+import com.footballai.app.ui.components.NavigationRow
 import com.footballai.app.ui.components.SectionHeader
 import com.footballai.app.ui.viewmodel.SettingsViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(onBack: () -> Unit) {
+fun SettingsScreen(onOpenDataSources: () -> Unit) {
     val container = LocalAppContainer.current
     val viewModel: SettingsViewModel = viewModel(
         factory = viewModelFactory { initializer { SettingsViewModel(container) } },
@@ -67,11 +66,6 @@ fun SettingsScreen(onBack: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
-                    }
-                },
                 title = { Text(stringResource(R.string.title_settings)) },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
             )
@@ -83,6 +77,15 @@ fun SettingsScreen(onBack: () -> Unit) {
                     subtitle = stringResource(R.string.daily_mode_hint),
                     checked = state.settings.dailyAnalysisEnabled, onCheckedChange = viewModel::setDailyAnalysis)
             }
+            item { SectionHeader(title = stringResource(R.string.section_sources)) }
+            item {
+                NavigationRow(
+                    title = stringResource(R.string.title_data_sources),
+                    subtitle = stringResource(R.string.data_sources_hint),
+                    onClick = onOpenDataSources,
+                )
+            }
+
             item { SectionHeader(title = stringResource(R.string.section_language)) }
             item {
                 com.footballai.app.ui.components.LanguageSelector(

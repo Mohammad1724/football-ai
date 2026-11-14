@@ -154,7 +154,21 @@ data class PerformanceUiState(
     val report: com.footballai.app.domain.model.PerformanceReport? = null,
     val storedStats: com.footballai.app.data.repository.StoredPredictionStats =
         com.footballai.app.data.repository.StoredPredictionStats.EMPTY,
+    /** Out-of-sample calibration study for the class selected below. */
+    val studyClass: String = "CLUB_LEAGUE",
+    val study: com.footballai.app.data.repository.CalibrationStudyResult? = null,
+    val studyLoading: Boolean = false,
+    val fittedSamples: Int = 0,
     val lastError: AppError? = null,
+)
+
+/** Competition classes with a separately fitted and separately measured calibration. */
+val CALIBRATION_CLASSES = listOf(
+    "CLUB_LEAGUE",
+    "CLUB_KNOCKOUT",
+    "INTERNATIONAL_TOURNAMENT",
+    "WOMEN_CLUB_LEAGUE",
+    "WOMEN_INTERNATIONAL",
 )
 
 class PerformanceViewModel(private val container: AppContainer) : ViewModel() {
@@ -181,6 +195,7 @@ class PerformanceViewModel(private val container: AppContainer) : ViewModel() {
                     storedStats = storedStats,
                 )
             }
+            loadStudy(_state.value.studyClass)
             if (selected != null && _state.value.report == null) {
                 runBacktest(selected)
             }
@@ -200,6 +215,21 @@ class PerformanceViewModel(private val container: AppContainer) : ViewModel() {
                 is Outcome.Failure -> _state.update { it.copy(isRunning = false, lastError = result.error) }
                 is Outcome.Success -> _state.update { it.copy(isRunning = false, report = result.value) }
             }
+        }
+    }
+
+    fun selectStudyClass(competitionClass: String) {
+        _state.update { it.copy(studyClass = competitionClass) }
+        loadStudy(competitionClass)
+    }
+
+    /** Refreshes the calibration study and the sample count actually used on this device. */
+    fun loadStudy(competitionClass: String = _state.value.studyClass) {
+        viewModelScope.launch {
+            _state.update { it.copy(studyLoading = true) }
+            val study = container.performanceRepository.calibrationStudy(competitionClass)
+            val fitted = container.performanceRepository.calibrationSampleCount(competitionClass)
+            _state.update { it.copy(studyLoading = false, study = study, fittedSamples = fitted) }
         }
     }
 

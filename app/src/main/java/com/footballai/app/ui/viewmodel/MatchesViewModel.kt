@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.footballai.app.core.AppError
 import com.footballai.app.core.ErrorCode
 import com.footballai.app.core.Outcome
+import com.footballai.app.domain.catalog.NameLocalization
 import com.footballai.app.di.AppContainer
 import com.footballai.app.domain.model.Competition
 import com.footballai.app.domain.model.MatchSummary
@@ -29,7 +30,14 @@ private data class MatchSelection(
     val competitionId: String? = null,
     val followedOnly: Boolean = false,
     val liveOnly: Boolean = false,
+    val kind: MatchKindFilter = MatchKindFilter.ALL,
+    val gender: MatchGenderFilter = MatchGenderFilter.ALL,
 )
+
+/** Club or national-team fixtures. National teams are a first-class scope, not a corner case. */
+enum class MatchKindFilter { ALL, CLUBS, NATIONAL }
+
+enum class MatchGenderFilter { ALL, MEN, WOMEN }
 
 enum class MatchSearchFilter { ALL, COMPETITIONS, TEAMS, MATCHES }
 
@@ -49,6 +57,8 @@ data class MatchesUiState(
     val competitionId: String? = null,
     val followedOnly: Boolean = false,
     val liveOnly: Boolean = false,
+    val kind: MatchKindFilter = MatchKindFilter.ALL,
+    val gender: MatchGenderFilter = MatchGenderFilter.ALL,
     val searchOpen: Boolean = false,
     val searchQuery: String = "",
     val searchFilter: MatchSearchFilter = MatchSearchFilter.ALL,
@@ -91,7 +101,17 @@ class MatchesViewModel(private val container: AppContainer) : ViewModel() {
                             (!dailyAnalysis || match.id.startsWith("football-data-co-uk:")) &&
                                 (selected.competitionId == null || match.competitionId == selected.competitionId) &&
                                 (!selected.followedOnly || match.competitionId in followedIds) &&
-                                (!selected.liveOnly || match.status.isLive)
+                                (!selected.liveOnly || match.status.isLive) &&
+                                when (selected.kind) {
+                                    MatchKindFilter.ALL -> true
+                                    MatchKindFilter.CLUBS -> !match.isNational
+                                    MatchKindFilter.NATIONAL -> match.isNational
+                                } &&
+                                when (selected.gender) {
+                                    MatchGenderFilter.ALL -> true
+                                    MatchGenderFilter.MEN -> !match.isWomen
+                                    MatchGenderFilter.WOMEN -> match.isWomen
+                                }
                         }.sortedBy { it.kickoffEpochMs }
                         visible to availableCompetitions
                     }
@@ -106,6 +126,8 @@ class MatchesViewModel(private val container: AppContainer) : ViewModel() {
                             competitionId = selected.competitionId,
                             followedOnly = selected.followedOnly,
                             liveOnly = selected.liveOnly,
+                            kind = selected.kind,
+                            gender = selected.gender,
                         )
                     }
                     if (selected.competitionId != null && competitions.none { it.id == selected.competitionId }) {
@@ -160,6 +182,14 @@ class MatchesViewModel(private val container: AppContainer) : ViewModel() {
 
     fun toggleLiveOnly() {
         selection.update { it.copy(liveOnly = !it.liveOnly) }
+    }
+
+    fun setKindFilter(kind: MatchKindFilter) {
+        selection.update { it.copy(kind = kind) }
+    }
+
+    fun setGenderFilter(gender: MatchGenderFilter) {
+        selection.update { it.copy(gender = gender) }
     }
 
     fun refresh() {
@@ -240,13 +270,18 @@ class MatchesViewModel(private val container: AppContainer) : ViewModel() {
             }.take(20)
             val teams = matches.flatMap { listOf(it.home, it.away) }
                 .distinctBy { it.id }
-                .filter { it.name.lowercase(Locale.ROOT).contains(query) }
+                .filter { team ->
+                    team.name.lowercase(Locale.ROOT).contains(query) ||
+                        NameLocalization.matches(rawQuery, team.name, team.shortName)
+                }
                 .sortedBy { it.name }
                 .take(20)
             val matchingMatches = matches.filter { match ->
                 match.home.name.lowercase(Locale.ROOT).contains(query) ||
                     match.away.name.lowercase(Locale.ROOT).contains(query) ||
-                    match.competitionName.lowercase(Locale.ROOT).contains(query)
+                    match.competitionName.lowercase(Locale.ROOT).contains(query) ||
+                    NameLocalization.matches(rawQuery, match.home.name, match.home.shortName) ||
+                    NameLocalization.matches(rawQuery, match.away.name, match.away.shortName)
             }.take(50)
             return MatchSearchResults(competitions, teams, matchingMatches)
         }

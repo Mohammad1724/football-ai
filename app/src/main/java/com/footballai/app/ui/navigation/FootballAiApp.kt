@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.QueryStats
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SportsSoccer
 import androidx.compose.material.icons.filled.StackedLineChart
 import androidx.compose.material3.Icon
@@ -67,6 +68,7 @@ private val bottomDestinations = listOf(
     BottomDestination(Routes.MATCHES, R.string.nav_matches, Icons.Default.SportsSoccer),
     BottomDestination(Routes.PREDICTIONS, R.string.nav_predictions, Icons.Default.QueryStats),
     BottomDestination(Routes.PERFORMANCE, R.string.nav_performance, Icons.Default.StackedLineChart),
+    BottomDestination(Routes.SETTINGS, R.string.nav_settings, Icons.Default.Settings),
 )
 
 @Composable
@@ -142,7 +144,7 @@ private fun MainNavigation() {
                 DataSourcesScreen(onBack = { navController.popBackStack() })
             }
             composable(Routes.SETTINGS) {
-                SettingsScreen(onBack = { navController.popBackStack() })
+                SettingsScreen(onOpenDataSources = { navController.navigate(Routes.DATA_SOURCES) })
             }
             composable(
                 route = Routes.MATCH_DETAIL,
