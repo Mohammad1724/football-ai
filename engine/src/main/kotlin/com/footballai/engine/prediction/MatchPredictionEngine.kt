@@ -1,6 +1,11 @@
 package com.footballai.engine.prediction
 
+import com.footballai.engine.calibration.CalibrationModel
+import com.footballai.engine.calibration.Calibrator
+import com.footballai.engine.confidence.ConfidenceAssessor
+import com.footballai.engine.confidence.ConfidenceInput
 import com.footballai.engine.markets.MarketCalculator
+import com.footballai.engine.model.CalibrationInfo
 import com.footballai.engine.model.Explanation
 import com.footballai.engine.model.ExplanationCode
 import com.footballai.engine.model.LiveContext
@@ -45,13 +50,17 @@ data class EngineConfig(
 class MatchPredictionEngine(private val config: EngineConfig = EngineConfig()) {
 
     fun expectedGoals(input: PreMatchInput): Pair<Double, Double> {
-        val baseline = input.baseline
+        // The competition profile only removes evidence that does not apply (a neutral
+        // venue has no home advantage); it never invents an effect.
+        val profile = input.competition
+        val baseline = profile.adjustBaseline(input.baseline)
         var lambdaHome = baseline.averageHomeGoals * input.home.attack * input.away.defence
         var lambdaAway = baseline.averageAwayGoals * input.away.attack * input.home.defence
 
         // Elo tilt: symmetric so that the total number of expected goals is preserved.
         val eloDiff = input.home.elo - input.away.elo
-        val tilt = (eloDiff / 400.0 * input.eloBlendWeight).coerceIn(-0.25, 0.25)
+        val blend = input.eloBlendWeight * profile.eloBlendScale
+        val tilt = (eloDiff / 400.0 * blend).coerceIn(-0.25, 0.25)
         if (tilt != 0.0) {
             lambdaHome *= (1.0 + tilt)
             lambdaAway *= (1.0 - tilt)
@@ -78,11 +87,36 @@ class MatchPredictionEngine(private val config: EngineConfig = EngineConfig()) {
             rho = rho,
             maxGoals = config.maxGoals,
         )
-        val markets = MarketCalculator.fromMatrix(
+        val rawMarkets = MarketCalculator.fromMatrix(
             matrix = matrix,
             firstHalfShare = config.firstHalfShare,
             topScoreCount = 8,
         )
+
+        val calibration = input.calibration
+        val calibratedTriple = Calibrator.apply(
+            calibration,
+            rawMarkets.homeWin,
+            rawMarkets.draw,
+            rawMarkets.awayWin,
+        )
+        val markets = if (calibration.isApplied) {
+            // Propagate the calibrated 1X2 masses through the whole score matrix so that
+            // over/under, BTTS and exact score stay consistent with the headline numbers.
+            MarketCalculator.fromMatrix(
+                matrix = matrix.rescaledToOutcomes(
+                    homeWin = calibratedTriple.first,
+                    draw = calibratedTriple.second,
+                    awayWin = calibratedTriple.third,
+                ),
+                firstHalfShare = config.firstHalfShare,
+                topScoreCount = 8,
+            )
+        } else {
+            rawMarkets
+        }
+        val normalised = Calibrator.normalise(markets.homeWin, markets.draw, markets.awayWin)
+            ?: Triple(rawMarkets.homeWin, rawMarkets.draw, rawMarkets.awayWin)
 
         val model = ModelDescriptor(
             name = if (rho != 0.0) "Dixon-Coles" else "Independent Poisson",
@@ -93,7 +127,13 @@ class MatchPredictionEngine(private val config: EngineConfig = EngineConfig()) {
             eloBlendWeight = input.eloBlendWeight,
         )
 
-        val explanations = buildPreMatchExplanations(input, markets.homeWin, markets.draw, markets.awayWin)
+        val explanations = buildPreMatchExplanations(input, normalised.first, normalised.second, normalised.third)
+
+        val confidence = confidenceFor(
+            input = input,
+            probabilities = normalised,
+            calibration = calibration,
+        )
 
         return PredictionResult(
             expectedHomeGoals = lambdaHome,
@@ -102,9 +142,25 @@ class MatchPredictionEngine(private val config: EngineConfig = EngineConfig()) {
             mostLikelyScores = markets.topScores.take(5),
             model = model,
             explanations = explanations,
-            quality = input.quality,
+            quality = noteQuality(input, calibration),
             asOfEpochMs = input.asOfEpochMs,
             live = null,
+            confidence = confidence,
+            calibration = if (calibration.isApplied) {
+                CalibrationInfo(
+                    method = calibration.method.name,
+                    temperature = calibration.temperature,
+                    sampleCount = calibration.sampleCount,
+                    holdoutCount = calibration.holdoutCount,
+                    holdoutLogLossBefore = calibration.holdoutLogLossBefore,
+                    holdoutLogLossAfter = calibration.holdoutLogLossAfter,
+                    rawHomeWin = rawMarkets.homeWin,
+                    rawDraw = rawMarkets.draw,
+                    rawAwayWin = rawMarkets.awayWin,
+                )
+            } else {
+                null
+            },
         )
     }
 
@@ -194,7 +250,7 @@ class MatchPredictionEngine(private val config: EngineConfig = EngineConfig()) {
 
         val extraNotes = mutableListOf(QualityNote(QualityNoteCode.LIVE_ADJUSTMENT_HEURISTIC))
         if (!intensityApplied) extraNotes.add(QualityNote(QualityNoteCode.LIVE_STATS_PARTIAL))
-        val quality = preMatch.quality.copy(notes = preMatch.quality.notes + extraNotes)
+        val quality = preMatch.quality.copy(notes = (preMatch.quality.notes + extraNotes).distinct())
 
         val model = ModelDescriptor(
             name = "In-play Poisson (time remaining)",
@@ -222,6 +278,16 @@ class MatchPredictionEngine(private val config: EngineConfig = EngineConfig()) {
             explanations = explanations,
             quality = quality,
             asOfEpochMs = preMatch.asOfEpochMs,
+            confidence = confidenceFor(
+                input = preMatch,
+                probabilities = Calibrator.normalise(markets.homeWin, markets.draw, markets.awayWin)
+                    ?: Triple(markets.homeWin, markets.draw, markets.awayWin),
+                // The in-play model is not calibrated yet, so no calibration evidence may
+                // be credited to it even when a pre-match calibration exists.
+                calibration = CalibrationModel.NONE,
+                isLive = true,
+            ),
+            calibration = null,
             live = LiveContext(
                 minute = minutesPlayed,
                 homeGoals = input.homeGoals,
@@ -304,6 +370,31 @@ class MatchPredictionEngine(private val config: EngineConfig = EngineConfig()) {
             list.add(Explanation(adjustment.reason, (magnitude * 4.0).coerceIn(0.05, 0.45)))
         }
 
+        if (input.competition.neutralVenue) {
+            list.add(Explanation(ExplanationCode.NEUTRAL_VENUE_ADJUSTMENT, 0.45))
+        }
+        if (input.competition.isInternational) {
+            val nationalEdge = input.home.elo - input.away.elo
+            if (abs(nationalEdge) >= 60.0) {
+                list.add(
+                    Explanation(
+                        ExplanationCode.NATIONAL_TEAM_ELO,
+                        (abs(nationalEdge) / 400.0).coerceIn(0.0, 1.0),
+                        params("elo", abs(nationalEdge)),
+                    ),
+                )
+            }
+        }
+        if (input.calibration.isApplied) {
+            list.add(
+                Explanation(
+                    ExplanationCode.CALIBRATION_ADJUSTMENT,
+                    0.35,
+                    mapOf("method" to input.calibration.method.name),
+                ),
+            )
+        }
+
         if (input.dixonColesRho != null && input.dixonColesRho != 0.0) {
             list.add(Explanation(ExplanationCode.DIXON_COLES_LOW_SCORE_ADJUSTMENT, 0.3, params("rho", input.dixonColesRho)))
         }
@@ -361,6 +452,64 @@ class MatchPredictionEngine(private val config: EngineConfig = EngineConfig()) {
         }
         list.add(Explanation(ExplanationCode.NO_MARKET_EDGE_CLAIMED, 0.05))
         return list.sortedByDescending { it.weight }
+    }
+
+    /**
+     * Builds the evidence assessment for a prediction.
+     *
+     * The level comes from sample size, data completeness, calibration quality and
+     * freshness. The spread of the probabilities is reported separately and is never
+     * used to claim confidence.
+     */
+    private fun confidenceFor(
+        input: PreMatchInput,
+        probabilities: Triple<Double, Double, Double>,
+        calibration: CalibrationModel,
+        isLive: Boolean = false,
+    ): com.footballai.engine.confidence.ConfidenceAssessment {
+        val unsupported = input.quality.notes.any { it.code == QualityNoteCode.NO_HISTORY_FOR_COMPETITION }
+        return ConfidenceAssessor.assess(
+            ConfidenceInput(
+                competitionHistoricalMatches = input.quality.historicalMatchesUsed,
+                homeMatchesUsed = input.home.matchesUsed,
+                awayMatchesUsed = input.away.matchesUsed,
+                probabilities = probabilities,
+                dataCompleteness = input.quality.completeness,
+                calibrationSamples = if (calibration.isApplied) calibration.sampleCount else 0,
+                calibrationError = if (calibration.isApplied) {
+                    calibration.holdoutExpectedCalibrationError
+                } else {
+                    Double.NaN
+                },
+                freshnessMinutes = input.dataFreshnessMinutes,
+                isLive = isLive,
+                unsupportedCompetition = unsupported,
+            ),
+        )
+    }
+
+    /** Adds the two calibration notes so the UI can explain what was actually applied. */
+    private fun noteQuality(
+        input: PreMatchInput,
+        calibration: CalibrationModel,
+    ): com.footballai.engine.model.DataQuality {
+        val note = if (calibration.isApplied) {
+            QualityNote(
+                QualityNoteCode.CALIBRATION_APPLIED,
+                mapOf(
+                    "samples" to calibration.sampleCount.toString(),
+                    "method" to calibration.method.name,
+                ),
+            )
+        } else {
+            QualityNote(QualityNoteCode.CALIBRATION_UNAVAILABLE)
+        }
+        val profileNotes = buildList {
+            if (input.competition.neutralVenue) add(QualityNote(QualityNoteCode.NEUTRAL_VENUE))
+            if (input.competition.isInternational) add(QualityNote(QualityNoteCode.NATIONAL_TEAM_MODEL))
+        }
+        val notes = (input.quality.notes + profileNotes + note).distinct()
+        return input.quality.copy(notes = notes)
     }
 
     private fun strengthWeight(value: Double): Double = ((value - 1.0) / 0.6).coerceIn(0.1, 1.0)

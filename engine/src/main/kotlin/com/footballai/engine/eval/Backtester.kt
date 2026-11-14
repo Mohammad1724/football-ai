@@ -113,14 +113,23 @@ class Backtester(private val config: BacktestConfig = BacktestConfig()) {
 
     private val engine = MatchPredictionEngine(config.engine)
 
-    fun run(records: List<HistoricalRecord>): BacktestReport {
+    fun run(records: List<HistoricalRecord>): BacktestReport = buildReport(samples(records))
+
+    /**
+     * Chronological walk-forward forecasts without aggregation.
+     *
+     * Exposed so that the same predictions can be studied by more than one analysis -
+     * for example the calibration study, which needs the individual probabilities
+     * rather than the summary metrics.
+     */
+    fun samples(records: List<HistoricalRecord>): List<BacktestSample> {
         val samples = ArrayList<BacktestSample>()
         val byCompetition = records.groupBy { it.competitionId }
         for ((competitionId, competitionRecords) in byCompetition) {
             samples.addAll(evaluateCompetition(competitionId, competitionRecords))
         }
         samples.sortBy { it.kickoffEpochMs }
-        return buildReport(samples)
+        return samples
     }
 
     internal fun evaluateCompetition(competitionId: String, records: List<HistoricalRecord>): List<BacktestSample> {

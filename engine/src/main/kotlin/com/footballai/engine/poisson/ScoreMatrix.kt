@@ -15,55 +15,21 @@ import com.footballai.engine.model.ScoreProbability
  * renormalised back into the matrix so that every market derived from it sums to
  * exactly 1 (up to floating point rounding).
  */
-class ScoreMatrix(
+class ScoreMatrix private constructor(
     val homeLambda: Double,
     val awayLambda: Double,
-    val rho: Double = 0.0,
-    val maxGoals: Int = DEFAULT_MAX_GOALS,
+    val rho: Double,
+    val maxGoals: Int,
+    private val cells: DoubleArray,
 ) {
     private val size = maxGoals + 1
-    private val cells: DoubleArray = DoubleArray(size * size)
 
-    init {
-        require(homeLambda >= 0.0 && homeLambda.isFinite()) { "homeLambda must be non-negative and finite" }
-        require(awayLambda >= 0.0 && awayLambda.isFinite()) { "awayLambda must be non-negative and finite" }
-        require(maxGoals in 2..20) { "maxGoals must be within 2..20" }
-
-        var sum = 0.0
-        for (h in 0..maxGoals) {
-            val pHome = Poisson.pmf(h, homeLambda)
-            for (a in 0..maxGoals) {
-                val value = pHome * Poisson.pmf(a, awayLambda) * tau(h, a)
-                cells[index(h, a)] = value
-                sum += value
-            }
-        }
-        if (sum <= 0.0) {
-            // Degenerate input: fall back to a single deterministic scoreline.
-            cells.fill(0.0)
-            cells[index(0, 0)] = 1.0
-        } else {
-            for (i in cells.indices) cells[i] /= sum
-        }
-    }
-
-    /**
-     * Dixon-Coles low-score dependency factor.
-     * See Dixon & Coles (1997), "Modelling association football scores and
-     * inefficiencies in the football betting market".
-     */
-    private fun tau(homeGoals: Int, awayGoals: Int): Double {
-        if (rho == 0.0) return 1.0
-        val factor = when {
-            homeGoals == 0 && awayGoals == 0 -> 1.0 - homeLambda * awayLambda * rho
-            homeGoals == 0 && awayGoals == 1 -> 1.0 + homeLambda * rho
-            homeGoals == 1 && awayGoals == 0 -> 1.0 + awayLambda * rho
-            homeGoals == 1 && awayGoals == 1 -> 1.0 - rho
-            else -> 1.0
-        }
-        // A negative factor is undefined for a probability matrix; treat it as no correction.
-        return if (factor > 0.0) factor else 1.0
-    }
+    constructor(
+        homeLambda: Double,
+        awayLambda: Double,
+        rho: Double = 0.0,
+        maxGoals: Int = DEFAULT_MAX_GOALS,
+    ) : this(homeLambda, awayLambda, rho, maxGoals, build(homeLambda, awayLambda, rho, maxGoals))
 
     private fun index(homeGoals: Int, awayGoals: Int) = homeGoals * size + awayGoals
 
@@ -129,7 +95,96 @@ class ScoreMatrix(
         return map
     }
 
+    /**
+     * Reweights the matrix so that the three 1X2 outcomes carry exactly the
+     * requested masses while the *shape* inside each outcome region is preserved.
+     *
+     * This is how a calibrated 1X2 distribution is propagated to every other market:
+     * over/under, BTTS and exact-score probabilities stay mutually consistent with
+     * the calibrated result instead of being silently inconsistent with it.
+     *
+     * The input triple is normalised internally, so a caller that passes 1/3, 1/3,
+     * 1/3 always receives a uniform outcome split. Negative or non-finite inputs and
+     * degenerate matrices leave the matrix unchanged.
+     */
+    fun rescaledToOutcomes(homeWin: Double, draw: Double, awayWin: Double): ScoreMatrix {
+        if (!homeWin.isFinite() || !draw.isFinite() || !awayWin.isFinite()) return this
+        if (homeWin < 0.0 || draw < 0.0 || awayWin < 0.0) return this
+        val total = homeWin + draw + awayWin
+        if (total <= 0.0) return this
+        val targetHome = homeWin / total
+        val targetDraw = draw / total
+        val targetAway = awayWin / total
+
+        val currentHome = homeWin()
+        val currentDraw = draw()
+        val currentAway = awayWin()
+        if (currentHome <= MIN_REGION_MASS || currentDraw <= MIN_REGION_MASS || currentAway <= MIN_REGION_MASS) {
+            return this
+        }
+        val scaleHome = targetHome / currentHome
+        val scaleDraw = targetDraw / currentDraw
+        val scaleAway = targetAway / currentAway
+
+        val scaled = DoubleArray(cells.size)
+        var sum = 0.0
+        for (h in 0..maxGoals) {
+            for (a in 0..maxGoals) {
+                val factor = when {
+                    h > a -> scaleHome
+                    h == a -> scaleDraw
+                    else -> scaleAway
+                }
+                val value = cells[index(h, a)] * factor
+                scaled[index(h, a)] = value
+                sum += value
+            }
+        }
+        if (sum <= 0.0) return this
+        for (i in scaled.indices) scaled[i] /= sum
+        return ScoreMatrix(homeLambda, awayLambda, rho, maxGoals, scaled)
+    }
+
     companion object {
         const val DEFAULT_MAX_GOALS = 10
+
+        /** Region masses below this are treated as degenerate and never rescaled. */
+        private const val MIN_REGION_MASS = 1e-9
+
+        private fun build(homeLambda: Double, awayLambda: Double, rho: Double, maxGoals: Int): DoubleArray {
+            require(homeLambda >= 0.0 && homeLambda.isFinite()) { "homeLambda must be non-negative and finite" }
+            require(awayLambda >= 0.0 && awayLambda.isFinite()) { "awayLambda must be non-negative and finite" }
+            require(maxGoals in 2..20) { "maxGoals must be within 2..20" }
+            require(rho.isFinite()) { "rho must be finite" }
+
+            val size = maxGoals + 1
+            val cells = DoubleArray(size * size)
+            var sum = 0.0
+            for (h in 0..maxGoals) {
+                val pHome = Poisson.pmf(h, homeLambda)
+                for (a in 0..maxGoals) {
+                    val factor = when {
+                        rho == 0.0 -> 1.0
+                        h == 0 && a == 0 -> 1.0 - homeLambda * awayLambda * rho
+                        h == 0 && a == 1 -> 1.0 + homeLambda * rho
+                        h == 1 && a == 0 -> 1.0 + awayLambda * rho
+                        h == 1 && a == 1 -> 1.0 - rho
+                        else -> 1.0
+                    }
+                    val tau = if (factor > 0.0) factor else 1.0
+                    val value = pHome * Poisson.pmf(a, awayLambda) * tau
+                    cells[h * size + a] = value
+                    sum += value
+                }
+            }
+            if (sum <= 0.0) {
+                // Degenerate input: fall back to a single deterministic scoreline.
+                cells.fill(0.0)
+                cells[0] = 1.0
+            } else {
+                for (i in cells.indices) cells[i] /= sum
+            }
+            return cells
+        }
     }
 }

@@ -1,5 +1,8 @@
 package com.footballai.engine.model
 
+import com.footballai.engine.calibration.CalibrationModel
+import com.footballai.engine.confidence.ConfidenceAssessment
+
 /**
  * Pure domain types used by the prediction engine.
  *
@@ -160,6 +163,11 @@ enum class QualityNoteCode {
     LINEUPS_UNAVAILABLE,
     INJURIES_UNAVAILABLE,
     MODEL_NOT_CALIBRATED,
+    CALIBRATION_APPLIED,
+    CALIBRATION_UNAVAILABLE,
+    NATIONAL_TEAM_MODEL,
+    NEUTRAL_VENUE,
+    INSUFFICIENT_EVIDENCE,
 }
 
 /** Witch factor explains the prediction most; the UI localises [code]. */
@@ -190,6 +198,9 @@ enum class ExplanationCode {
     RECENT_FORM,
     VENUE_FORM,
     FIXTURE_CONGESTION,
+    NEUTRAL_VENUE_ADJUSTMENT,
+    NATIONAL_TEAM_ELO,
+    CALIBRATION_ADJUSTMENT,
     DIXON_COLES_LOW_SCORE_ADJUSTMENT,
     LIMITED_HISTORY,
     LARGE_SAMPLE,
@@ -232,8 +243,14 @@ data class PreMatchInput(
     val dixonColesRho: Double? = null,
     val quality: DataQuality,
     val asOfEpochMs: Long,
-    val modelVersion: String = "football-ai/engine-1.3.0",
+    val modelVersion: String = "football-ai/engine-1.4.0",
     val fittedMatches: Int = 0,
+    /** Competition context: league / knockout / international, neutral ground, gender. */
+    val competition: CompetitionProfile = CompetitionProfile.DEFAULT,
+    /** Calibration fitted on device; [com.footballai.engine.calibration.CalibrationModel.NONE] by default. */
+    val calibration: CalibrationModel = CalibrationModel.NONE,
+    /** Age of the freshest input used, in minutes; null when the caller cannot tell. */
+    val dataFreshnessMinutes: Long? = null,
 )
 
 data class LiveInput(
@@ -262,6 +279,10 @@ data class PredictionResult(
     val quality: DataQuality,
     val asOfEpochMs: Long,
     val live: LiveContext? = null,
+    /** Evidence-based confidence; never derived from the spread of the probabilities. */
+    val confidence: ConfidenceAssessment = ConfidenceAssessment.UNKNOWN,
+    /** Which calibration (if any) produced the displayed probabilities. */
+    val calibration: CalibrationInfo? = null,
 ) {
     val expectedTotalGoals: Double get() = expectedHomeGoals + expectedAwayGoals
 
@@ -276,6 +297,21 @@ data class PredictionResult(
         val maxIndex = p.indices.maxByOrNull { p[it] } ?: 0
         return MatchOutcome.entries[maxIndex]
     }
+}
+
+/** Summary of the calibration that was actually applied, with its measured effect. */
+data class CalibrationInfo(
+    val method: String,
+    val temperature: Double,
+    val sampleCount: Int,
+    val holdoutCount: Int,
+    val holdoutLogLossBefore: Double,
+    val holdoutLogLossAfter: Double,
+    val rawHomeWin: Double,
+    val rawDraw: Double,
+    val rawAwayWin: Double,
+) {
+    val improvement: Double get() = holdoutLogLossBefore - holdoutLogLossAfter
 }
 
 /** Extra context present only for live predictions. */
