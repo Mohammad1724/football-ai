@@ -72,6 +72,7 @@ import com.footballai.app.ui.LocalLanguageTag
 import com.footballai.app.domain.catalog.NameLocalization
 import com.footballai.app.domain.model.TeamRef
 import com.footballai.app.ui.components.CompetitionNameText
+import com.footballai.app.ui.components.ConfidenceChip
 import com.footballai.app.ui.components.EmptyState
 import com.footballai.app.ui.components.ErrorState
 import com.footballai.app.ui.components.InfoCard
