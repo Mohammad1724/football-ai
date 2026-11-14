@@ -9,12 +9,17 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
@@ -43,6 +48,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.footballai.app.R
+import com.footballai.app.domain.catalog.NameLocalization
 import com.footballai.app.core.Formatters
 import com.footballai.app.data.settings.AppLanguage
 import com.footballai.app.data.settings.ThemeMode
@@ -95,6 +101,22 @@ fun SettingsScreen(onOpenDataSources: () -> Unit, onOpenCompetitionOrder: () -> 
                     subtitle = stringResource(R.string.competition_order_hint_short),
                     onClick = onOpenCompetitionOrder,
                 )
+            }
+
+            item { SectionHeader(title = stringResource(R.string.section_favourite_teams)) }
+            if (state.settings.favouriteTeams.isEmpty()) {
+                item {
+                    Text(
+                        text = stringResource(R.string.favourite_teams_empty_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                    )
+                }
+            } else {
+                items(state.settings.favouriteTeams.sorted(), key = { it }) { name ->
+                    FollowedTeamRow(name = name, onRemove = { viewModel.unfollowTeam(name) })
+                }
             }
 
             item { SectionHeader(title = stringResource(R.string.section_language)) }
@@ -300,5 +322,47 @@ private fun ToggleRow(
             )
         }
         Switch(checked = checked, onCheckedChange = onCheckedChange)
+    }
+}
+
+/** A followed team, with the one action that matters: stop following it. */
+@Composable
+private fun FollowedTeamRow(name: String, onRemove: () -> Unit) {
+    val persian = NameLocalization.persianTeamName(name)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 16.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            imageVector = Icons.Filled.Star,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(18.dp),
+        )
+        Spacer(Modifier.width(10.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = persian ?: name,
+                style = MaterialTheme.typography.bodyLarge,
+                maxLines = 1,
+            )
+            if (persian != null && persian != name) {
+                Text(
+                    text = "\u200E" + name,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                )
+            }
+        }
+        IconButton(onClick = onRemove) {
+            Icon(
+                imageVector = Icons.Filled.Close,
+                contentDescription = stringResource(R.string.action_unfollow_team),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }

@@ -52,6 +52,11 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
         }
     }
 
+    /** Stops following a team; its matches simply go back to their normal place. */
+    fun unfollowTeam(name: String) {
+        viewModelScope.launch { container.settingsRepository.toggleFavouriteTeam(name, false) }
+    }
+
     fun setLanguage(language: AppLanguage) {
         viewModelScope.launch { container.settingsRepository.setLanguage(language) }
     }

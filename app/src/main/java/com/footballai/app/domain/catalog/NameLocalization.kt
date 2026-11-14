@@ -204,6 +204,16 @@ object NameLocalization {
         return entry.iso2?.let { emojiFor(it) }
     }
 
+    /**
+     * One key per team, whatever spelling the source used: the Persian dictionary name
+     * when the team is known, the normalised spelling otherwise. Comparing keys instead
+     * of names means a favourite added as "Man United" still matches "Manchester United".
+     */
+    fun favouriteKey(name: String, shortName: String? = null): String {
+        val known = persianTeamName(name, shortName)
+        return if (known != null) "fa:$known" else "en:" + normalize(name)
+    }
+
     fun isNationalTeamName(name: String, shortName: String? = null): Boolean =
         resolve(name, shortName)?.national == true
 

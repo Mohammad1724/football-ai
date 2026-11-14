@@ -531,13 +531,17 @@
     <string name="refresh_failed_keep_stored">Could not refresh from the source. The data already stored is shown below.</string>
     <string name="live_tracking_unsupported_source">This source publishes whole matchdays, so a single match cannot be updated while it is being played. The score here is what the last sync received.</string>
     <!-- Competition order: the user decides which league comes first. -->
-    <string name="title_competition_order">Competition order</string>
-    <string name="competition_order_hint_short">Choose which competition is listed first.</string>
-    <string name="competition_order_hint">Use the arrows to move a competition. The order applies to the competition picker and to the sections of the match list, and it is saved as you press.</string>
-    <string name="action_move_up">Move up</string>
-    <string name="action_move_down">Move down</string>
+    <string name="title_competition_order">Tournament order</string>
+    <string name="competition_order_hint_short">Choose which tournament comes first, e.g. La Liga above Serie A.</string>
+    <string name="competition_order_hint">Press and hold the handle on the right of a tournament, then drag it up or down. The order is saved the moment you let go, and it sets both the tournament list and the sections of the match list.</string>
     <string name="action_reset_order">Default order</string>
     <string name="empty_competition_order_title">No competition stored yet</string>
     <string name="empty_competition_order_message">Competitions appear here after the first sync, and then you can arrange them.</string>
     <string name="live_auto_refresh_note">Live match: while this screen is open, the score refreshes by itself about once a minute.</string>
+    <string name="action_reorder">Reorder</string>
+    <string name="section_favourite_teams">Favourite teams</string>
+    <string name="favourite_teams_section">Your teams</string>
+    <string name="favourite_teams_empty_hint">You are not following a team yet. Open any match and tap the star next to a team name: its games then come first on the match list.</string>
+    <string name="action_follow_team">Follow team</string>
+    <string name="action_unfollow_team">Stop following</string>
 </resources>

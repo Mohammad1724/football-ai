@@ -530,13 +530,17 @@
     <string name="refresh_failed_keep_stored">به‌روزرسانی از منبع انجام نشد. همین داده‌هایی که ذخیره شده است در ادامه نمایش داده می‌شود.</string>
     <string name="live_tracking_unsupported_source">این منبع کل برنامهٔ یک روز را منتشر می‌کند، پس یک بازی تنها در حین اجرا قابل به‌روزرسانی نیست. نتیجهٔ اینجا همان چیزی است که آخرین همگام‌سازی دریافت کرده است.</string>
     <!-- ترتیب مسابقات: کاربر خودش تعیین می‌کند کدام لیگ اول باشد. -->
-    <string name="title_competition_order">ترتیب مسابقات</string>
-    <string name="competition_order_hint_short">انتخاب کنید کدام مسابقه اول فهرست شود.</string>
-    <string name="competition_order_hint">با دکمه‌های بالا و پایین جای هر مسابقه را عوض کنید. این ترتیب روی انتخاب مسابقه و بخش‌های فهرست بازی‌ها اثر می‌گذارد و همان لحظه ذخیره می‌شود.</string>
-    <string name="action_move_up">بالا</string>
-    <string name="action_move_down">پایین</string>
+    <string name="title_competition_order">ترتیب تورنمنت‌ها</string>
+    <string name="competition_order_hint_short">انتخاب کنید کدام تورنمنت اول باشد؛ مثلاً لالیگا بالاتر از سری آ.</string>
+    <string name="competition_order_hint">گیرهٔ سمت راست هر تورنمنت را لمس کنید و نگه دارید، بعد بالا یا پایین بکشید. همان لحظه که رها کنید ترتیب ذخیره می‌شود و هم فهرست تورنمنت‌ها و هم بخش‌های فهرست بازی‌ها را تعیین می‌کند.</string>
     <string name="action_reset_order">ترتیب پیش‌فرض</string>
     <string name="empty_competition_order_title">هنوز مسابقه‌ای ذخیره نشده است</string>
     <string name="empty_competition_order_message">مسابقات پس از نخستین همگام‌سازی اینجا می‌آیند و بعد می‌توانید ترتیبشان را تغییر دهید.</string>
     <string name="live_auto_refresh_note">بازی زنده: تا وقتی این صفحه باز است، نتیجه حدوداً هر دقیقه خودش به‌روزرسانی می‌شود.</string>
+    <string name="action_reorder">جابه‌جایی</string>
+    <string name="section_favourite_teams">تیم‌های مورد علاقه</string>
+    <string name="favourite_teams_section">تیم‌های شما</string>
+    <string name="favourite_teams_empty_hint">هنوز تیمی را دنبال نمی‌کنید. هر بازی را باز کنید و ستارهٔ کنار نام تیم را بزنید؛ از آن به بعد بازی‌های آن تیم اول فهرست می‌آید.</string>
+    <string name="action_follow_team">دنبال کردن تیم</string>
+    <string name="action_unfollow_team">دنبال نکردن</string>
 </resources>

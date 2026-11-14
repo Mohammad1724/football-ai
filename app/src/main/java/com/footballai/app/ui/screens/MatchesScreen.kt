@@ -33,6 +33,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Groups
 import androidx.compose.material.icons.rounded.Search
@@ -168,7 +169,7 @@ fun MatchesScreen(onMatchClick: (String) -> Unit) {
                 languageTag = languageTag,
                 onDaySelected = viewModel::selectDay,
             )
-            MatchFilters(state = state, viewModel = viewModel)
+            MatchFilters(state = state, viewModel = viewModel, languageTag = languageTag)
             MatchScopeFilters(state = state, viewModel = viewModel)
             if (state.sourceName.isNotBlank()) {
                 Text(
@@ -611,7 +612,7 @@ private fun RecentDayTabs(
 }
 
 @Composable
-private fun MatchFilters(state: MatchesUiState, viewModel: MatchesViewModel) {
+private fun MatchFilters(state: MatchesUiState, viewModel: MatchesViewModel, languageTag: String) {
     var competitionMenuOpen by remember { mutableStateOf(false) }
     val selectedCompetition = state.competitions.firstOrNull { it.id == state.competitionId }
     Row(
@@ -627,7 +628,9 @@ private fun MatchFilters(state: MatchesUiState, viewModel: MatchesViewModel) {
                 onClick = { competitionMenuOpen = true },
                 label = {
                     Text(
-                        selectedCompetition?.name ?: stringResource(R.string.filter_country_continent),
+                        selectedCompetition?.let {
+                            NameLocalization.competitionNamePair(it.name, it.id, languageTag).first
+                        } ?: stringResource(R.string.filter_country_continent),
                         maxLines = 1,
                     )
                 },
@@ -646,7 +649,15 @@ private fun MatchFilters(state: MatchesUiState, viewModel: MatchesViewModel) {
                 )
                 state.competitions.forEach { competition ->
                     DropdownMenuItem(
-                        text = { Text(competition.name) },
+                        text = {
+                            Text(
+                                NameLocalization.competitionNamePair(
+                                    competition.name,
+                                    competition.id,
+                                    languageTag,
+                                ).first,
+                            )
+                        },
                         onClick = {
                             viewModel.setCompetition(competition.id)
                             competitionMenuOpen = false
@@ -735,6 +746,8 @@ private fun GroupedMatchList(
 ) {
     // Matches already arrive sorted by the user's competition order, and groupBy keeps
     // the order in which each competition first appears, so the sections follow it too.
+    // A followed team comes first: this section is the reason the user opened the app.
+    val favourites = state.favourites.take(6)
     val competitionRank = state.competitions
         .mapIndexed { index, competition -> competition.id to index }
         .toMap()
@@ -752,6 +765,48 @@ private fun GroupedMatchList(
         contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 8.dp, bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
+        if (favourites.isNotEmpty()) {
+            item(key = "favourites") {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(22.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp),
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Star,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp),
+                        )
+                        Spacer(Modifier.width(10.dp))
+                        Text(
+                            text = stringResource(R.string.favourite_teams_section),
+                            style = MaterialTheme.typography.titleSmall,
+                        )
+                    }
+                    HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
+                    favourites.forEachIndexed { index, match ->
+                        RecentMatchRow(
+                            match = match,
+                            languageTag = languageTag,
+                            onClick = { onMatchClick(match.id) },
+                            showCompetition = true,
+                        )
+                        if (index < favourites.lastIndex) {
+                            HorizontalDivider(
+                                modifier = Modifier.padding(horizontal = 16.dp),
+                                color = MaterialTheme.colorScheme.surfaceVariant,
+                            )
+                        }
+                    }
+                }
+            }
+        }
         groups.forEach { group ->
             item(key = group.first().competitionId) {
                 val competition = state.competitions.firstOrNull { it.id == group.first().competitionId }
@@ -825,7 +880,12 @@ private fun CompetitionCard(
 }
 
 @Composable
-private fun RecentMatchRow(match: MatchSummary, languageTag: String, onClick: () -> Unit) {
+private fun RecentMatchRow(
+    match: MatchSummary,
+    languageTag: String,
+    onClick: () -> Unit,
+    showCompetition: Boolean = false,
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -833,7 +893,22 @@ private fun RecentMatchRow(match: MatchSummary, languageTag: String, onClick: ()
             .padding(horizontal = 14.dp, vertical = 13.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        MatchTeam(match.home, languageTag, Modifier.weight(1f))
+        Column(modifier = Modifier.weight(1f)) {
+            if (showCompetition) {
+                // Outside its league section a match needs to say which league it is.
+                CompetitionNameText(
+                    name = match.competitionName,
+                    competitionId = match.competitionId,
+                    languageTag = languageTag,
+                    primaryStyle = MaterialTheme.typography.labelSmall,
+                    secondaryStyle = MaterialTheme.typography.labelSmall,
+                    primaryMaxLines = 1,
+                    showLatin = false,
+                )
+                Spacer(Modifier.height(4.dp))
+            }
+            MatchTeam(match.home, languageTag, Modifier.fillMaxWidth())
+        }
         MatchMoment(match, languageTag, Modifier.width(78.dp))
         MatchTeam(match.away, languageTag, Modifier.weight(1f))
     }

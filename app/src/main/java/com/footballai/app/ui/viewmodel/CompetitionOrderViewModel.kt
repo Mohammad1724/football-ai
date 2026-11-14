@@ -45,6 +45,14 @@ class CompetitionOrderViewModel(private val container: AppContainer) : ViewModel
         }
     }
 
+    /**
+     * Saves the order the user dropped the rows into. The whole list is written, so a
+     * tournament the user never touched keeps its place instead of drifting.
+     */
+    fun applyOrder(ids: List<String>) {
+        viewModelScope.launch { container.settingsRepository.setCompetitionOrder(ids) }
+    }
+
     fun move(competitionId: String, up: Boolean) {
         viewModelScope.launch {
             val order = container.settingsRepository.current().competitionOrder

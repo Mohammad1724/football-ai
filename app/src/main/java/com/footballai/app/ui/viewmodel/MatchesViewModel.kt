@@ -43,6 +43,7 @@ private data class MatchScope(
     val dailyAnalysis: Boolean,
     val sourceName: String,
     val competitionOrder: List<String>,
+    val favouriteTeams: Set<String>,
 )
 
 private data class MatchListData(
@@ -50,6 +51,8 @@ private data class MatchListData(
     val competitions: List<Competition>,
     val dailyAnalysis: Boolean,
     val sourceName: String,
+    /** Matches of the teams the user follows, shown above everything else. */
+    val favourites: List<MatchSummary> = emptyList(),
 )
 
 /** Club or national-team fixtures. National teams are a first-class scope, not a corner case. */
@@ -87,6 +90,8 @@ data class MatchesUiState(
     val dailyAnalysisMode: Boolean = true,
     /** Which source is actually serving this list, so an empty day can be explained. */
     val sourceName: String = "",
+    /** Matches of followed teams, shown above the tournament sections. */
+    val favourites: List<MatchSummary> = emptyList(),
     /** True while the app switches to the worldwide source and syncs it. */
     val switchingSource: Boolean = false,
     /** Fixtures returned by the last refresh; null when nothing was refreshed yet. */
@@ -131,6 +136,7 @@ class MatchesViewModel(private val container: AppContainer) : ViewModel() {
                     dailyAnalysis = settings.dailyAnalysisEnabled,
                     sourceName = container.providerRegistry.activeInfo(settings)?.displayName.orEmpty(),
                     competitionOrder = settings.competitionOrder,
+                    favouriteTeams = settings.favouriteTeams,
                 )
             }
                 .flatMapLatest { scope ->
@@ -176,7 +182,27 @@ class MatchesViewModel(private val container: AppContainer) : ViewModel() {
                                 { it.kickoffEpochMs },
                             ),
                         )
-                        MatchListData(visible, availableCompetitions, dailyAnalysis, scope.sourceName)
+                        // A followed team is the one thing the app can be sure the user
+                        // cares about, so its matches are lifted above the tournament
+                        // sections instead of waiting for the user to scroll to them.
+                        val favouriteKeys = scope.favouriteTeams
+                            .map { NameLocalization.favouriteKey(it) }
+                            .toSet()
+                        val favouriteMatches = if (favouriteKeys.isEmpty()) {
+                            emptyList()
+                        } else {
+                            visible.filter { match ->
+                                favouriteKeys.contains(NameLocalization.favouriteKey(match.home.name, match.home.shortName)) ||
+                                    favouriteKeys.contains(NameLocalization.favouriteKey(match.away.name, match.away.shortName))
+                            }.sortedBy { it.kickoffEpochMs }
+                        }
+                        MatchListData(
+                            visible,
+                            availableCompetitions,
+                            dailyAnalysis,
+                            scope.sourceName,
+                            favouriteMatches,
+                        )
                     }
                 }.collect { data ->
                     val selected = selection.value
@@ -193,6 +219,7 @@ class MatchesViewModel(private val container: AppContainer) : ViewModel() {
                             liveOnly = selected.liveOnly,
                             kind = selected.kind,
                             gender = selected.gender,
+                            favourites = data.favourites,
                         )
                     }
                     if (selected.competitionId != null && data.competitions.none { it.id == selected.competitionId }) {

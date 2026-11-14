@@ -18,6 +18,12 @@ data class AppSettings(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val activeProviderId: String = "",
     val followedCompetitionKeys: Set<String> = emptySet(),
+    /**
+     * Teams the user follows, stored as the source spelled them. Comparison goes through
+     * [com.footballai.app.domain.catalog.NameLocalization.favouriteKey], so "Man United"
+     * and "Manchester United" are the same favourite.
+     */
+    val favouriteTeams: Set<String> = emptySet(),
     /** Competition ids in the order the user arranged them; empty means the default order. */
     val competitionOrder: List<String> = emptyList(),
     val dailyAnalysisEnabled: Boolean = true,

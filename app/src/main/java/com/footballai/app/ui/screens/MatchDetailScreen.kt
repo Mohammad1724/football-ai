@@ -20,6 +20,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.outlined.StarBorder
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -183,7 +185,13 @@ fun MatchDetailScreen(
                 return@Column
             }
 
-            MatchHeader(detail = detail, languageTag = languageTag, onTeamClick = onTeamClick)
+            MatchHeader(
+                detail = detail,
+                languageTag = languageTag,
+                onTeamClick = onTeamClick,
+                favouriteTeams = state.favouriteTeams,
+                onToggleFavourite = viewModel::toggleFavourite,
+            )
 
             TabRow(selectedTabIndex = selectedTab.coerceAtMost(tabs.lastIndex)) {
                 tabs.forEachIndexed { index, title ->
@@ -258,7 +266,13 @@ fun MatchDetailScreen(
 }
 
 @Composable
-private fun MatchHeader(detail: MatchDetail, languageTag: String, onTeamClick: (String) -> Unit) {
+private fun MatchHeader(
+    detail: MatchDetail,
+    languageTag: String,
+    onTeamClick: (String) -> Unit,
+    favouriteTeams: Set<String>,
+    onToggleFavourite: (String, Boolean) -> Unit,
+) {
     val summary = detail.summary
     val colors = FootballAiThemeExtra.colors
     Card(
@@ -302,6 +316,8 @@ private fun MatchHeader(detail: MatchDetail, languageTag: String, onTeamClick: (
                     languageTag = languageTag,
                     onClick = onTeamClick,
                     modifier = Modifier.weight(1f),
+                    isFavourite = favouriteTeams.contains(NameLocalization.favouriteKey(summary.home.name, summary.home.shortName)),
+                    onToggleFavourite = { onToggleFavourite(summary.home.name, it) },
                 )
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     if (summary.status.hasScore) {
@@ -331,6 +347,8 @@ private fun MatchHeader(detail: MatchDetail, languageTag: String, onTeamClick: (
                     onClick = onTeamClick,
                     modifier = Modifier.weight(1f),
                     alignEnd = true,
+                    isFavourite = favouriteTeams.contains(NameLocalization.favouriteKey(summary.away.name, summary.away.shortName)),
+                    onToggleFavourite = { onToggleFavourite(summary.away.name, it) },
                 )
             }
             if (!detail.venue.isNullOrBlank()) {
@@ -353,6 +371,8 @@ private fun TeamColumn(
     onClick: (String) -> Unit,
     modifier: Modifier = Modifier,
     alignEnd: Boolean = false,
+    isFavourite: Boolean = false,
+    onToggleFavourite: (Boolean) -> Unit = {},
 ) {
     Column(
         modifier = modifier.clickable { onClick(team.id) },
@@ -366,6 +386,19 @@ private fun TeamColumn(
             primaryStyle = MaterialTheme.typography.titleSmall,
             primaryMaxLines = 2,
         )
+        // Follow a team from where the user meets it: on its own match.
+        IconButton(
+            onClick = { onToggleFavourite(!isFavourite) },
+            modifier = Modifier.size(34.dp),
+        ) {
+            Icon(
+                imageVector = if (isFavourite) Icons.Filled.Star else Icons.Outlined.StarBorder,
+                contentDescription = stringResource(
+                    if (isFavourite) R.string.action_unfollow_team else R.string.action_follow_team,
+                ),
+                tint = if (isFavourite) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         if (goals != null) {
             Text(
                 text = Formatters.integer(goals, languageTag),

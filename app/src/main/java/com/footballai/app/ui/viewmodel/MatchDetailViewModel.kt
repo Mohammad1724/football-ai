@@ -8,6 +8,7 @@ import com.footballai.app.core.TimeConstants
 import com.footballai.app.data.local.mapper.parseStatus
 import com.footballai.app.data.repository.PredictionPolicy
 import com.footballai.app.di.AppContainer
+import com.footballai.app.domain.catalog.NameLocalization
 import com.footballai.app.domain.model.MatchDetail
 import com.footballai.app.domain.model.MatchSummary
 import com.footballai.app.domain.model.PredictionKind
@@ -40,6 +41,8 @@ data class MatchDetailUiState(
     val liveTrackingSupported: Boolean = true,
     /** True while the international archive is being downloaded and stored. */
     val isImportingHistory: Boolean = false,
+    /** Followed teams, keyed through [NameLocalization.favouriteKey], for the star. */
+    val favouriteTeams: Set<String> = emptySet(),
 )
 
 class MatchDetailViewModel(
@@ -58,6 +61,14 @@ class MatchDetailViewModel(
 
     init {
         load()
+        viewModelScope.launch {
+            container.settingsRepository.settings.collect { settings ->
+                // Stored names are turned into keys once, so the star compares like with like.
+                _state.update {
+                    it.copy(favouriteTeams = settings.favouriteTeams.map { name -> NameLocalization.favouriteKey(name) }.toSet())
+                }
+            }
+        }
     }
 
     fun load(refreshFromNetwork: Boolean = true) {
@@ -176,6 +187,25 @@ class MatchDetailViewModel(
                         predict()
                     }
                 }
+            }
+        }
+    }
+
+    /**
+     * Follows or unfollows a team from its own match. The stored key is the name the
+     * source used, and comparison happens through [NameLocalization.favouriteKey], so the
+     * same team is recognised however the next source spells it.
+     */
+    fun toggleFavourite(teamName: String, favourite: Boolean) {
+        viewModelScope.launch {
+            val stored = container.settingsRepository.current().favouriteTeams
+            val key = NameLocalization.favouriteKey(teamName)
+            val existing = stored.firstOrNull { NameLocalization.favouriteKey(it) == key }
+            // The same team under a different spelling must not become two favourites.
+            when {
+                favourite && existing == null -> container.settingsRepository.toggleFavouriteTeam(teamName, true)
+                !favourite && existing != null -> container.settingsRepository.toggleFavouriteTeam(existing, false)
+                else -> Unit
             }
         }
     }

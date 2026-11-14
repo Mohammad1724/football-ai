@@ -1,5 +1,6 @@
 package com.footballai.app.ui.screens
 
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -8,13 +9,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -27,29 +28,46 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.footballai.app.R
+import com.footballai.app.domain.model.Competition
 import com.footballai.app.ui.LocalAppContainer
 import com.footballai.app.ui.LocalLanguageTag
 import com.footballai.app.ui.components.CompetitionNameText
 import com.footballai.app.ui.components.EmptyState
 import com.footballai.app.ui.components.LoadingState
 import com.footballai.app.ui.viewmodel.CompetitionOrderViewModel
+import kotlin.math.abs
 
 /**
- * Puts the competitions in the order the user wants them.
+ * Puts the tournaments in the order the user wants them: La Liga above Serie A, Serie A
+ * above the Bundesliga, whatever the app's own guess was.
  *
- * Up and down rather than drag and drop: a list that reorders itself under a finger is
- * easy to get wrong, and two buttons are exact on any screen size. Every press is saved
- * immediately, so leaving the screen never loses the arrangement.
+ * Reordering is done by the handle on the right of each row: press it, hold, and drag the
+ * row up or down. The list follows the finger and is saved the moment it is dropped, so
+ * there is no save button to forget. Long press before dragging is deliberate — without
+ * it, every attempt to scroll the list would move a tournament.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -60,6 +78,42 @@ fun CompetitionOrderScreen(onBack: () -> Unit) {
     )
     val state by viewModel.state.collectAsStateWithLifecycle()
     val languageTag = LocalLanguageTag.current
+    val haptics = LocalHapticFeedback.current
+    val listState = rememberLazyListState()
+
+    // A local copy so a drag can move a row before it is saved. While a finger is on a
+    // handle the stored list is ignored; otherwise a new emission would yank the row.
+    val rows = remember { mutableStateListOf<Competition>() }
+    var draggingId by remember { mutableStateOf<String?>(null) }
+    var dragOffset by remember { mutableFloatStateOf(0f) }
+    val rowHeights = remember { mutableStateMapOf<String, Int>() }
+
+    LaunchedEffect(state.competitions) {
+        if (draggingId == null) {
+            rows.clear()
+            rows.addAll(state.competitions)
+        }
+    }
+
+    fun drop() {
+        draggingId = null
+        dragOffset = 0f
+        viewModel.applyOrder(rows.map { it.id })
+    }
+
+    fun drag(amount: Float) {
+        val id = draggingId ?: return
+        dragOffset += amount
+        val from = rows.indexOfFirst { it.id == id }
+        if (from < 0) return
+        val step = if (dragOffset > 0f) 1 else -1
+        val neighbour = rows.getOrNull(from + step) ?: return
+        val neighbourHeight = rowHeights[neighbour.id] ?: return
+        if (abs(dragOffset) <= neighbourHeight / 2f) return
+        val moved = rows.removeAt(from)
+        rows.add(from + step, moved)
+        dragOffset -= step * neighbourHeight
+    }
 
     Scaffold(
         topBar = {
@@ -99,12 +153,16 @@ fun CompetitionOrderScreen(onBack: () -> Unit) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
             )
-            LazyColumn(modifier = Modifier.fillMaxSize()) {
-                itemsIndexed(state.competitions, key = { _, competition -> competition.id }) { index, competition ->
+            LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
+                items(rows, key = { it.id }) { competition ->
+                    val isDragging = competition.id == draggingId
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(start = 16.dp, end = 6.dp, top = 4.dp, bottom = 4.dp),
+                            .zIndex(if (isDragging) 1f else 0f)
+                            .graphicsLayer { translationY = if (isDragging) dragOffset else 0f }
+                            .onGloballyPositioned { rowHeights[competition.id] = it.size.height }
+                            .padding(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
@@ -124,18 +182,29 @@ fun CompetitionOrderScreen(onBack: () -> Unit) {
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
-                        IconButton(
-                            onClick = { viewModel.move(competition.id, up = true) },
-                            enabled = index > 0,
-                        ) {
-                            Icon(Icons.Default.KeyboardArrowUp, contentDescription = stringResource(R.string.action_move_up))
-                        }
-                        IconButton(
-                            onClick = { viewModel.move(competition.id, up = false) },
-                            enabled = index < state.competitions.lastIndex,
-                        ) {
-                            Icon(Icons.Default.KeyboardArrowDown, contentDescription = stringResource(R.string.action_move_down))
-                        }
+                        Icon(
+                            imageVector = Icons.Default.DragHandle,
+                            contentDescription = stringResource(R.string.action_reorder),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier
+                                .padding(horizontal = 12.dp, vertical = 14.dp)
+                                .size(26.dp)
+                                .pointerInput(competition.id) {
+                                    detectDragGesturesAfterLongPress(
+                                        onDragStart = {
+                                            draggingId = competition.id
+                                            dragOffset = 0f
+                                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        },
+                                        onDrag = { change, dragAmount ->
+                                            change.consume()
+                                            drag(dragAmount.y)
+                                        },
+                                        onDragEnd = { drop() },
+                                        onDragCancel = { drop() },
+                                    )
+                                },
+                        )
                     }
                     HorizontalDivider(
                         modifier = Modifier.padding(start = 16.dp),
@@ -143,11 +212,10 @@ fun CompetitionOrderScreen(onBack: () -> Unit) {
                     )
                 }
                 item {
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(12.dp))
                     TextButton(onClick = viewModel::reset, modifier = Modifier.padding(horizontal = 8.dp)) {
                         Text(stringResource(R.string.action_reset_order))
                     }
-                    Spacer(Modifier.width(4.dp))
                     Spacer(Modifier.height(24.dp))
                 }
             }
