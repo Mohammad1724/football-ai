@@ -738,6 +738,7 @@ private fun PredictionVerdictCard(
  * every machine-readable gap, so "no data" is visible instead of silently becoming a
  * confident-looking number. Nothing here is recomputed on the UI side.
  */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 private fun EvidenceSection(prediction: PredictionView, languageTag: String) {
     val confidence = prediction.confidence

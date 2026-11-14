@@ -80,6 +80,8 @@ import com.footballai.app.ui.components.LoadingState
 import com.footballai.app.ui.components.TeamMonogram
 import com.footballai.app.ui.matchStatusLabel
 import com.footballai.app.ui.theme.FootballAiThemeExtra
+import com.footballai.app.ui.viewmodel.MatchGenderFilter
+import com.footballai.app.ui.viewmodel.MatchKindFilter
 import com.footballai.app.ui.viewmodel.MatchesUiState
 import com.footballai.app.ui.viewmodel.MatchSearchFilter
 import com.footballai.app.ui.viewmodel.MatchesViewModel
