@@ -3,10 +3,12 @@ package com.footballai.app.data.repository
 import com.footballai.app.data.provider.FootballDataProvider
 import com.footballai.app.data.provider.HistoricalDataProvider
 import com.footballai.app.data.remote.ApiFootballProvider
+import com.footballai.app.data.remote.EspnOpenProvider
 import com.footballai.app.data.remote.FootballDataCoUkProvider
 import com.footballai.app.data.remote.FootballDataOrgProvider
 import com.footballai.app.data.settings.CredentialStore
 import com.footballai.app.data.settings.SettingsRepository
+import com.footballai.app.data.settings.AppSettings
 import com.footballai.app.domain.model.ProviderInfo
 
 /**
@@ -18,12 +20,18 @@ class ProviderRegistry(
     private val apiFootballProvider: ApiFootballProvider,
     private val footballDataOrgProvider: FootballDataOrgProvider,
     private val historicalProvider: FootballDataCoUkProvider,
+    private val espnOpenProvider: EspnOpenProvider,
     private val credentialStore: CredentialStore,
     private val settingsRepository: SettingsRepository,
 ) {
 
+    /**
+     * Order matters for the keyless default: ESPN comes before the CSV source because
+     * it is the only key-free source in the app that publishes national-team and
+     * women's fixtures.
+     */
     val fixtureProviders: List<FootballDataProvider> =
-        listOf(apiFootballProvider, footballDataOrgProvider, historicalProvider)
+        listOf(apiFootballProvider, footballDataOrgProvider, espnOpenProvider, historicalProvider)
 
     val historical: HistoricalDataProvider get() = historicalProvider
 
@@ -60,4 +68,17 @@ class ProviderRegistry(
         fixtureProviders.firstOrNull { !it.info.requiresApiKey && it.info.id != excludeProviderId }
 
     suspend fun activeProviderId(): String? = activeProvider()?.info?.id
+
+    /**
+     * The provider that will actually serve fixtures for [settings], without doing any
+     * I/O, so the UI can tell the user which source a list came from.
+     */
+    fun activeInfo(settings: AppSettings): ProviderInfo? {
+        if (settings.dailyAnalysisEnabled) return historicalProvider.info
+        provider(settings.activeProviderId)?.let { selected ->
+            if (!selected.info.requiresApiKey || hasCredentials(selected.info.id)) return selected.info
+        }
+        fixtureProviders.firstOrNull { hasCredentials(it.info.id) }?.let { return it.info }
+        return fixtureProviders.firstOrNull { !it.info.requiresApiKey }?.info
+    }
 }

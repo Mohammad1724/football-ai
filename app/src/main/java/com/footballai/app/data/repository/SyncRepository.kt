@@ -136,9 +136,10 @@ class SyncRepository(
         var fallbackProviderId: String? = null
 
         // An authenticated provider can legitimately return nothing (plan restrictions,
-        // exhausted quota, a rejected season). The keyless CSV source is then used so the
-        // user still sees fixtures, and the UI explains where they came from.
-        if (allowFallback && summary.fixtures == 0) {
+        // exhausted quota, a rejected season). A keyless provider cannot: its empty
+        // answer means "there is nothing to show", and adding another source's fixtures
+        // would mislabel their origin.
+        if (allowFallback && provider.info.requiresApiKey && summary.fixtures == 0) {
             val keyless = registry.keylessProvider(excludeProviderId = provider.info.id)
             if (keyless != null) {
                 val fallback = syncWithProvider(keyless, null, from, to, now) { _, _ -> }

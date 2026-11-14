@@ -486,4 +486,10 @@
     <string name="value_not_available">در دسترس نیست</string>
     <string name="calibration_not_adopted">روی این نمونه پذیرفته نشد؛ احتمال‌های خام استفاده می‌شوند</string>
     <string name="calibration_local_samples">نمونه‌های محلی کالیبراسیون: %1$d</string>
+    <string name="empty_coverage_title">این روز در پوشش منبع فعلی نیست</string>
+    <string name="empty_daily_mode_message">حالت تحلیل روزانه فقط لیگ‌های باشگاهی انگلیس و اسکاتلند را از football-data.co.uk بارگذاری می‌کند؛ بنابراین مسابقات ملی و بانوان در آن وجود ندارد. منبع فعال: %1$s.</string>
+    <string name="empty_no_national_message">برای این روز مسابقهٔ ملی ذخیره نشده است. منبع فعال: %1$s.</string>
+    <string name="action_enable_global_coverage">بارگذاری مسابقات جهانی</string>
+    <string name="switching_source">در حال بارگذاری منبع جهانی…</string>
+    <string name="source_label">منبع: %1$s</string>
 </resources>

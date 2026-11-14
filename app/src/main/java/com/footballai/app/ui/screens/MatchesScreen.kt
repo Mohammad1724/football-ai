@@ -142,6 +142,14 @@ fun MatchesScreen(onMatchClick: (String) -> Unit) {
             )
             MatchFilters(state = state, viewModel = viewModel)
             MatchScopeFilters(state = state, viewModel = viewModel)
+            if (state.sourceName.isNotBlank()) {
+                Text(
+                    text = stringResource(R.string.source_label, state.sourceName),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
+                )
+            }
 
             state.lastError?.let { error ->
                 Text(
@@ -154,18 +162,38 @@ fun MatchesScreen(onMatchClick: (String) -> Unit) {
             if (state.isLoading) {
                 LoadingState()
             } else if (state.matches.isEmpty()) {
+                // An empty day is usually a coverage fact, not a missing fixture, so the
+                // empty state says which source served it and offers the one-tap switch.
                 EmptyState(
-                    title = stringResource(R.string.empty_filtered_matches_title),
-                    message = stringResource(
-                        if (state.selectedDayOffset < 0) {
-                            R.string.empty_recent_results_message
-                        } else {
-                            R.string.empty_upcoming_message
-                        },
+                    title = stringResource(
+                        if (state.dailyAnalysisMode) R.string.empty_coverage_title else R.string.empty_filtered_matches_title,
                     ),
-                    actionLabel = if (state.isSyncing) null else stringResource(R.string.action_sync),
-                    onAction = if (state.isSyncing) null else ({ viewModel.refresh() }),
+                    message = when {
+                        state.dailyAnalysisMode -> stringResource(R.string.empty_daily_mode_message, state.sourceName)
+                        state.kind == MatchKindFilter.NATIONAL -> stringResource(R.string.empty_no_national_message, state.sourceName)
+                        state.selectedDayOffset < 0 -> stringResource(R.string.empty_recent_results_message)
+                        else -> stringResource(R.string.empty_upcoming_message)
+                    },
+                    actionLabel = when {
+                        state.isSyncing || state.switchingSource -> null
+                        state.dailyAnalysisMode -> stringResource(R.string.action_enable_global_coverage)
+                        else -> stringResource(R.string.action_sync)
+                    },
+                    onAction = when {
+                        state.isSyncing || state.switchingSource -> null
+                        state.dailyAnalysisMode -> ({ viewModel.enableGlobalCoverage() })
+                        else -> ({ viewModel.refresh() })
+                    },
                 )
+                if (state.switchingSource) {
+                    Text(
+                        text = stringResource(R.string.switching_source),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                    )
+                }
             } else {
                 GroupedMatchList(
                     state = state,

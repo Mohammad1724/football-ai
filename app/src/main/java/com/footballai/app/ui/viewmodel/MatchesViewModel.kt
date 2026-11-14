@@ -34,6 +34,18 @@ private data class MatchSelection(
     val gender: MatchGenderFilter = MatchGenderFilter.ALL,
 )
 
+/** Everything the match-list pipeline needs from settings, resolved once per emission. */
+private data class MatchScope(
+    val selection: MatchSelection,
+    val dailyAnalysis: Boolean,
+    val sourceName: String,
+)
+
+private data class MatchListData(
+    val matches: List<MatchSummary>,
+    val competitions: List<Competition>,
+)
+
 /** Club or national-team fixtures. National teams are a first-class scope, not a corner case. */
 enum class MatchKindFilter { ALL, CLUBS, NATIONAL }
 
@@ -65,6 +77,12 @@ data class MatchesUiState(
     val searchResults: MatchSearchResults = MatchSearchResults(),
     val matches: List<MatchSummary> = emptyList(),
     val competitions: List<Competition> = emptyList(),
+    /** Daily-analysis mode only ever serves the football-data.co.uk club leagues. */
+    val dailyAnalysisMode: Boolean = true,
+    /** Which source is actually serving this list, so an empty day can be explained. */
+    val sourceName: String = "",
+    /** True while the app switches to the worldwide source and syncs it. */
+    val switchingSource: Boolean = false,
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -83,8 +101,12 @@ class MatchesViewModel(private val container: AppContainer) : ViewModel() {
                 selection,
                 refreshVersion,
                 container.settingsRepository.settings,
-            ) { selected, _, settings -> selected to settings.dailyAnalysisEnabled }
-                .flatMapLatest { (selected, dailyAnalysis) ->
+            ) { selected, _, settings ->
+                MatchScope(selected, settings.dailyAnalysisEnabled, container.providerRegistry.activeInfo(settings)?.displayName.orEmpty())
+            }
+                .flatMapLatest { scope ->
+                    val selected = scope.selection
+                    val dailyAnalysis = scope.dailyAnalysis
                     val now = container.clock.nowEpochMs()
                     val (from, to) = localDayWindow(now, selected.dayOffset)
                     combine(
@@ -113,16 +135,18 @@ class MatchesViewModel(private val container: AppContainer) : ViewModel() {
                                     MatchGenderFilter.WOMEN -> match.isWomen
                                 }
                         }.sortedBy { it.kickoffEpochMs }
-                        visible to availableCompetitions
+                        MatchListData(visible, availableCompetitions)
                     }
-                }.collect { (matches, competitions) ->
+                }.collect { data ->
                     val selected = selection.value
                     _state.update {
                         it.copy(
-                            matches = matches,
-                            competitions = competitions,
+                            matches = data.matches,
+                            competitions = data.competitions,
                             isLoading = false,
                             selectedDayOffset = selected.dayOffset,
+                            dailyAnalysisMode = scope.dailyAnalysis,
+                            sourceName = scope.sourceName,
                             competitionId = selected.competitionId,
                             followedOnly = selected.followedOnly,
                             liveOnly = selected.liveOnly,
@@ -130,7 +154,7 @@ class MatchesViewModel(private val container: AppContainer) : ViewModel() {
                             gender = selected.gender,
                         )
                     }
-                    if (selected.competitionId != null && competitions.none { it.id == selected.competitionId }) {
+                    if (selected.competitionId != null && data.competitions.none { it.id == selected.competitionId }) {
                         selection.update { it.copy(competitionId = null) }
                     }
                 }
@@ -182,6 +206,31 @@ class MatchesViewModel(private val container: AppContainer) : ViewModel() {
 
     fun toggleLiveOnly() {
         selection.update { it.copy(liveOnly = !it.liveOnly) }
+    }
+
+    /**
+     * Switches from the daily-analysis CSV mode to the worldwide keyless source and
+     * syncs it, so a user looking at an empty day can see the real fixture list
+     * (including national-team football) in one tap instead of hunting in settings.
+     */
+    fun enableGlobalCoverage() {
+        if (_state.value.switchingSource) return
+        _state.update { it.copy(switchingSource = true, lastError = null) }
+        viewModelScope.launch {
+            try {
+                container.settingsRepository.setDailyAnalysis(false)
+                container.settingsRepository.setActiveProvider(com.footballai.app.data.remote.EspnOpenProvider.PROVIDER_ID)
+                container.syncRepository.syncCompetitions(com.footballai.app.data.remote.EspnOpenProvider.PROVIDER_ID)
+                container.syncRepository.syncFixtures(
+                    providerId = com.footballai.app.data.remote.EspnOpenProvider.PROVIDER_ID,
+                    daysBack = 1,
+                    daysAhead = 2,
+                )
+                selection.update { it.copy(kind = MatchKindFilter.ALL, gender = MatchGenderFilter.ALL, followedOnly = false) }
+            } finally {
+                _state.update { it.copy(switchingSource = false) }
+            }
+        }
     }
 
     fun setKindFilter(kind: MatchKindFilter) {

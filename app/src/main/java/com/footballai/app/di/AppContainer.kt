@@ -10,6 +10,7 @@ import com.footballai.app.data.local.FootballDatabase
 import com.footballai.app.data.remote.ApiClient
 import com.footballai.app.data.remote.ApiFootballProvider
 import com.footballai.app.data.remote.FootballDataCoUkProvider
+import com.footballai.app.data.remote.EspnOpenProvider
 import com.footballai.app.data.remote.FootballDataOrgProvider
 import com.footballai.app.data.remote.QuotaGuard
 import com.footballai.app.data.repository.CalibrationRepository
@@ -70,10 +71,13 @@ class AppContainer(context: Context) {
 
     private val csvProvider: FootballDataCoUkProvider = FootballDataCoUkProvider(apiClient)
 
+    private val espnProvider: EspnOpenProvider = EspnOpenProvider(apiClient, clock)
+
     val providerRegistry: ProviderRegistry = ProviderRegistry(
         apiFootballProvider = apiFootballProvider,
         footballDataOrgProvider = footballDataOrgProvider,
         historicalProvider = csvProvider,
+        espnOpenProvider = espnProvider,
         credentialStore = credentialStore,
         settingsRepository = settingsRepository,
     )
