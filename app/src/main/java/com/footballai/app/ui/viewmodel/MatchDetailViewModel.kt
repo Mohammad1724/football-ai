@@ -31,6 +31,13 @@ data class MatchDetailUiState(
     val liveTrackingEnabled: Boolean = true,
     val headToHead: List<MatchSummary> = emptyList(),
     val lastError: AppError? = null,
+    /**
+     * A failed background refresh, kept apart from [lastError]: the screen still has
+     * usable stored data, so this is a note, not the "nothing found" state.
+     */
+    val refreshWarning: AppError? = null,
+    /** False when the source cannot re-read a single fixture, so live polling is pointless. */
+    val liveTrackingSupported: Boolean = true,
     /** True while the international archive is being downloaded and stored. */
     val isImportingHistory: Boolean = false,
 )
@@ -69,15 +76,16 @@ class MatchDetailViewModel(
                 if (refreshFromNetwork) {
                     val entity = container.matchRepository.matchEntity(matchId)
                     if (entity != null) {
-                        if (!syncFresh()) {
-                            if (!parseStatus(entity.status).isLive) predict()
-                            maybeStartTracking()
-                            return@guarded
+                        val refreshed = if (syncFresh()) {
+                            container.matchRepository.matchDetail(matchId)
+                        } else {
+                            null
                         }
-                        val refreshed = container.matchRepository.matchDetail(matchId)
-                        _state.update { it.copy(detail = refreshed ?: it.detail) }
+                        if (refreshed != null) _state.update { it.copy(detail = refreshed) }
                     }
                 }
+                // A refresh that failed used to end here, leaving the analysis empty even
+                // though the stored data was enough to predict. It is computed either way.
                 predict()
                 maybeStartTracking()
             }
@@ -88,13 +96,8 @@ class MatchDetailViewModel(
         viewModelScope.launch {
             guarded {
                 _state.update { it.copy(isRefreshing = true) }
-                if (!syncFresh()) {
-                    if (_state.value.detail?.summary?.status?.isLive == false) predict()
-                    _state.update { it.copy(isRefreshing = false) }
-                    return@guarded
-                }
-                val detail = container.matchRepository.matchDetail(matchId)
-                _state.update { it.copy(detail = detail, isRefreshing = false) }
+                val refreshed = if (syncFresh()) container.matchRepository.matchDetail(matchId) else null
+                _state.update { it.copy(detail = refreshed ?: it.detail, isRefreshing = false) }
                 predict()
                 maybeStartTracking()
             }
@@ -191,7 +194,11 @@ class MatchDetailViewModel(
         if (freshnessJob?.isActive != true) freshnessJob = viewModelScope.launch {
             while (isActive) {
                 val match = container.matchRepository.matchEntity(matchId)
+                // A source that cannot refresh one fixture will never make the live row
+                // fresher, so calling it stale every ten seconds would be a permanent
+                // error the user can do nothing about.
                 if (match != null && parseStatus(match.status).isLive &&
+                    container.syncRepository.supportsMatchRefresh(match.providerId) &&
                     container.clock.nowEpochMs() - match.lastSyncedAt > PredictionPolicy.LIVE_TTL_MS) {
                     _state.update { it.copy(prediction = null, lastError = AppError(com.footballai.app.core.ErrorCode.STALE_DATA)) }
                 }
@@ -214,7 +221,8 @@ class MatchDetailViewModel(
         val settings = container.settingsRepository.current()
         val entity = container.matchRepository.matchEntity(matchId) ?: return
         val isLive = parseStatus(entity.status).isLive
-        val enabled = screenVisible && _state.value.liveTrackingEnabled && settings.livePollingEnabled && isLive
+        val enabled = screenVisible && _state.value.liveTrackingEnabled && settings.livePollingEnabled &&
+            isLive && container.syncRepository.supportsMatchRefresh(entity.providerId)
         if (!enabled) {
             stopTracking()
             return
@@ -236,12 +244,24 @@ class MatchDetailViewModel(
     }
 
     private suspend fun syncFresh(): Boolean {
+        val entity = container.matchRepository.matchEntity(matchId)
+        val supported = entity != null && container.syncRepository.supportsMatchRefresh(entity.providerId)
+        _state.update { it.copy(liveTrackingSupported = supported) }
+        // A source that publishes whole matchdays cannot re-read one fixture. There is
+        // nothing to refresh and nothing went wrong: the stored row is the truth until
+        // the next matchday sync replaces it.
+        if (!supported) {
+            _state.update { it.copy(refreshWarning = null) }
+            return false
+        }
         when (val result = container.syncRepository.refreshMatch(matchId)) {
             is Outcome.Failure -> {
-                _state.update { it.copy(lastError = result.error, prediction = null, isLoading = false) }
+                // Keep the detail and the prediction: the user can still read the
+                // analysis of what is stored, and the strip says the refresh failed.
+                _state.update { it.copy(refreshWarning = result.error, isLoading = false) }
                 return false
             }
-            is Outcome.Success -> _state.update { it.copy(lastError = null) }
+            is Outcome.Success -> _state.update { it.copy(refreshWarning = null, lastError = null) }
         }
         val now = container.clock.nowEpochMs()
         if (now - lastDetailsSyncAt >= DETAILS_INTERVAL_MS) {

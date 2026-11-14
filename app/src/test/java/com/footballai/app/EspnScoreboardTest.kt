@@ -39,6 +39,14 @@ class EspnScoreboardTest {
         },
     )
 
+    @Test
+    fun `the source says it cannot refresh one fixture on its own`() {
+        // The detail screen used to ask for a single fixture, receive "not found" and show
+        // an empty analysis. The capability is what stops that question being asked.
+        assertTrue(!provider.info.capabilities.singleMatchRefresh)
+        assertTrue(!provider.info.capabilities.liveScores)
+    }
+
     private val nations = EspnCompetitionInfo(
         key = "uefa.nations",
         name = "UEFA Nations League",

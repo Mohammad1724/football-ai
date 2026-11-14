@@ -528,4 +528,6 @@
     <string name="performance_reading_title">How to read the numbers</string>
     <string name="performance_reading_body">Accuracy is the share of correct outright picks; with three outcomes (home, draw, away) guessing scores about one in three, and the model should beat that clearly. Brier and log-loss measure error, and lower is better. As a rule of thumb for three-outcome football, a Brier score near 0.55 is what a well-informed model produces, and anything above 0.65 means the model is barely better than chance. Percentages are only shown when enough forecasts have been graded; a small sample says so instead of a number.</string>
     <string name="predictions_intro_short">Only fixtures that already have a saved prediction</string>
+    <string name="refresh_failed_keep_stored">Could not refresh from the source. The data already stored is shown below.</string>
+    <string name="live_tracking_unsupported_source">This source publishes whole matchdays, so a single match cannot be updated while it is being played. The score here is what the last sync received.</string>
 </resources>

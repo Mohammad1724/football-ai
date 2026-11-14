@@ -30,6 +30,17 @@ object Formatters {
         return builder.toString()
     }
 
+    /**
+     * The score of a match, or null when the source has not published one.
+     *
+     * A missing score used to be printed as "0 - 0", which is not a neutral placeholder:
+     * it is a claim about the match that the data does not support. A screen that has no
+     * score must say so instead of inventing one.
+     */
+    fun scoreOrNull(homeGoals: Int?, awayGoals: Int?, languageTag: String): String? =
+        if (homeGoals == null || awayGoals == null) null
+        else localizeDigits("$homeGoals - $awayGoals", languageTag)
+
     fun percent(fraction: Double, languageTag: String, decimals: Int = 0): String {
         if (fraction.isNaN()) return "—"
         val text = String.format(Locale.US, "%.${decimals}f", fraction * 100.0)

@@ -34,6 +34,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.time.Instant
+import java.time.ZoneId
 import java.time.ZoneOffset
 
 data class SyncSummary(
@@ -299,6 +300,13 @@ class SyncRepository(
         }
     }
 
+    /**
+     * Whether a stored fixture of this source can be re-read on its own. The detail
+     * screen uses it to offer live tracking only where it can actually work.
+     */
+    fun supportsMatchRefresh(providerId: String): Boolean =
+        registry.info(providerId) != null
+
     /** Refreshes a single fixture (one request); used by live tracking. */
     suspend fun refreshMatch(matchId: String): Outcome<SyncSummary> {
         val match = db.matchDao().byId(matchId)
@@ -313,6 +321,13 @@ class SyncRepository(
             if (refreshed?.status == MatchStatus.FINISHED.name) return result
             return Outcome.Failure(AppError(ErrorCode.STALE_DATA, detail = "CSV result has not been published yet"))
         }
+        // A source that publishes whole matchdays cannot read one fixture directly. The
+        // matchday that contains the fixture is the only way to refresh it, so that is
+        // what is fetched instead of reporting "not found" to a screen that already has
+        // the fixture.
+        if (!provider.info.capabilities.singleMatchRefresh) {
+            return refreshMatchDay(provider, match)
+        }
         return when (val result = provider.match(match.providerKey)) {
             is Outcome.Failure -> result
             is Outcome.Success -> {
@@ -322,6 +337,35 @@ class SyncRepository(
                 val written = persistMatches(match.providerId, competitionKey, listOf(remote))
                 appendFinishedMatches(match.providerId)
                 ratingsRepository.invalidate()
+                Outcome.Success(SyncSummary(live = written, requestsEstimated = 1))
+            }
+        }
+    }
+
+    /**
+     * Refreshes one fixture through the matchday it belongs to.
+     *
+     * The open sources publish a whole day per competition, so this is one request for
+     * the one day around kickoff. A day outside the source's published window returns
+     * nothing to write, which is not an error: the stored row simply stays as it is.
+     */
+    private suspend fun refreshMatchDay(
+        provider: FootballDataProvider,
+        match: com.footballai.app.data.local.entity.MatchEntity,
+    ): Outcome<SyncSummary> {
+        val zone = ZoneId.systemDefault()
+        val day = Instant.ofEpochMilli(match.kickoffEpochMs).atZone(zone).toLocalDate()
+        val from = day.atStartOfDay(zone).toInstant().toEpochMilli()
+        val to = day.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli() - 1
+        val competitionKey = match.competitionId.substringAfterLast(':')
+        return when (val result = provider.matches(competitionKey, match.season, from, to)) {
+            is Outcome.Failure -> result
+            is Outcome.Success -> {
+                val written = persistMatches(match.providerId, competitionKey, result.value)
+                if (written > 0) {
+                    appendFinishedMatches(match.providerId)
+                    ratingsRepository.invalidate()
+                }
                 Outcome.Success(SyncSummary(live = written, requestsEstimated = 1))
             }
         }

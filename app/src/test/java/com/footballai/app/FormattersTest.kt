@@ -6,6 +6,7 @@ import com.footballai.app.core.TimeConstants
 import java.util.TimeZone
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class FormattersTest {
@@ -63,6 +64,17 @@ class FormattersTest {
     fun `persian detection is case insensitive`() {
         assertTrue(Formatters.isPersian("fa-IR"))
         assertTrue(!Formatters.isPersian("en-GB"))
+    }
+
+    @Test
+    fun `a missing score is never rendered as zero`() {
+        // The match header used to print "0 - 0" for a live fixture whose score the
+        // source had not published yet, which reads as a claim about the score.
+        assertEquals("۱ - ۰", Formatters.scoreOrNull(1, 0, "fa"))
+        assertEquals("1 - 0", Formatters.scoreOrNull(1, 0, "en"))
+        assertNull(Formatters.scoreOrNull(null, 0, "fa"))
+        assertNull(Formatters.scoreOrNull(0, null, "en"))
+        assertNull(Formatters.scoreOrNull(null, null, "fa"))
     }
 
     @Test

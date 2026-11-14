@@ -221,7 +221,11 @@ class PredictionRepository(
             dataFreshnessMinutes = freshnessMinutes,
         )
 
-        val result: PredictionResult = if (isLive) {
+        // An in-play forecast needs the current score. When the source has not published
+        // one yet, inventing 0-0 would produce a confident forecast for a match whose
+        // score is unknown, so the pre-match model is used instead.
+        val liveScoreKnown = match.homeGoals != null && match.awayGoals != null
+        val result: PredictionResult = if (isLive && liveScoreKnown) {
             engine.predictLive(
                 LiveInput(
                     preMatch = preMatchInput,

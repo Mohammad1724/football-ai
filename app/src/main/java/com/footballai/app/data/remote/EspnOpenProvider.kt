@@ -111,6 +111,9 @@ class EspnOpenProvider(
             // Fixtures, results and the current live state of a fixture are published,
             // but this provider is not polled, so no live-match endpoint is offered.
             liveScores = false,
+            // One request returns one day of one competition; a single fixture cannot be
+            // re-read, so the detail screen must not pretend it can.
+            singleMatchRefresh = false,
             matchStatistics = false,
             events = false,
             lineups = false,

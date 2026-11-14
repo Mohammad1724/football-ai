@@ -48,6 +48,8 @@ class FootballDataCoUkProvider(
         requiresApiKey = false,
         capabilities = ProviderCapabilities(
             liveScores = false,
+            // Fixtures come from a published matchday file, not from a per-fixture API.
+            singleMatchRefresh = false,
             matchStatistics = false,
             events = false,
             lineups = false,

@@ -854,10 +854,7 @@ private fun MatchMoment(match: MatchSummary, languageTag: String, modifier: Modi
         }
         Text(
             text = if (match.status.hasScore) {
-                Formatters.localizeDigits(
-                    "${match.homeGoals ?: 0} - ${match.awayGoals ?: 0}",
-                    languageTag,
-                )
+                Formatters.scoreOrNull(match.homeGoals, match.awayGoals, languageTag) ?: "—"
             } else if (match.status == com.footballai.app.domain.model.MatchStatus.SCHEDULED) {
                 Formatters.timeOnly(match.kickoffEpochMs, languageTag)
             } else {

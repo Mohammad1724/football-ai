@@ -229,6 +229,9 @@ fun MatchDetailScreen(
                         liveTrackingEnabled = state.liveTrackingEnabled,
                         isLiveTracking = state.isLiveTracking,
                         onToggleTracking = viewModel::setLiveTrackingEnabled,
+                        liveTrackingSupported = state.liveTrackingSupported,
+                        refreshWarning = state.refreshWarning?.let { errorLabel(it) },
+                        onRetryRefresh = viewModel::refresh,
                         languageTag = languageTag,
                     )
                 }
@@ -299,10 +302,8 @@ private fun MatchHeader(detail: MatchDetail, languageTag: String, onTeamClick: (
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     if (summary.status.hasScore) {
                         Text(
-                            text = Formatters.localizeDigits(
-                                "${summary.homeGoals ?: 0} - ${summary.awayGoals ?: 0}",
-                                languageTag,
-                            ),
+                            // A score the source has not published yet is a dash, never 0-0.
+                            text = Formatters.scoreOrNull(summary.homeGoals, summary.awayGoals, languageTag) ?: "—",
                             style = MaterialTheme.typography.headlineMedium,
                             fontWeight = FontWeight.Bold,
                         )
@@ -391,12 +392,45 @@ private fun AnalysisTab(
     liveTrackingEnabled: Boolean,
     isLiveTracking: Boolean,
     onToggleTracking: (Boolean) -> Unit,
+    liveTrackingSupported: Boolean,
+    refreshWarning: String?,
+    onRetryRefresh: () -> Unit,
     languageTag: String,
 ) {
     var showAdvanced by rememberSaveable(prediction?.id) { mutableStateOf(false) }
     var glossary by remember { mutableStateOf<PredictionGlossary?>(null) }
     LazyColumn(modifier = Modifier.fillMaxSize()) {
-        if (isLiveMatch) {
+        if (refreshWarning != null) {
+            // A failed refresh is not an empty screen. The stored analysis below stays.
+            item {
+                Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
+                    Text(
+                        text = stringResource(R.string.refresh_failed_keep_stored),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        text = refreshWarning,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    TextButton(onClick = onRetryRefresh) {
+                        Text(stringResource(R.string.action_retry))
+                    }
+                }
+            }
+        }
+        if (isLiveMatch && !liveTrackingSupported) {
+            item {
+                Text(
+                    text = stringResource(R.string.live_tracking_unsupported_source),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+                )
+            }
+        }
+        if (isLiveMatch && liveTrackingSupported) {
             item {
                 Row(
                     modifier = Modifier
@@ -944,7 +978,11 @@ private fun LiveTab(prediction: PredictionView?, detail: MatchDetail, languageTa
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Text(
-                        text = Formatters.localizeDigits("${detail.summary.homeGoals ?: 0} - ${detail.summary.awayGoals ?: 0}", languageTag),
+                        text = Formatters.scoreOrNull(
+                            detail.summary.homeGoals,
+                            detail.summary.awayGoals,
+                            languageTag,
+                        ) ?: "—",
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
                     )
@@ -1088,7 +1126,7 @@ private fun HeadToHeadTab(
                             style = MaterialTheme.typography.bodyMedium,
                         )
                         Text(
-                            text = Formatters.localizeDigits("${match.homeGoals ?: 0} - ${match.awayGoals ?: 0}", languageTag),
+                            text = Formatters.scoreOrNull(match.homeGoals, match.awayGoals, languageTag) ?: "—",
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.Bold,
                         )
