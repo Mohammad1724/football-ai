@@ -176,7 +176,15 @@ fun errorLabel(error: AppError): String {
     val label = text(
         when (error.code) {
             ErrorCode.INSUFFICIENT_HISTORY -> R.string.error_insufficient_history
-            ErrorCode.NO_NATIONAL_HISTORY -> R.string.error_no_national_history
+            // Three different situations hide behind one code, and each has a different
+            // remedy: the archive was never downloaded, the match is a women's
+            // international (outside the archive's scope), or this team's name is not in
+            // the archive at all. Telling the user the wrong one would waste their time.
+            ErrorCode.NO_NATIONAL_HISTORY -> when {
+                error.detail == null -> R.string.error_no_national_history
+                error.detail.contains("women", ignoreCase = true) -> R.string.error_no_national_history_women
+                else -> R.string.error_no_national_history_team
+            }
             ErrorCode.STALE_DATA -> R.string.error_stale_data
             ErrorCode.INVALID_MATCH_STATE -> R.string.error_match_state
             ErrorCode.UNKNOWN_MATCH_TIME -> R.string.error_match_time
