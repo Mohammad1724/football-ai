@@ -87,7 +87,9 @@ import com.footballai.app.ui.components.LoadingState
 import com.footballai.app.ui.components.ScrollableRefreshContent
 import com.footballai.app.ui.components.SwipeRefresh
 import com.footballai.app.ui.components.SyncStatusStrip
+import com.footballai.app.ui.components.TeamBadge
 import com.footballai.app.ui.components.TeamMonogram
+import com.footballai.app.ui.components.TeamNameLines
 import com.footballai.app.ui.matchStatusLabel
 import com.footballai.app.ui.theme.FootballAiThemeExtra
 import com.footballai.app.ui.viewmodel.MatchGenderFilter
@@ -769,22 +771,22 @@ private fun RecentMatchRow(match: MatchSummary, languageTag: String, onClick: ()
             .padding(horizontal = 14.dp, vertical = 13.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        MatchTeam(match.home, Modifier.weight(1f))
+        MatchTeam(match.home, languageTag, Modifier.weight(1f))
         MatchMoment(match, languageTag, Modifier.width(78.dp))
-        MatchTeam(match.away, Modifier.weight(1f))
+        MatchTeam(match.away, languageTag, Modifier.weight(1f))
     }
 }
 
 @Composable
-private fun MatchTeam(team: TeamRef, modifier: Modifier = Modifier) {
+private fun MatchTeam(team: TeamRef, languageTag: String, modifier: Modifier = Modifier) {
     Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
-        TeamMonogram(team.name, size = 32)
+        TeamBadge(team, size = 32)
         Spacer(Modifier.width(8.dp))
-        Text(
-            text = team.name,
-            style = MaterialTheme.typography.bodyMedium,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
+        TeamNameLines(
+            team = team,
+            languageTag = languageTag,
+            primaryStyle = MaterialTheme.typography.bodyMedium,
+            primaryMaxLines = 2,
         )
     }
 }

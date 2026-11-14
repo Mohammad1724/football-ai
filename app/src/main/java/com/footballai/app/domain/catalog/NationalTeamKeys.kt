@@ -74,5 +74,11 @@ object NationalTeamKeys {
         "chinese taipei" to "taiwan",
         "st vincent grenadines" to "saint vincent and the grenadines",
         "st vincent and the grenadines" to "saint vincent and the grenadines",
+        "uae" to "united arab emirates",
+        "cabo verde" to "cape verde",
+        "congo republic" to "congo",
+        "republic of congo" to "congo",
+        "st lucia" to "saint lucia",
+        "st vincent and grenadines" to "saint vincent and the grenadines",
     )
 }

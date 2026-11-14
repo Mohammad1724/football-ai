@@ -8,200 +8,166 @@ import java.util.Locale
  *
  * The canonical name always stays the one the provider published: this object only
  * answers "what should the UI show" and "does this row match the user's query". It
- * never renames a team in the database, and an unknown name is returned unchanged
- * instead of being transliterated into something that might be wrong.
+ * never renames a team in the database, and a name the dictionary does not know is
+ * returned unchanged instead of being transliterated into something that might be
+ * wrong.
  *
- * Persian names are translations of well-known entities; the dictionary is
- * deliberately limited to teams and competitions whose identity is unambiguous.
+ * The names themselves live in [TeamNames]; this object only turns a published name
+ * into a dictionary key. Sources spell the same team differently ("IR Iran", "Korea
+ * Republic", "FC Barcelona", "1. FC Union Berlin"), so a lookup goes through the
+ * canonical key of [NationalTeamKeys] and, for clubs, through the small set of words
+ * that sources put in front of or behind a club name without changing who it is.
  */
 object NameLocalization {
 
-    data class NationalTeam(val english: String, val persian: String, val iso2: String, val aliases: List<String> = emptyList())
+    /** Canonical, comparable form of a name: lower case, no accents, no punctuation. */
+    fun normalize(value: String): String {
+        val decomposed = Normalizer.normalize(value, Normalizer.Form.NFD)
+        val stripped = decomposed.replace(Regex("\\p{Mn}+"), "")
+        return stripped.lowercase(Locale.ROOT)
+            .replace("ي", "ی")
+            .replace("ك", "ک")
+            .replace("&", " and ")
+            .replace(Regex("[^\\p{L}\\p{N} ]"), " ")
+            .replace(Regex("\\s+"), " ")
+            .trim()
+    }
 
     /**
-     * National teams with their Persian name and ISO-3166 alpha-2 code, which is also
-     * used to render a flag without downloading anything.
+     * Words a source may put around a club name without changing which club it is.
+     * Dropping them is a rewrite of spelling, not of identity: "FC Barcelona" and
+     * "Barcelona CF" are the same club, "Barcelona" and "Barcelona B" are not, and the
+     * second one therefore keeps its own name.
      */
-    val nationalTeams: List<NationalTeam> = listOf(
-        NationalTeam("Iran", "ایران", "IR", listOf("ir iran", "islamic republic of iran")),
-        NationalTeam("Japan", "ژاپن", "JP"),
-        NationalTeam("South Korea", "کره جنوبی", "KR", listOf("korea republic", "korea")),
-        NationalTeam("North Korea", "کره شمالی", "KP", listOf("korea dpr")),
-        NationalTeam("Australia", "استرالیا", "AU"),
-        NationalTeam("Saudi Arabia", "عربستان سعودی", "SA"),
-        NationalTeam("Qatar", "قطر", "QA"),
-        NationalTeam("United Arab Emirates", "امارات", "AE", listOf("uae")),
-        NationalTeam("Iraq", "عراق", "IQ"),
-        NationalTeam("Syria", "سوریه", "SY"),
-        NationalTeam("Jordan", "اردن", "JO"),
-        NationalTeam("Lebanon", "لبنان", "LB"),
-        NationalTeam("Oman", "عمان", "OM"),
-        NationalTeam("Bahrain", "بحرین", "BH"),
-        NationalTeam("Kuwait", "کویت", "KW"),
-        NationalTeam("Uzbekistan", "ازبکستان", "UZ"),
-        NationalTeam("Turkmenistan", "ترکمنستان", "TM"),
-        NationalTeam("Kyrgyzstan", "قرقیزستان", "KG"),
-        NationalTeam("Tajikistan", "تاجیکستان", "TJ"),
-        NationalTeam("India", "هند", "IN"),
-        NationalTeam("China", "چین", "CN", listOf("china pr")),
-        NationalTeam("Thailand", "تایلند", "TH"),
-        NationalTeam("Vietnam", "ویتنام", "VN"),
-        NationalTeam("Indonesia", "اندونزی", "ID"),
-        NationalTeam("Malaysia", "مالزی", "MY"),
-        NationalTeam("England", "انگلستان", "GB-ENG"),
-        NationalTeam("Scotland", "اسکاتلند", "GB-SCT"),
-        NationalTeam("Wales", "ولز", "GB-WLS"),
-        NationalTeam("Northern Ireland", "ایرلند شمالی", "GB-NIR"),
-        NationalTeam("Ireland", "ایرلند", "IE", listOf("republic of ireland")),
-        NationalTeam("France", "فرانسه", "FR"),
-        NationalTeam("Germany", "آلمان", "DE"),
-        NationalTeam("Spain", "اسپانیا", "ES"),
-        NationalTeam("Italy", "ایتالیا", "IT"),
-        NationalTeam("Portugal", "پرتغال", "PT"),
-        NationalTeam("Netherlands", "هلند", "NL", listOf("holland")),
-        NationalTeam("Belgium", "بلژیک", "BE"),
-        NationalTeam("Croatia", "کرواسی", "HR"),
-        NationalTeam("Serbia", "صربستان", "RS"),
-        NationalTeam("Switzerland", "سوئیس", "CH"),
-        NationalTeam("Austria", "اتریش", "AT"),
-        NationalTeam("Denmark", "دانمارک", "DK"),
-        NationalTeam("Sweden", "سوئد", "SE"),
-        NationalTeam("Norway", "نروژ", "NO"),
-        NationalTeam("Finland", "فنلاند", "FI"),
-        NationalTeam("Poland", "لهستان", "PL"),
-        NationalTeam("Czechia", "جمهوری چک", "CZ", listOf("czech republic")),
-        NationalTeam("Slovakia", "اسلواکی", "SK"),
-        NationalTeam("Slovenia", "اسلوونی", "SI"),
-        NationalTeam("Hungary", "مجارستان", "HU"),
-        NationalTeam("Romania", "رومانی", "RO"),
-        NationalTeam("Bulgaria", "بلغارستان", "BG"),
-        NationalTeam("Greece", "یونان", "GR"),
-        NationalTeam("Turkey", "ترکیه", "TR", listOf("türkiye", "turkiye")),
-        NationalTeam("Ukraine", "اوکراین", "UA"),
-        NationalTeam("Russia", "روسیه", "RU"),
-        NationalTeam("Georgia", "گرجستان", "GE"),
-        NationalTeam("Albania", "آلبانی", "AL"),
-        NationalTeam("Iceland", "ایسلند", "IS"),
-        NationalTeam("Bosnia and Herzegovina", "بوسنی و هرزگوین", "BA"),
-        NationalTeam("Morocco", "مراکش", "MA"),
-        NationalTeam("Algeria", "الجزایر", "DZ"),
-        NationalTeam("Tunisia", "تونس", "TN"),
-        NationalTeam("Egypt", "مصر", "EG"),
-        NationalTeam("Senegal", "سنگال", "SN"),
-        NationalTeam("Nigeria", "نیجریه", "NG"),
-        NationalTeam("Ghana", "غنا", "GH"),
-        NationalTeam("Cameroon", "کامرون", "CM"),
-        NationalTeam("Ivory Coast", "ساحل عاج", "CI", listOf("cote d ivoire", "côte d'ivoire")),
-        NationalTeam("South Africa", "آفریقای جنوبی", "ZA"),
-        NationalTeam("Brazil", "برزیل", "BR"),
-        NationalTeam("Argentina", "آرژانتین", "AR"),
-        NationalTeam("Uruguay", "اروگوئه", "UY"),
-        NationalTeam("Colombia", "کلمبیا", "CO"),
-        NationalTeam("Chile", "شیلی", "CL"),
-        NationalTeam("Peru", "پرو", "PE"),
-        NationalTeam("Ecuador", "اکوادور", "EC"),
-        NationalTeam("Paraguay", "پاراگوئه", "PY"),
-        NationalTeam("Bolivia", "بولیوی", "BO"),
-        NationalTeam("Venezuela", "ونزوئلا", "VE"),
-        NationalTeam("Mexico", "مکزیک", "MX"),
-        NationalTeam("United States", "آمریکا", "US", listOf("usa", "united states of america")),
-        NationalTeam("Canada", "کانادا", "CA"),
-        NationalTeam("Costa Rica", "کاستاریکا", "CR"),
-        NationalTeam("Panama", "پاناما", "PA"),
-        NationalTeam("Honduras", "هندوراس", "HN"),
-        NationalTeam("Jamaica", "جامائیکا", "JM"),
-        NationalTeam("New Zealand", "نیوزیلند", "NZ"),
+    private val clubNoise: Set<String> = setOf(
+        "fc", "afc", "cf", "sc", "ac", "cd", "as", "ss", "ssc", "cs", "ca", "cp",
+        "fk", "sk", "bk", "if", "club", "de", "atletico", "atlético", "1", "2",
     )
 
-    /** Well-known clubs whose Persian name is stable and widely used. */
-    private val clubPersian: Map<String, String> = mapOf(
-        "persepolis" to "پرسپولیس",
-        "esteghlal" to "استقلال",
-        "sepahan" to "سپاهان",
-        "tractor" to "تراکتور",
-        "tractor sazi" to "تراکتور",
-        "foolad" to "فولاد",
-        "real madrid" to "رئال مادرید",
-        "barcelona" to "بارسلونا",
-        "atletico madrid" to "اتلتیکو مادرید",
-        "manchester united" to "منچستریونایتد",
-        "manchester city" to "منچسترسیتی",
-        "liverpool" to "لیورپول",
-        "arsenal" to "آرسنال",
-        "chelsea" to "چلسی",
-        "tottenham hotspur" to "تاتنهام",
-        "newcastle united" to "نیوکاسل",
-        "aston villa" to "استون ویلا",
-        "everton" to "اورتون",
-        "bayern munich" to "بایرن مونیخ",
-        "borussia dortmund" to "دورتموند",
-        "rb leipzig" to "لایپزیش",
-        "bayer leverkusen" to "بایر لورکوزن",
-        "juventus" to "یوونتوس",
-        "ac milan" to "میلان",
-        "inter" to "اینتر",
-        "internazionale" to "اینتر میلان",
-        "napoli" to "ناپولی",
-        "as roma" to "رم",
-        "lazio" to "لاتزیو",
-        "paris saint germain" to "پاری سن ژرمن",
-        "marseille" to "مارسی",
-        "ajax" to "آژاکس",
-        "psv" to "پی‌اس‌وی",
-        "feyenoord" to "فاینورد",
-        "benfica" to "بنفیکا",
-        "porto" to "پورتو",
-        "sporting cp" to "اسپورتینگ",
-        "galatasaray" to "گالاتاسرای",
-        "fenerbahce" to "فنرباغچه",
-        "besiktas" to "بشیکتاش",
-        "olympiacos" to "المپیاکوس",
-        "panathinaikos" to "پاناتینایکوس",
-        "flamengo" to "فلامنگو",
-        "palmeiras" to "پالمیراس",
-        "boca juniors" to "بوکا جونیورز",
-        "river plate" to "ریور پلاته",
-        "inter miami" to "اینتر میامی",
-        "al hilal" to "الهلال",
-        "al nassr" to "النصر",
-        "al ittihad" to "الاتحاد",
+    /** Suffixes that mean "the women's team of the same nation", not a different nation. */
+    private val womenWords: Set<String> = setOf("women", "womens", "women's", "w", "ladies")
+
+    /** Age-group suffixes, with the Persian wording used on screen. */
+    private val ageSuffixes: Map<String, String> = mapOf(
+        "u23" to "زیر ۲۳ سال",
+        "u21" to "زیر ۲۱ سال",
+        "u20" to "زیر ۲۰ سال",
+        "u19" to "زیر ۱۹ سال",
+        "u17" to "زیر ۱۷ سال",
     )
 
-    private val persistedNationalByKey: Map<String, NationalTeam> = nationalTeams.flatMap { team ->
-        (listOf(team.english) + team.aliases).map { normalize(it) to team }
-    }.toMap()
+    private data class Entry(val persian: String, val iso2: String?, val national: Boolean)
 
-    /** Persian name for a team, or null when the identity is not certain. */
-    fun persianTeamName(name: String, shortName: String? = null): String? {
-        val candidates = listOfNotNull(name, shortName).map { normalize(it) }
-        for (key in candidates) {
-            persistedNationalByKey[key]?.let { return it.persian }
-            clubPersian[key]?.let { return it }
+    private val nationalByKey: Map<String, TeamNames.NationalTeam> = buildMap {
+        for (team in TeamNames.nationalTeams) {
+            for (name in listOf(team.english) + team.aliases) {
+                val key = NationalTeamKeys.key(name)
+                if (key.isNotEmpty()) put(key, team)
+            }
         }
-        // "FC Barcelona" / "Barcelona CF": try the longest dictionary key contained.
-        for (key in candidates) {
-            clubPersian.keys.filter { key.contains(it) && it.length >= 5 }
-                .maxByOrNull { it.length }
-                ?.let { return clubPersian[it] }
+    }
+
+    private val clubByKey: Map<String, TeamNames.Club> = buildMap {
+        for (club in TeamNames.clubs) {
+            for (name in listOf(club.english) + club.aliases) {
+                for (variant in variants(name)) {
+                    putIfAbsent(variant, club)
+                }
+            }
+        }
+    }
+
+    /** Every spelling of a name that can be compared: the name itself, then the same
+     *  name with the noise words a source may add stripped off one end at a time. */
+    private fun variants(value: String): List<String> {
+        val tokens = normalize(value).split(' ').filter { it.isNotBlank() }
+        if (tokens.isEmpty()) return emptyList()
+        val out = LinkedHashSet<String>()
+        var start = 0
+        var end = tokens.size
+        out.add(tokens.subList(start, end).joinToString(" "))
+        while (start < end - 1 && tokens[start] in clubNoise) {
+            start++
+            out.add(tokens.subList(start, end).joinToString(" "))
+        }
+        while (end - 1 > start && tokens[end - 1] in clubNoise) {
+            end--
+            out.add(tokens.subList(start, end).joinToString(" "))
+        }
+        return out.toList()
+    }
+
+    private fun candidates(name: String, shortName: String?): List<String> =
+        listOfNotNull(name, shortName).map { it.trim() }.filter { it.isNotEmpty() }.distinct()
+
+    private fun lookupNational(value: String): TeamNames.NationalTeam? =
+        nationalByKey[NationalTeamKeys.key(value)]
+
+    /** Resolves a published team name to its Persian name, flag code and identity. */
+    private fun resolve(name: String, shortName: String? = null): Entry? {
+        val all = candidates(name, shortName)
+        for (candidate in all) {
+            lookupNational(candidate)?.let {
+                return Entry(it.persian, it.iso2.ifBlank { null }, true)
+            }
+            for (variant in variants(candidate)) {
+                clubByKey[variant]?.let { return Entry(it.persian, null, false) }
+            }
+        }
+        // "Spain Women", "Japan U21": the same nation, written with a suffix.
+        for (candidate in all) {
+            val tokens = normalize(candidate).split(' ').filter { it.isNotBlank() }
+            if (tokens.isEmpty()) continue
+            var rest = tokens
+            val labels = mutableListOf<String>()
+            while (rest.isNotEmpty() && rest.last() in womenWords) {
+                if ("بانوان" !in labels) labels.add("بانوان")
+                rest = rest.dropLast(1)
+            }
+            while (rest.isNotEmpty()) {
+                val ageLabel = ageSuffixes[rest.last()]
+                if (ageLabel == null) break
+                if (ageLabel !in labels) labels.add(ageLabel)
+                rest = rest.dropLast(1)
+            }
+            if (rest.isEmpty() || labels.isEmpty() || rest.size == tokens.size) continue
+            lookupNational(rest.joinToString(" "))?.let { team ->
+                val suffix = labels.joinToString("، ")
+                return Entry("${team.persian} ($suffix)", team.iso2.ifBlank { null }, true)
+            }
         }
         return null
+    }
+
+    /** Persian name for a team, or null when the identity is not certain. */
+    fun persianTeamName(name: String, shortName: String? = null): String? =
+        resolve(name, shortName)?.persian
+
+    /**
+     * The two names a Persian screen shows for one team: the Persian one when it is
+     * known, plus the published Latin one underneath. A team the dictionary does not
+     * know gets null as its second name instead of a guess.
+     */
+    fun namePair(name: String, languageTag: String, shortName: String? = null): Pair<String, String?> {
+        val persian = persianTeamName(name, shortName)
+        val persianScreen = languageTag.lowercase(Locale.ROOT).startsWith("fa")
+        return when {
+            persian == null -> name to null
+            persianScreen -> persian to name.takeIf { it != persian }
+            else -> name to persian
+        }
     }
 
     /** Persian competition name, delegated to the competition catalogue. */
     fun persianCompetitionName(providerId: String, providerKey: String, name: String): String? =
         CompetitionCatalog.classify(providerId, providerKey, name).persianName
 
-    /** Flag emoji for a national team, or null when the team is not a known nation. */
-    fun flagEmoji(name: String, shortName: String? = null): String? {
-        val candidates = listOfNotNull(name, shortName).map { normalize(it) }
-        val team = candidates.firstNotNullOfOrNull { persistedNationalByKey[it] } ?: return null
-        return emojiFor(team.iso2)
-    }
+    /** Flag emoji for a national team, or null when the team has no flag. */
+    fun flagEmoji(name: String, shortName: String? = null): String? =
+        resolve(name, shortName)?.iso2?.let { emojiFor(it) }
 
-    fun isNationalTeamName(name: String, shortName: String? = null): Boolean {
-        val candidates = listOfNotNull(name, shortName).map { normalize(it) }
-        return candidates.any { persistedNationalByKey.containsKey(it) }
-    }
+    fun isNationalTeamName(name: String, shortName: String? = null): Boolean =
+        resolve(name, shortName)?.national == true
 
     /**
      * Search match across the published English name, the short name and the Persian
@@ -213,30 +179,18 @@ object NameLocalization {
         val haystack = buildList {
             add(normalize(name))
             shortName?.let { add(normalize(it)) }
-            persianTeamName(name, shortName)?.let { add(it) }
+            persianTeamName(name, shortName)?.let { add(normalize(it)) }
         }
         return haystack.any { it.contains(needle) }
     }
 
     /** What the UI should render for a team name in the active language. */
-    fun displayName(name: String, languageTag: String, shortName: String? = null): String {
-        if (!languageTag.lowercase(Locale.ROOT).startsWith("fa")) return name
-        return persianTeamName(name, shortName) ?: name
-    }
+    fun displayName(name: String, languageTag: String, shortName: String? = null): String =
+        namePair(name, languageTag, shortName).first
 
-    fun normalize(value: String): String {
-        val decomposed = Normalizer.normalize(value, Normalizer.Form.NFD)
-        val stripped = decomposed.replace(Regex("\\p{Mn}+"), "")
-        return stripped.lowercase(Locale.ROOT)
-            .replace("ي", "ی")
-            .replace("ك", "ک")
-            .replace(Regex("[^\\p{L}\\p{N} ]"), " ")
-            .replace(Regex("\\s+"), " ")
-            .trim()
-    }
-
-    /** Builds a two-letter regional indicator pair from an ISO-3166 alpha-2 code. */
+    /** Builds a regional-indicator pair, or the tag sequence used by the home nations. */
     private fun emojiFor(iso2: String): String? {
+        homeNationFlags[iso2]?.let { return it }
         val code = iso2.substringBefore('-')
         if (code.length != 2 || code.any { !it.isLetter() }) return null
         val base = 0x1F1E6 - 'A'.code
@@ -244,4 +198,16 @@ object NameLocalization {
         val second = Character.toChars(base + code[1].uppercaseChar().code)
         return String(first) + String(second)
     }
+
+    /**
+     * England, Scotland and Wales are not countries in ISO-3166, so they have no
+     * two-letter flag; they use the emoji tag sequences instead. Northern Ireland has
+     * none at all, and falls back to the United Kingdom flag rather than nothing.
+     */
+    private val homeNationFlags: Map<String, String> = mapOf(
+        "GB-ENG" to "\uD83C\uDFF4\uDB40\uDC67\uDB40\uDC62\uDB40\uDC65\uDB40\uDC6E\uDB40\uDC67\uDB40\uDC7F",
+        "GB-SCT" to "\uD83C\uDFF4\uDB40\uDC67\uDB40\uDC62\uDB40\uDC73\uDB40\uDC63\uDB40\uDC74\uDB40\uDC7F",
+        "GB-WLS" to "\uD83C\uDFF4\uDB40\uDC67\uDB40\uDC62\uDB40\uDC77\uDB40\uDC6C\uDB40\uDC73\uDB40\uDC7F",
+        "GB-NIR" to "\uD83C\uDDEC\uD83C\uDDE7",
+    )
 }

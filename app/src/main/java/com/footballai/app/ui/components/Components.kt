@@ -38,8 +38,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.footballai.app.core.Formatters
 import com.footballai.app.domain.model.CalibrationPoint
@@ -54,6 +57,7 @@ import com.footballai.app.ui.confidenceLevelLabel
 import com.footballai.app.ui.matchStatusLabel
 import com.footballai.app.ui.qualityLevelLabel
 import com.footballai.app.ui.theme.FootballAiThemeExtra
+import coil.compose.AsyncImage
 import com.footballai.app.R
 
 @Composable
@@ -264,28 +268,80 @@ fun MatchCard(
 }
 
 /**
- * Team identity badge.
+ * Team identity badge: a flag for a nation, a crest for a club, initials when neither
+ * is known.
  *
- * A national team is shown with its flag when the name is a known nation, a club with
- * its monogram. Provider crest URLs are stored but not rendered because the project
- * deliberately ships no image-loading dependency yet; a wrong or missing crest is worse
- * than an honest monogram.
+ * The flag comes from the name dictionary, not from a network request, so it is there
+ * the moment a fixture is. The crest is the provider's own image: it appears when it
+ * loads and the initials stay visible underneath until then, so a slow connection never
+ * leaves an empty circle. A team the dictionary does not know and the provider has no
+ * crest for keeps its initials rather than a made-up badge.
  */
 @Composable
 fun TeamBadge(team: TeamRef, size: Int = 26) {
-    val flag = if (team.isNational) NameLocalization.flagEmoji(team.name, team.shortName) else null
-    if (flag != null) {
-        Box(
-            modifier = Modifier
-                .size(size.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.surfaceVariant),
-            contentAlignment = Alignment.Center,
-        ) {
+    val flag = NameLocalization.flagEmoji(team.name, team.shortName)
+    val crest = team.crestUrl?.takeIf { it.isNotBlank() }
+    Box(
+        modifier = Modifier
+            .size(size.dp)
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.surfaceVariant),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (flag != null) {
             Text(text = flag, style = MaterialTheme.typography.bodyMedium)
+        } else {
+            TeamMonogram(team.name, size = size)
+            if (crest != null) {
+                AsyncImage(
+                    model = crest,
+                    contentDescription = null,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier
+                        .size(size.dp)
+                        .clip(CircleShape),
+                )
+            }
         }
-    } else {
-        TeamMonogram(team.name, size = size)
+    }
+}
+
+/**
+ * A team name in both languages.
+ *
+ * On a Persian screen the Persian name leads and the published Latin one sits under it,
+ * so a team is still recognisable when the Persian name is not the one the user knows.
+ * The Latin line is wrapped in a left-to-right mark: inside a right-to-left paragraph a
+ * bare "Al Hilal" would otherwise be reordered around its spaces.
+ */
+@Composable
+fun TeamNameLines(
+    team: TeamRef,
+    languageTag: String,
+    modifier: Modifier = Modifier,
+    primaryStyle: TextStyle = MaterialTheme.typography.bodyLarge,
+    secondaryStyle: TextStyle = MaterialTheme.typography.labelSmall,
+    primaryMaxLines: Int = 1,
+) {
+    val pair = NameLocalization.namePair(team.name, languageTag, team.shortName)
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(1.dp)) {
+        Text(
+            text = pair.first,
+            style = primaryStyle,
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = primaryMaxLines,
+            overflow = TextOverflow.Ellipsis,
+        )
+        val secondary = pair.second
+        if (secondary != null && secondary != pair.first) {
+            Text(
+                text = "\u200E" + secondary,
+                style = secondaryStyle,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
     }
 }
 
@@ -297,7 +353,6 @@ private fun TeamRow(
     showScore: Boolean,
     languageTag: String,
 ) {
-    val displayName = NameLocalization.displayName(team.name, languageTag, team.shortName)
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
@@ -306,11 +361,11 @@ private fun TeamRow(
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
             TeamBadge(team, size = 26)
             Spacer(Modifier.width(10.dp))
-            Text(
-                text = displayName,
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
+            TeamNameLines(
+                team = team,
+                languageTag = languageTag,
+                modifier = Modifier.weight(1f, fill = false),
+                primaryStyle = MaterialTheme.typography.bodyLarge,
             )
         }
         Text(
