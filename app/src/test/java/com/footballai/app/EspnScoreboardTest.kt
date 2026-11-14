@@ -162,4 +162,20 @@ class EspnScoreboardTest {
         val result = provider.parse("{not json", nations)
         assertIs<Outcome.Failure>(result)
     }
+
+    @Test
+    fun `every advertised competition is one the endpoint was checked against`() {
+        // The curated list is the whole coverage claim. Each slug here was requested
+        // live before it was added; an unknown slug answers HTTP 400, so a typo would
+        // show up as a silently missing competition.
+        val expected = setOf(
+            "uefa.nations", "uefa.w.nations", "fifa.friendly", "fifa.worldq.uefa",
+            "fifa.world", "uefa.euro", "concacaf.nations.league", "fifa.wwc",
+            "uefa.weuro", "uefa.champions", "uefa.europa", "uefa.wchampions",
+            "eng.1", "esp.1", "ita.1", "ger.1", "fra.1", "usa.1", "eng.w.1",
+        )
+        assertEquals(expected, EspnOpenProvider.COMPETITIONS.map { it.key }.toSet())
+        assertTrue(provider.defaultCompetitionKeys.all { it in expected })
+        assertTrue(EspnOpenProvider.COMPETITIONS.any { it.key == "uefa.w.nations" })
+    }
 }

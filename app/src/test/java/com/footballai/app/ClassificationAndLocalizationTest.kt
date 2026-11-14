@@ -138,4 +138,44 @@ class ClassificationAndLocalizationTest {
         assertEquals(ClassificationSource.UNKNOWN, fdo("pl", "Some Unlisted League").source)
         assertEquals(ClassificationSource.CATALOG, fdo("PL", "Some Unlisted League").source)
     }
+
+    private fun espn(slug: String, name: String) =
+        CompetitionCatalog.classify("espn-open", slug, name)
+
+    @Test
+    fun `espn slugs are catalogued with a gender the name could not decide`() {
+        val nations = espn("uefa.nations", "UEFA Nations League")
+        assertEquals(CompetitionType.INTERNATIONAL_TOURNAMENT, nations.type)
+        assertEquals(Gender.MEN, nations.gender)
+        assertEquals(TeamKind.NATIONAL, nations.teamKind)
+        assertEquals(ClassificationSource.CATALOG, nations.source)
+        assertEquals("لیگ ملت‌های اروپا", nations.persianName)
+
+        val womensNations = espn("uefa.w.nations", "UEFA Women's Nations League")
+        assertEquals(CompetitionType.WOMEN_INTERNATIONAL, womensNations.type)
+        assertEquals(Gender.WOMEN, womensNations.gender)
+        assertEquals(TeamKind.NATIONAL, womensNations.teamKind)
+
+        val womensSuperLeague = espn("eng.w.1", "Women's Super League")
+        assertEquals(CompetitionType.WOMEN_CLUB_LEAGUE, womensSuperLeague.type)
+        assertEquals(Gender.WOMEN, womensSuperLeague.gender)
+        assertEquals(TeamKind.CLUB, womensSuperLeague.teamKind)
+
+        assertEquals(CompetitionType.INTERNATIONAL_QUALIFIER, espn("fifa.worldq.uefa", "World Cup Qualifiers (UEFA)").type)
+        assertEquals(CompetitionType.WOMEN_CLUB_LEAGUE, espn("uefa.wchampions", "UEFA Women's Champions League").type)
+    }
+
+    @Test
+    fun `an espn slug decides gender even when the name says nothing`() {
+        // ESPN publishes the women's league under a slug, and a provider may well publish
+        // a neutral name; the slug is the fact, the name is not.
+        assertEquals(Gender.WOMEN, espn("eng.w.1", "Super League").gender)
+        // The same name under a men's slug must not inherit the women's entry.
+        assertEquals(Gender.MEN, espn("eng.1", "Super League").gender)
+    }
+
+    @Test
+    fun `an uncatalogued espn slug is not presented as a known competition`() {
+        assertFalse(espn("xx.99", "Some Regional Cup").source == ClassificationSource.CATALOG)
+    }
 }

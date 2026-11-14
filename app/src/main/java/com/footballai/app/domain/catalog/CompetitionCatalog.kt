@@ -104,6 +104,35 @@ object CompetitionCatalog {
     )
 
     /**
+     * ESPN's public scoreboard, keyed by its own slugs. Every slug below was checked
+     * against the live endpoint before it was written here; the endpoint answers 400 for
+     * a slug that does not exist, so an invented one would be visible immediately.
+     * `espn-open` also publishes women's competitions, which are catalogued explicitly
+     * rather than left to a name rule.
+     */
+    private val espnOpenKeys = listOf(
+        Entry("espn-open", "uefa.nations", "UEFA Nations League", CompetitionType.INTERNATIONAL_TOURNAMENT, Gender.MEN, "Europe", "لیگ ملت‌های اروپا"),
+        Entry("espn-open", "uefa.w.nations", "UEFA Women's Nations League", CompetitionType.WOMEN_INTERNATIONAL, Gender.WOMEN, "Europe", "لیگ ملت‌های اروپا (زنان)"),
+        Entry("espn-open", "fifa.friendly", "International Friendlies", CompetitionType.INTERNATIONAL_FRIENDLY, Gender.MEN, "World", "بازی‌های دوستانه ملی"),
+        Entry("espn-open", "fifa.worldq.uefa", "World Cup Qualifiers (UEFA)", CompetitionType.INTERNATIONAL_QUALIFIER, Gender.MEN, "Europe", "مقدماتی جام جهانی (اروپا)"),
+        Entry("espn-open", "fifa.world", "FIFA World Cup", CompetitionType.INTERNATIONAL_TOURNAMENT, Gender.MEN, "World", "جام جهانی"),
+        Entry("espn-open", "uefa.euro", "UEFA European Championship", CompetitionType.INTERNATIONAL_TOURNAMENT, Gender.MEN, "Europe", "یورو"),
+        Entry("espn-open", "concacaf.nations.league", "CONCACAF Nations League", CompetitionType.INTERNATIONAL_TOURNAMENT, Gender.MEN, "North America", "لیگ ملت‌های کونکاکاف"),
+        Entry("espn-open", "fifa.wwc", "FIFA Women's World Cup", CompetitionType.WOMEN_INTERNATIONAL, Gender.WOMEN, "World", "جام جهانی زنان"),
+        Entry("espn-open", "uefa.weuro", "UEFA Women's Euro", CompetitionType.WOMEN_INTERNATIONAL, Gender.WOMEN, "Europe", "یورو زنان"),
+        Entry("espn-open", "uefa.champions", "UEFA Champions League", CompetitionType.CLUB_KNOCKOUT, Gender.MEN, "Europe", "لیگ قهرمانان اروپا"),
+        Entry("espn-open", "uefa.europa", "UEFA Europa League", CompetitionType.CLUB_KNOCKOUT, Gender.MEN, "Europe", "لیگ اروپا"),
+        Entry("espn-open", "uefa.wchampions", "UEFA Women's Champions League", CompetitionType.WOMEN_CLUB_LEAGUE, Gender.WOMEN, "Europe", "لیگ قهرمانان زنان"),
+        Entry("espn-open", "eng.1", "Premier League", CompetitionType.CLUB_LEAGUE, Gender.MEN, "England", "لیگ برتر انگلیس"),
+        Entry("espn-open", "esp.1", "LaLiga", CompetitionType.CLUB_LEAGUE, Gender.MEN, "Spain", "لالیگا"),
+        Entry("espn-open", "ita.1", "Serie A", CompetitionType.CLUB_LEAGUE, Gender.MEN, "Italy", "سری آ"),
+        Entry("espn-open", "ger.1", "Bundesliga", CompetitionType.CLUB_LEAGUE, Gender.MEN, "Germany", "بوندس‌لیگا"),
+        Entry("espn-open", "fra.1", "Ligue 1", CompetitionType.CLUB_LEAGUE, Gender.MEN, "France", "لیگ ۱ فرانسه"),
+        Entry("espn-open", "usa.1", "Major League Soccer", CompetitionType.CLUB_LEAGUE, Gender.MEN, "USA", "لیگ حرفه‌ای آمریکا (MLS)"),
+        Entry("espn-open", "eng.w.1", "Women's Super League", CompetitionType.WOMEN_CLUB_LEAGUE, Gender.WOMEN, "England", "سوپرلیگ زنان انگلیس"),
+    )
+
+    /**
      * International and continental competitions identified by the name a provider
      * publishes. The list is intentionally explicit: a fuzzy "contains 'cup'" rule
      * would mislabel domestic cups and leagues.
@@ -168,7 +197,7 @@ object CompetitionCatalog {
      * league in the football-data.co.uk CSV catalogue. Keys are therefore scoped by
      * provider id, and an unscoped entry belongs to football-data.org.
      */
-    private val byProviderKey: Map<String, Entry> = providerKeys
+    private val byProviderKey: Map<String, Entry> = (providerKeys + espnOpenKeys)
         .filter { it.providerKey != null }
         .associateBy { (it.providerId ?: DEFAULT_KEY_PROVIDER) + "|" + it.providerKey!! }
 
@@ -296,7 +325,8 @@ object CompetitionCatalog {
     /** Every catalogue entry, used by the competition picker and the documentation. */
     fun cataloguedCompetitions(): List<Pair<String, CompetitionClassification>> =
         international.map { it.name to classify("catalog", "", it.name) } +
-            providerKeys.mapNotNull { entry -> entry.providerKey?.let { it to classify("football-data-org", it, entry.name) } }
+            providerKeys.mapNotNull { entry -> entry.providerKey?.let { it to classify("football-data-org", it, entry.name) } } +
+            espnOpenKeys.mapNotNull { entry -> entry.providerKey?.let { it to classify("espn-open", it, entry.name) } }
 
     fun persianName(providerId: String, providerKey: String, name: String): String? =
         classify(providerId, providerKey, name).persianName

@@ -71,7 +71,10 @@ class EspnOpenProvider(
          * the score is a 90-minute result.
          */
         val COMPETITIONS: List<EspnCompetitionInfo> = listOf(
+            // National teams first: this is the coverage no other free source in the
+            // app can provide. Every slug below was verified against the live endpoint.
             EspnCompetitionInfo("uefa.nations", "UEFA Nations League", "Europe", null, knockout = false),
+            EspnCompetitionInfo("uefa.w.nations", "UEFA Women's Nations League", "Europe", null, knockout = false),
             EspnCompetitionInfo("fifa.friendly", "International Friendlies", "World", null, knockout = false),
             EspnCompetitionInfo("fifa.worldq.uefa", "World Cup Qualifiers (UEFA)", "Europe", null, knockout = true),
             EspnCompetitionInfo("fifa.world", "FIFA World Cup", "World", null, knockout = true),
@@ -79,8 +82,10 @@ class EspnOpenProvider(
             EspnCompetitionInfo("concacaf.nations.league", "CONCACAF Nations League", "North America", null, knockout = false),
             EspnCompetitionInfo("fifa.wwc", "FIFA Women's World Cup", "World", null, knockout = true),
             EspnCompetitionInfo("uefa.weuro", "UEFA Women's Euro", "Europe", null, knockout = true),
+            // Clubs.
             EspnCompetitionInfo("uefa.champions", "UEFA Champions League", "Europe", null, knockout = true),
             EspnCompetitionInfo("uefa.europa", "UEFA Europa League", "Europe", null, knockout = true),
+            EspnCompetitionInfo("uefa.wchampions", "UEFA Women's Champions League", "Europe", null, knockout = true),
             EspnCompetitionInfo("eng.1", "Premier League", "England", null, knockout = false),
             EspnCompetitionInfo("esp.1", "LaLiga", "Spain", null, knockout = false),
             EspnCompetitionInfo("ita.1", "Serie A", "Italy", null, knockout = false),
@@ -111,13 +116,16 @@ class EspnOpenProvider(
             standings = false,
             historicalSeasons = 0,
         ),
-        quota = QuotaPolicy(requestsPerMinute = 20, requestsPerDay = 400),
+        // Self-imposed, not published by the provider: one request covers one day of one
+        // competition, so a full 19-competition, three-day sync is 57 requests. The
+        // spacing keeps the app a light client while still finishing in about a minute.
+        quota = QuotaPolicy(requestsPerMinute = 40, requestsPerDay = 1200),
         attribution = "Fixture data provided by ESPN (unofficial public endpoint)",
     )
 
     /** National-team football first: it is the part no other free source in the app has. */
     override val defaultCompetitionKeys: List<String> =
-        listOf("uefa.nations", "fifa.world", "uefa.champions", "eng.1")
+        listOf("uefa.nations", "uefa.w.nations", "fifa.friendly", "uefa.champions")
 
     private val json = defaultJson()
 
@@ -145,12 +153,17 @@ class EspnOpenProvider(
             )
         val dates = windowDates(fromEpochMs, toEpochMs)
         val matches = ArrayList<RemoteMatch>()
+        // One bad day must not erase the other days: a rate limit or a transient error
+        // on Tuesday cannot hide the fixtures of Wednesday. A source error is only
+        // reported when nothing at all could be read.
+        var firstFailure: Outcome.Failure? = null
         for (date in dates) {
             when (val result = fetchDay(competition, date)) {
-                is Outcome.Failure -> return@withContext result
+                is Outcome.Failure -> if (firstFailure == null) firstFailure = result
                 is Outcome.Success -> matches.addAll(result.value)
             }
         }
+        if (matches.isEmpty() && firstFailure != null) return@withContext firstFailure
         Outcome.Success(matches)
     }
 
