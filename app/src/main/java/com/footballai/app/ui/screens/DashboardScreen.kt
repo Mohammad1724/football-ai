@@ -69,6 +69,7 @@ import com.footballai.app.ui.components.SwipeRefresh
 import com.footballai.app.ui.components.SyncStatusStrip
 import com.footballai.app.ui.components.MatchCard
 import com.footballai.app.ui.components.SectionHeader
+import com.footballai.app.ui.components.SoftCard
 import com.footballai.app.ui.components.StatusChip
 import com.footballai.app.ui.errorLabel
 import com.footballai.app.ui.theme.Spacing
@@ -211,20 +212,22 @@ fun DashboardScreen(
 
                     item {
                         Row(
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
                             horizontalArrangement = Arrangement.Center,
                         ) {
-                            TextButton(onClick = { showDataDetails = !showDataDetails }) {
-                                Text(
-                                    if (showDataDetails) {
-                                        stringResource(R.string.hide_data_details)
-                                    } else if (state.syncWarnings.isNotEmpty()) {
-                                        stringResource(R.string.show_data_details_with_warnings, state.syncWarnings.size)
-                                    } else {
-                                        stringResource(R.string.show_data_details)
-                                    },
-                                )
-                            }
+                            // A quiet secondary pill: this opens diagnostics, it is not the
+                            // thing the screen is asking the reader to do.
+                            SoftPillButton(
+                                label = if (showDataDetails) {
+                                    stringResource(R.string.hide_data_details)
+                                } else if (state.syncWarnings.isNotEmpty()) {
+                                    stringResource(R.string.show_data_details_with_warnings, state.syncWarnings.size)
+                                } else {
+                                    stringResource(R.string.show_data_details)
+                                },
+                                filled = false,
+                                onClick = { showDataDetails = !showDataDetails },
+                            )
                         }
                     }
 
@@ -410,30 +413,35 @@ private fun SyncCard(
     onConfigure: () -> Unit,
 ) {
     val languageTag = LocalLanguageTag.current
-    Card(
+    SoftCard(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+            .padding(horizontal = Spacing.page, vertical = Spacing.xs),
     ) {
-        Column(modifier = Modifier.padding(14.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.CloudSync,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                        tint = MaterialTheme.colorScheme.primary,
-                    )
-                    Spacer(Modifier.size(8.dp))
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Default.CloudSync,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+                Spacer(Modifier.width(10.dp))
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = providerName ?: stringResource(R.string.no_provider_title),
                         style = MaterialTheme.typography.titleSmall,
+                    )
+                    // One quiet line instead of three number blocks: the counts are
+                    // reference material, not the reason the screen exists.
+                    Text(
+                        text = stringResource(
+                            R.string.last_sync,
+                            lastSyncEpochMs?.let { Formatters.kickoffDateTime(it, languageTag) }
+                                ?: stringResource(R.string.never),
+                        ),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 if (isSyncing) {
@@ -441,21 +449,37 @@ private fun SyncCard(
                         text = stringResource(R.string.sync_in_progress),
                         color = MaterialTheme.colorScheme.primary,
                     )
-                } else {
-                    TextButton(onClick = onConfigure) {
-                        Text(text = stringResource(R.string.action_manage))
-                    }
                 }
             }
+
+            if (providerName == null) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = stringResource(R.string.no_provider_body),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    text = listOf(
+                        Formatters.integer(fixtures, languageTag) + " " + stringResource(R.string.stat_fixtures),
+                        Formatters.integer(historical, languageTag) + " " + stringResource(R.string.stat_history),
+                        Formatters.integer(predictions, languageTag) + " " + stringResource(R.string.stat_predictions),
+                    ).joinToString(" · "),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
             if (isSyncing) {
-                val tag = LocalLanguageTag.current
-                Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.height(8.dp))
                 Text(
                     text = if (progressTotal > 0) {
                         stringResource(
                             R.string.sync_progress,
-                            Formatters.integer(progressDone, tag),
-                            Formatters.integer(progressTotal, tag),
+                            Formatters.integer(progressDone, languageTag),
+                            Formatters.integer(progressTotal, languageTag),
                         )
                     } else {
                         stringResource(R.string.sync_in_progress)
@@ -463,41 +487,51 @@ private fun SyncCard(
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                TextButton(onClick = onCancelSync) {
-                    Text(text = stringResource(R.string.action_cancel))
-                }
             }
-            Spacer(Modifier.height(6.dp))
-            if (providerName == null) {
-                Text(
-                    text = stringResource(R.string.no_provider_body),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            } else {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                ) {
-                    StatBlock(stringResource(R.string.stat_fixtures), Formatters.integer(fixtures, languageTag))
-                    StatBlock(stringResource(R.string.stat_history), Formatters.integer(historical, languageTag))
-                    StatBlock(stringResource(R.string.stat_predictions), Formatters.integer(predictions, languageTag))
-                }
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    text = stringResource(
-                        R.string.last_sync,
-                        lastSyncEpochMs?.let { Formatters.kickoffDateTime(it, languageTag) }
-                            ?: stringResource(R.string.never),
-                    ),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                TextButton(onClick = onSync) {
-                    Text(text = stringResource(if (dailyMode) R.string.action_daily_analysis else R.string.action_sync_now))
+
+            Spacer(Modifier.height(12.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                if (isSyncing) {
+                    SoftPillButton(
+                        label = stringResource(R.string.action_cancel),
+                        filled = false,
+                        onClick = onCancelSync,
+                    )
+                } else {
+                    SoftPillButton(
+                        label = stringResource(if (dailyMode) R.string.action_daily_analysis else R.string.action_sync_now),
+                        filled = true,
+                        onClick = onSync,
+                    )
+                    SoftPillButton(
+                        label = stringResource(R.string.action_manage),
+                        filled = false,
+                        onClick = onConfigure,
+                    )
                 }
             }
         }
+    }
+}
+
+/** A small action shaped like a pill: the two buttons under a card never differ in height. */
+@Composable
+private fun SoftPillButton(label: String, filled: Boolean, onClick: () -> Unit) {
+    val colors = FootballAiThemeExtra.colors
+    Surface(
+        onClick = onClick,
+        shape = CircleShape,
+        color = if (filled) MaterialTheme.colorScheme.primary else colors.cardStrong,
+        contentColor = if (filled) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelLarge,
+            modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp),
+        )
     }
 }
 
@@ -655,22 +689,6 @@ private fun SetupStep(
                 )
             }
         }
-    }
-}
-
-@Composable
-private fun StatBlock(label: String, value: String) {
-    Column {
-        Text(
-            text = value,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-        )
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
     }
 }
 

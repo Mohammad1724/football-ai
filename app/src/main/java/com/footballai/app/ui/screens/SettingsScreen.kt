@@ -1,6 +1,8 @@
 package com.footballai.app.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -19,6 +21,7 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.MaterialTheme
@@ -63,7 +66,7 @@ import com.footballai.app.ui.components.SectionHeader
 import com.footballai.app.ui.components.SoftCard
 import com.footballai.app.ui.viewmodel.SettingsViewModel
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun SettingsScreen(onOpenDataSources: () -> Unit, onOpenCompetitionOrder: () -> Unit) {
     val container = LocalAppContainer.current
@@ -133,35 +136,28 @@ fun SettingsScreen(onOpenDataSources: () -> Unit, onOpenCompetitionOrder: () -> 
 
             item { SectionHeader(title = stringResource(R.string.section_theme)) }
             item {
-                SingleChoiceSegmentedButtonRow(
+                // Same pill row as the language choice: three theme names do not need a
+                // framed segmented control with an outline box around them.
+                FlowRow(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
-                    ThemeMode.entries.forEachIndexed { index, mode ->
-                        SegmentedButton(
+                    ThemeMode.entries.forEach { mode ->
+                        FilterChip(
                             selected = state.settings.themeMode == mode,
                             onClick = { viewModel.setTheme(mode) },
-                            shape = SegmentedButtonDefaults.itemShape(index = index, count = ThemeMode.entries.size),
-                            modifier = Modifier.weight(1f),
-                            icon = {
-                                Icon(
-                                    imageVector = Icons.Default.Check,
-                                    contentDescription = null,
-                                    modifier = Modifier
-                                        .size(18.dp)
-                                        .alpha(if (state.settings.themeMode == mode) 1f else 0f),
+                            label = {
+                                Text(
+                                    text = when (mode) {
+                                        ThemeMode.SYSTEM -> stringResource(R.string.theme_system)
+                                        ThemeMode.LIGHT -> stringResource(R.string.theme_light)
+                                        ThemeMode.DARK -> stringResource(R.string.theme_dark)
+                                    },
+                                    maxLines = 1,
                                 )
                             },
-                        ) {
-                            Text(
-                                text = when (mode) {
-                                    ThemeMode.SYSTEM -> stringResource(R.string.theme_system)
-                                    ThemeMode.LIGHT -> stringResource(R.string.theme_light)
-                                    ThemeMode.DARK -> stringResource(R.string.theme_dark)
-                                },
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        }
+                        )
                     }
                 }
             }

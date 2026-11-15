@@ -15,7 +15,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -28,9 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.footballai.app.ui.theme.FootballAiThemeExtra
 import com.footballai.app.ui.theme.Radii
@@ -162,12 +159,11 @@ fun SoftRow(
             }
             if (showChevron) {
                 Spacer(Modifier.width(6.dp))
+                // AutoMirrored already flips with the layout direction: ArrowRight points
+                // right in a left-to-right interface and left in a right-to-left one. Asking
+                // for ArrowLeft in RTL mirrored it twice and sent the reader backwards.
                 Icon(
-                    imageVector = if (LocalLayoutDirection.current == LayoutDirection.Rtl) {
-                        Icons.AutoMirrored.Filled.KeyboardArrowLeft
-                    } else {
-                        Icons.AutoMirrored.Filled.KeyboardArrowRight
-                    },
+                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                     contentDescription = null,
                     tint = colors.iconMuted,
                     modifier = Modifier.size(20.dp),
