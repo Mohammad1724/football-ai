@@ -50,6 +50,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -71,8 +72,16 @@ import com.footballai.app.ui.theme.FootballAiThemeExtra
 import com.footballai.app.ui.viewmodel.CompetitionOrderViewModel
 import kotlin.math.abs
 
-/** Fastest auto-scroll while dragging, in pixels per frame (~1500 px/s at 60 Hz). */
-private const val MAX_SCROLL_PER_FRAME = 25f
+/** Fastest auto-scroll while dragging. In pixels per second, so frame rate cannot change it. */
+private const val MAX_SCROLL_PX_PER_SECOND = 1800f
+
+/**
+ * Speed the moment the row enters the edge band.
+ *
+ * Starting from zero meant the first few pixels of the band did nothing, which reads as a
+ * scroll that only starts once the drag is already stuck at the border.
+ */
+private const val MIN_SCROLL_PX_PER_SECOND = 420f
 
 /**
  * Puts the tournaments in the order the user wants them: La Liga above Serie A, Serie A
@@ -101,9 +110,12 @@ fun CompetitionOrderScreen(onBack: () -> Unit) {
     var draggingId by remember { mutableStateOf<String?>(null) }
     var dragOffset by remember { mutableFloatStateOf(0f) }
     val rowHeights = remember { mutableStateMapOf<String, Int>() }
-    // Pixels per frame; sign is the direction. Zero means the finger is not near an edge.
+    // Pixels per second; sign is the direction. Zero means the row is not near an edge.
     var autoScrollSpeed by remember { mutableFloatStateOf(0f) }
     val colors = FootballAiThemeExtra.colors
+    val density = LocalDensity.current
+    // Used only until the row has been measured once.
+    val defaultRowHeightPx = with(density) { 76.dp.roundToPx() }
 
     LaunchedEffect(state.competitions) {
         if (draggingId == null) {
@@ -111,6 +123,18 @@ fun CompetitionOrderScreen(onBack: () -> Unit) {
             rows.addAll(state.competitions)
         }
     }
+
+    /**
+     * Height of a row, from the layout that is on screen right now.
+     *
+     * The map filled by onGloballyPositioned arrives a frame late and is empty for rows
+     * that have never been composed; bailing out on a missing height is why a drag used to
+     * stop travelling as soon as it reached a part of the list that had not been measured.
+     */
+    fun rowHeightPx(id: String): Int =
+        listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == id }?.size
+            ?: rowHeights[id]
+            ?: defaultRowHeightPx
 
     /**
      * Swap the dragged row with its neighbour as often as the offset has earned.
@@ -122,7 +146,7 @@ fun CompetitionOrderScreen(onBack: () -> Unit) {
     fun settle() {
         val id = draggingId ?: return
         var guard = 0
-        while (guard++ < 8) {
+        while (guard++ < 12) {
             val from = rows.indexOfFirst { it.id == id }
             if (from < 0) return
             val step = if (dragOffset > 0f) 1 else -1
@@ -133,7 +157,7 @@ fun CompetitionOrderScreen(onBack: () -> Unit) {
                 dragOffset = 0f
                 return
             }
-            val height = rowHeights[neighbour.id] ?: return
+            val height = rowHeightPx(neighbour.id)
             if (abs(dragOffset) <= height / 2f) return
             val moved = rows.removeAt(from)
             rows.add(from + step, moved)
@@ -143,11 +167,11 @@ fun CompetitionOrderScreen(onBack: () -> Unit) {
     }
 
     /**
-     * How fast the list should scroll for where the dragged row currently is.
+     * Scroll speed for where the dragged row currently sits: zero in the middle of the
+     * list, growing towards [MAX_SCROLL_PX_PER_SECOND] as it enters the edge band.
      *
-     * Speed grows as the finger approaches the edge, so a small push near the border
-     * creeps and a push into the corner runs — a constant speed feels like the list is
-     * fighting the hand.
+     * Speed by distance rather than a fixed step, because a constant speed feels like the
+     * list is fighting the hand.
      */
     fun updateAutoScroll() {
         val id = draggingId ?: return
@@ -157,30 +181,44 @@ fun CompetitionOrderScreen(onBack: () -> Unit) {
             autoScrollSpeed = 0f
             return
         }
-        val fingerY = item.offset + dragOffset + item.size / 2f
-        val edge = viewport * 0.18f
+        val rowY = item.offset + dragOffset + item.size / 2f
+        val edge = (viewport * 0.20f).coerceAtLeast(1f)
+        fun speedFor(depth: Float): Float {
+            val t = (depth / edge).coerceIn(0f, 1f)
+            return MIN_SCROLL_PX_PER_SECOND +
+                t * (MAX_SCROLL_PX_PER_SECOND - MIN_SCROLL_PX_PER_SECOND)
+        }
         autoScrollSpeed = when {
-            fingerY < edge -> -(((edge - fingerY) / edge).coerceIn(0f, 1f)) * MAX_SCROLL_PER_FRAME
-            fingerY > viewport - edge -> (((fingerY - (viewport - edge)) / edge).coerceIn(0f, 1f)) * MAX_SCROLL_PER_FRAME
+            rowY < edge -> -speedFor(edge - rowY)
+            rowY > viewport - edge -> speedFor(rowY - (viewport - edge))
             else -> 0f
         }
     }
 
-    // The list scrolls itself while the finger rests near an edge, one frame at a time.
-    // Every scrolled pixel is added back to the row's offset, so the row stays under the
-    // finger instead of sliding away with the content — that slide was the "sticking".
+    // The list scrolls itself while the row rests near an edge, one frame at a time. Two
+    // details make it behave: the speed is re-evaluated every frame (it was only computed
+    // on touch events, so it froze as soon as the finger held still), and the scrolled
+    // distance is added back to the row's offset so the row stays under the finger instead
+    // of sliding away with the content.
     LaunchedEffect(draggingId) {
+        var lastFrame = 0L
         while (draggingId != null) {
+            val frame = withFrameNanos { it }
+            val dt = if (lastFrame == 0L) {
+                1f / 60f
+            } else {
+                ((frame - lastFrame) / 1_000_000_000f).coerceIn(0f, 0.05f)
+            }
+            lastFrame = frame
+            updateAutoScroll()
             val speed = autoScrollSpeed
             if (speed != 0f) {
-                val consumed = listState.scrollBy(speed)
+                val consumed = listState.scrollBy(speed * dt)
                 if (consumed != 0f) {
                     dragOffset += consumed
                     settle()
                 }
-                updateAutoScroll()
             }
-            withFrameNanos { }
         }
     }
 
