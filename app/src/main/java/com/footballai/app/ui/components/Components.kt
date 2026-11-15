@@ -315,13 +315,14 @@ fun CompetitionNameText(
     secondaryStyle: TextStyle = MaterialTheme.typography.labelSmall,
     primaryMaxLines: Int = 2,
     showLatin: Boolean = true,
+    primaryColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
 ) {
     val pair = NameLocalization.competitionNamePair(name, competitionId, languageTag)
     Column(modifier = modifier) {
         Text(
             text = pair.first,
             style = primaryStyle,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = primaryColor,
             maxLines = primaryMaxLines,
             overflow = TextOverflow.Ellipsis,
         )

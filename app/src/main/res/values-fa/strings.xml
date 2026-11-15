@@ -551,4 +551,5 @@
     <string name="home_action_predictions">پیش‌بینی‌ها</string>
     <string name="home_action_refresh">به‌روزرسانی</string>
     <string name="home_action_data">منابع داده</string>
+    <string name="competition_matches_count">%1$s بازی</string>
 </resources>

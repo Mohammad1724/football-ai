@@ -552,4 +552,5 @@
     <string name="home_action_predictions">Predictions</string>
     <string name="home_action_refresh">Refresh</string>
     <string name="home_action_data">Data sources</string>
+    <string name="competition_matches_count">%1$s matches</string>
 </resources>

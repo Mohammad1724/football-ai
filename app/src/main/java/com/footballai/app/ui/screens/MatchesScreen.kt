@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalFoundationApi::class)
+
 package com.footballai.app.ui.screens
 
 import androidx.compose.animation.AnimatedContent
@@ -7,6 +9,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.clickable
@@ -102,6 +105,8 @@ import com.footballai.app.ui.components.TeamBadge
 import com.footballai.app.ui.components.TeamMonogram
 import com.footballai.app.ui.components.TeamNameLines
 import com.footballai.app.ui.matchStatusLabel
+import com.footballai.app.ui.components.RowDivider
+import com.footballai.app.ui.components.SoftCard
 import com.footballai.app.ui.theme.FootballAiThemeExtra
 import com.footballai.app.ui.theme.Radii
 import com.footballai.app.ui.theme.Spacing
@@ -797,7 +802,7 @@ private fun GroupedMatchList(
                             style = MaterialTheme.typography.titleSmall,
                         )
                     }
-                    HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
+                    RowDivider()
                     favourites.forEachIndexed { index, match ->
                         RecentMatchRow(
                             match = match,
@@ -806,22 +811,29 @@ private fun GroupedMatchList(
                             showCompetition = true,
                         )
                         if (index < favourites.lastIndex) {
-                            HorizontalDivider(
-                                modifier = Modifier.padding(horizontal = 16.dp),
-                                color = MaterialTheme.colorScheme.surfaceVariant,
-                            )
+                            RowDivider()
                         }
                     }
                 }
             }
         }
         groups.forEach { group ->
-            item(key = group.first().competitionId) {
-                val competition = state.competitions.firstOrNull { it.id == group.first().competitionId }
-                CompetitionCard(
+            val competId = group.first().competitionId
+            val competition = state.competitions.firstOrNull { it.id == competId }
+            // The tournament name pins to the top of the list for as long as its own
+            // matches are on screen. Scrolling from one tournament to the next is then a
+            // visible hand-over instead of a guess about where one league ended.
+            stickyHeader(key = "competition-$competId") {
+                CompetitionHeaderBar(
                     competitionName = group.first().competitionName,
-                    competId = group.first().competitionId,
+                    competId = competId,
                     country = competition?.country,
+                    matchCount = group.size,
+                    languageTag = languageTag,
+                )
+            }
+            item(key = "matches-$competId") {
+                CompetitionCard(
                     matches = group,
                     languageTag = languageTag,
                     onMatchClick = onMatchClick,
@@ -832,45 +844,78 @@ private fun GroupedMatchList(
 }
 
 @Composable
-private fun CompetitionCard(
+private fun CompetitionHeaderBar(
     competitionName: String,
     competId: String?,
     country: String?,
-    matches: List<MatchSummary>,
+    matchCount: Int,
     languageTag: String,
-    onMatchClick: (String) -> Unit,
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = Radii.cardShape,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+    val colors = FootballAiThemeExtra.colors
+    // Opaque page behind the pinned bar, otherwise the rows scroll visibly under it.
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.background)
+            .padding(top = Spacing.sm, bottom = Spacing.xs),
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(Radii.small))
+                .background(colors.cardStrong)
+                .padding(horizontal = Spacing.md, vertical = Spacing.sm),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            TeamMonogram(competitionName, size = 30)
+            // A short accent rule reads as "new section" from a distance, the way a
+            // header line does in a printed league table.
+            Box(
+                modifier = Modifier
+                    .width(3.dp)
+                    .height(22.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primary),
+            )
             Spacer(Modifier.width(10.dp))
             Column(modifier = Modifier.weight(1f)) {
                 CompetitionNameText(
                     name = competitionName.ifBlank { stringResource(R.string.unknown_competition) },
                     competitionId = competId,
                     languageTag = languageTag,
-                    primaryStyle = MaterialTheme.typography.titleSmall,
+                    primaryStyle = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                    primaryMaxLines = 1,
+                    primaryColor = MaterialTheme.colorScheme.onSurface,
                 )
                 country?.takeIf { it.isNotBlank() }?.let { region ->
                     Text(
                         text = region,
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = colors.iconMuted,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
             }
+            Spacer(Modifier.width(Spacing.sm))
+            Text(
+                text = stringResource(
+                    R.string.competition_matches_count,
+                    Formatters.integer(matchCount, languageTag),
+                ),
+                style = MaterialTheme.typography.labelSmall,
+                color = colors.iconMuted,
+            )
         }
-        HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
+    }
+}
+
+@Composable
+private fun CompetitionCard(
+    matches: List<MatchSummary>,
+    languageTag: String,
+    onMatchClick: (String) -> Unit,
+) {
+    SoftCard(modifier = Modifier.fillMaxWidth()) {
         matches.forEachIndexed { index, match ->
             RecentMatchRow(
                 match = match,
@@ -878,10 +923,7 @@ private fun CompetitionCard(
                 onClick = { onMatchClick(match.id) },
             )
             if (index < matches.lastIndex) {
-                HorizontalDivider(
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant,
-                )
+                RowDivider()
             }
         }
     }
