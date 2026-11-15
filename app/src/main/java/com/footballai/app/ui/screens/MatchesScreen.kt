@@ -3,6 +3,9 @@
 package com.footballai.app.ui.screens
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -70,6 +73,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
@@ -134,6 +138,10 @@ fun MatchesScreen(onMatchClick: (String) -> Unit) {
     // in Persian and on the right in English.
     val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     var calendarOpen by remember { mutableStateOf(false) }
+    // Whether the filter block is folded away because the reader is scrolling the list.
+    var filtersCollapsed by remember { mutableStateOf(false) }
+    // Changing the day brings the filters back: a new day is a new question.
+    LaunchedEffect(state.selectedDayOffset) { filtersCollapsed = false }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -177,15 +185,27 @@ fun MatchesScreen(onMatchClick: (String) -> Unit) {
                 languageTag = languageTag,
                 onDaySelected = viewModel::selectDay,
             )
-            MatchFilters(state = state, viewModel = viewModel, languageTag = languageTag)
-            MatchScopeFilters(state = state, viewModel = viewModel)
-            if (state.sourceName.isNotBlank()) {
-                Text(
-                    text = stringResource(R.string.source_label, state.sourceName),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
-                )
+            // Three chip rows used to sit on top of the list for as long as the screen
+            // was open, together with the day tabs and the status strip — close to half
+            // the phone before a single fixture was visible. They now fold away as soon
+            // as the reader scrolls into the fixtures and come back at the top.
+            AnimatedVisibility(
+                visible = !filtersCollapsed,
+                enter = expandVertically(animationSpec = tween(200)),
+                exit = shrinkVertically(animationSpec = tween(180)),
+            ) {
+                Column {
+                    MatchFilters(state = state, viewModel = viewModel, languageTag = languageTag)
+                    MatchScopeFilters(state = state, viewModel = viewModel)
+                    if (state.sourceName.isNotBlank()) {
+                        Text(
+                            text = stringResource(R.string.source_label, state.sourceName),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
+                        )
+                    }
+                }
             }
 
             SyncStatusStrip(
@@ -288,6 +308,7 @@ fun MatchesScreen(onMatchClick: (String) -> Unit) {
                                 state = state,
                                 languageTag = languageTag,
                                 onMatchClick = onMatchClick,
+                                onScrolled = { scrolled -> filtersCollapsed = scrolled },
                             )
                         }
                     }
@@ -751,7 +772,16 @@ private fun GroupedMatchList(
     state: MatchesUiState,
     languageTag: String,
     onMatchClick: (String) -> Unit,
+    onScrolled: (Boolean) -> Unit = {},
 ) {
+    val listState = rememberLazyListState()
+    // "Scrolled" means the reader has left the top of the list by a comfortable margin;
+    // coming back within it restores the filters, so they never feel lost.
+    LaunchedEffect(listState) {
+        snapshotFlow {
+            listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 64
+        }.collect { onScrolled(it) }
+    }
     // Matches already arrive sorted by the user's competition order, and groupBy keeps
     // the order in which each competition first appears, so the sections follow it too.
     // A followed team comes first: this section is the reason the user opened the app.
@@ -769,6 +799,7 @@ private fun GroupedMatchList(
             ),
         )
     LazyColumn(
+        state = listState,
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(
             start = Spacing.page,
