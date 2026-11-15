@@ -221,7 +221,7 @@ class ApiClient(
             }
         }
 
-        private const val CACHE_BYTES = 32L * 1024 * 1024
+        private const val CACHE_BYTES = 48L * 1024 * 1024
         private const val SHORT_FRESHNESS_SECONDS = 60
     }
 }

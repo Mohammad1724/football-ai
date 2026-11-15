@@ -834,7 +834,7 @@ class SyncRepository(
          * How many competitions are fetched at once. Six keeps the request rate human on
          * a public endpoint while removing the idle time between documents.
          */
-        private const val PARALLEL_SYNCS = 6
+        private const val PARALLEL_SYNCS = 16
 
         /** Errors that mean "this provider cannot serve this request at all". */
         private val FATAL_CODES = setOf(

@@ -93,6 +93,10 @@ class AutoSyncCoordinator(
     private val gate = Mutex()
 
     private val _state = MutableStateFlow(AutoSyncState())
+
+    /** The last run that finished, so a caller that waited for it need not repeat it. */
+    private var lastCompleted: SyncRun? = null
+    private var lastCompletedAt: Long = 0L
     val state: StateFlow<AutoSyncState> = _state.asStateFlow()
 
     /**
@@ -125,11 +129,33 @@ class AutoSyncCoordinator(
         }
     }
 
-    /** Runs a sync unconditionally; used by every manual refresh in the UI. */
+    /**
+     * Runs a sync; used by every manual refresh in the UI.
+     *
+     * If another sync is already running, waiting for the lock and then starting a second
+     * pass would make the user wait twice for the same result. The running pass *is* the
+     * refresh they asked for, so its outcome is returned instead.
+     */
     suspend fun syncNow(
         trigger: SyncTrigger,
         onProgress: (done: Int, total: Int) -> Unit = { _, _ -> },
-    ): Outcome<SyncRun> = mutex.withLock {
+    ): Outcome<SyncRun> {
+        val enteredAt = clock.nowEpochMs()
+        val wasSyncing = _state.value.isSyncing
+        return mutex.withLock {
+            val finished = lastCompleted
+            if (wasSyncing && finished != null && lastCompletedAt >= enteredAt) {
+                Outcome.Success(finished)
+            } else {
+                runLocked(trigger, onProgress)
+            }
+        }
+    }
+
+    private suspend fun runLocked(
+        trigger: SyncTrigger,
+        onProgress: (done: Int, total: Int) -> Unit,
+    ): Outcome<SyncRun> {
         val now = clock.nowEpochMs()
         _state.update {
             it.copy(
@@ -250,6 +276,8 @@ class AutoSyncCoordinator(
     fun forgetAttempt() = _state.update { it.copy(lastAttemptEpochMs = null) }
 
     private fun succeed(run: SyncRun) {
+        lastCompleted = run
+        lastCompletedAt = clock.nowEpochMs()
         _state.update {
             it.copy(
                 lastSuccessEpochMs = clock.nowEpochMs(),

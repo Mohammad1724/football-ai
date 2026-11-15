@@ -107,11 +107,16 @@ class QuotaGuard(
 
     companion object {
         /**
-         * A sixth of the minute budget may go out at once. Six small bursts a minute keep
-         * the average exactly at the published rate while letting a sync start moving.
+         * A sixth of the minute budget may go out at once, up to a limit that keeps a
+         * burst honest. Six small bursts a minute keep the average exactly at the
+         * published rate while letting a sync of independent documents move: with the old
+         * cap of eight, a sweep of sixty files spent most of its time waiting for tokens.
          */
         internal fun burstFor(requestsPerMinute: Int): Int =
-            (requestsPerMinute / 6).coerceIn(1, 8)
+            (requestsPerMinute / 6).coerceIn(1, MAX_BURST)
+
+        /** Ceiling for one burst, whatever the published minute budget is. */
+        private const val MAX_BURST = 16
 
         /** Smallest sleep used while waiting for a token, to avoid a busy loop. */
         private const val MIN_WAIT_MS = 25L
