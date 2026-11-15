@@ -166,7 +166,7 @@ class DailyAnalysisRepository(
     }
 
     /** The league-season files that can contain the result of these matches. */
-    private fun csvSeasons(matches: List<com.footballai.app.data.local.entity.MatchEntity>, source: String): List<Pair<Int, Int>> =
+    private fun csvSeasons(matches: List<com.footballai.app.data.local.entity.MatchEntity>, source: String): List<Pair<String, Int>> =
         matches.mapNotNull { match ->
             match.season?.let { season ->
                 val key = match.competitionId.substringAfterLast(':')
@@ -180,10 +180,10 @@ class DailyAnalysisRepository(
      * turns three round trips into one; the quota guard still enforces the source's rate.
      */
     private suspend fun importAll(
-        pairs: List<Pair<Int, Int>>,
+        pairs: List<Pair<String, Int>>,
         now: Long,
         onEach: suspend () -> Unit = {},
-    ): List<Pair<Int, Outcome<SyncSummary>>> = coroutineScope {
+    ): List<Pair<String, Outcome<SyncSummary>>> = coroutineScope {
         val permits = Semaphore(PARALLEL_HISTORY_IMPORTS)
         pairs.map { (league, season) ->
             async(Dispatchers.IO) {
@@ -195,7 +195,7 @@ class DailyAnalysisRepository(
     }
 
     /** Folds import failures into the report's error list, in a stable order. */
-    private fun MutableList<String>.recordErrors(outcomes: List<Pair<Int, Outcome<SyncSummary>>>) {
+    private fun MutableList<String>.recordErrors(outcomes: List<Pair<String, Outcome<SyncSummary>>>) {
         for ((league, result) in outcomes) {
             when (result) {
                 is Outcome.Failure -> add("$league: ${result.error.code}")
@@ -208,7 +208,7 @@ class DailyAnalysisRepository(
      * Refreshes the history of one league. The current season is read every day; the two
      * completed ones are read once per league, which is what the marker records.
      */
-    private suspend fun importLeague(league: Int, season: Int, now: Long): Outcome<SyncSummary> {
+    private suspend fun importLeague(league: String, season: Int, now: Long): Outcome<SyncSummary> {
         val bootstrapKey = "daily-history-v2:$league:$season"
         val seasons = if (db.syncMetaDao().get(bootstrapKey) == "ready") {
             listOf(season)
