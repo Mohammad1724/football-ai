@@ -58,7 +58,15 @@ class AppContainer(context: Context) {
 
     private val quotaGuard: QuotaGuard = QuotaGuard(DataStoreQuotaStore(appContext.quotaDataStore), clock)
 
-    private val apiClient: ApiClient = ApiClient(quotaGuard)
+    /**
+     * One HTTP cache for the whole app: fixtures, results and archives are documents that
+     * rarely change, and a refresh that has to download all of them again is a defect the
+     * user measures in seconds.
+     */
+    private val apiClient: ApiClient = ApiClient(
+        quotaGuard = quotaGuard,
+        client = ApiClient.defaultClient(java.io.File(appContext.cacheDir, "documents")),
+    )
 
     val credentialStore: CredentialStore = KeystoreCredentialStore(appContext)
 

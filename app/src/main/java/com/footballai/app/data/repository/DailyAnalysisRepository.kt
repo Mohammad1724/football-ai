@@ -10,8 +10,13 @@ import com.footballai.app.domain.model.QualityLevel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
@@ -72,57 +77,62 @@ class DailyAnalysisRepository(
             val fixtureKeys = if (source == FootballDataCoUkProvider.PROVIDER_ID) leagues.map { it.key }
                 else HistoryBridge.leagues.keys.toList() + listOf("BSA", "CL", "EC", "WC")
             var report = DailyAnalysisReport(now, coveredLeagues = fixtureKeys.size)
-            val errors = mutableListOf<String>()
+            val errors: MutableList<String> = java.util.Collections.synchronizedList(mutableListOf())
+            // A full pass already ran today: the fixture list it produced is the day's
+            // fixture list, and re-downloading every league again only makes the refresh
+            // button slow. Results still come in, because this pass reads exactly the
+            // leagues that are waiting for one. A pass that reported errors is repeated
+            // in full, so a bad network morning does not leave the day half-empty.
+            val previousReport = db.syncMetaDao().get(REPORT_KEY)?.let { decode(it) }
+            val lastFullPassAt = db.syncMetaDao().entity(FULL_PASS_KEY)?.updatedAt ?: 0L
+            val zone = ZoneId.systemDefault()
+            val fullPassToday = lastFullPassAt > 0 &&
+                Instant.ofEpochMilli(lastFullPassAt).atZone(zone).toLocalDate() ==
+                Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
+            val fastPass = fullPassToday && previousReport?.errors?.isEmpty() == true
             try {
-                when (val result = sync.syncCompetitions(source)) {
-                    is Outcome.Failure -> errors += result.error.code.name
-                    is Outcome.Success -> Unit
+                // Progress is reported from several import threads at once, so the
+                // counter has to be safe to increment from any of them.
+                val progressDone = java.util.concurrent.atomic.AtomicInteger(0)
+                var total = 0
+                fun step() {
+                    onProgress(progressDone.incrementAndGet(), total)
                 }
-                when (val result = sync.syncFixtures(source, competitionKeys = fixtureKeys,
-                    daysBack = if (source == "football-data-org") 7 else 0, daysAhead = 10, allowFallback = false, onProgress = onProgress)) {
-                    is Outcome.Failure -> errors += result.error.code.name
-                    is Outcome.Success -> {
-                        report = report.copy(fixturesReceived = result.value.fixtures)
-                        errors += result.value.errors
+
+                // Results first: a match that has finished is what the user is waiting
+                // for when pressing refresh, and those files do not depend on the fixture
+                // sweep below, so waiting for the sweep first only delays the answer.
+                val pendingSeasons = csvSeasons(db.matchDao().pendingResults(source, now), source)
+                total += pendingSeasons.size
+                onProgress(progressDone.get(), total)
+                errors.recordErrors(importAll(pendingSeasons, now) { step() })
+
+                if (!fastPass) {
+                    when (val result = sync.syncCompetitions(source)) {
+                        is Outcome.Failure -> errors += result.error.code.name
+                        is Outcome.Success -> Unit
                     }
-                }
-                val end = DailyAnalysisPolicy.endOfHorizon(now, ZoneId.systemDefault())
-                val candidates = db.matchDao().scheduledBetween(now + 1, end).filter { it.providerId == source && it.lastSyncedAt >= now }
-                report = report.copy(candidates = candidates.size)
-                // Finished results are pulled for pending cached fixtures too, even on
-                // a day with no new fixtures. Only relevant league-season files are read.
-                val pending = db.matchDao().pendingResults(source, now)
-                val leagueSeasons = (candidates + pending).mapNotNull { m ->
-                    m.season?.let { season ->
-                        val key = m.competitionId.substringAfterLast(':')
-                        val csvKey = if (source == FootballDataCoUkProvider.PROVIDER_ID) key else HistoryBridge.leagues[key]
-                        csvKey?.let { it to season }
-                    }
-                }.distinct()
-                onProgress(0, leagueSeasons.size + candidates.size)
-                var done = 0
-                for ((league, season) in leagueSeasons) {
-                    val bootstrapKey = "daily-history-v2:$league:$season"
-                    // Refresh the current season every day. Fetch the two completed
-                    // seasons once per league; football-data's GitHub mirror is used
-                    // only when the primary host is unreachable and covers that league.
-                    val seasons = if (db.syncMetaDao().get(bootstrapKey) == "ready") {
-                        listOf(season)
-                    } else {
-                        listOf(season, season - 1, season - 2)
-                    }
-                    when (val result = sync.importCsvHistory(listOf(league), seasons)) {
-                        is Outcome.Failure -> errors += "$league: ${result.error.code}"
+                    when (val result = sync.syncFixtures(source, competitionKeys = fixtureKeys,
+                        daysBack = if (source == "football-data-org") 7 else 0, daysAhead = 10, allowFallback = false, onProgress = onProgress)) {
+                        is Outcome.Failure -> errors += result.error.code.name
                         is Outcome.Success -> {
+                            report = report.copy(fixturesReceived = result.value.fixtures)
                             errors += result.value.errors
-                            val count = ratings.matchCount(FootballDataCoUkProvider.PROVIDER_ID, Ids.competition(FootballDataCoUkProvider.PROVIDER_ID, league))
-                            if (count >= 40) {
-                                db.syncMetaDao().put(SyncMetaEntity(bootstrapKey, "ready", now))
-                            }
                         }
                     }
-                    onProgress(++done, leagueSeasons.size + candidates.size)
+                    db.syncMetaDao().put(SyncMetaEntity(FULL_PASS_KEY, "done", now))
                 }
+
+                val end = DailyAnalysisPolicy.endOfHorizon(now, zone)
+                val candidates = db.matchDao().scheduledBetween(now + 1, end)
+                    .filter { it.providerId == source && it.lastSyncedAt >= now }
+                report = report.copy(candidates = candidates.size)
+
+                val candidateSeasons = csvSeasons(candidates, source).filter { it !in pendingSeasons }
+                total += candidateSeasons.size + candidates.size
+                onProgress(progressDone.get(), total)
+                errors.recordErrors(importAll(candidateSeasons, now) { step() })
+
                 for (match in candidates) {
                     if (db.predictionDao().firstPreMatch(match.id, PredictionRepository.MODEL_VERSION) != null) {
                         report = report.copy(alreadySaved = report.alreadySaved + 1)
@@ -141,7 +151,7 @@ class DailyAnalysisRepository(
                             }
                         }
                     }
-                    onProgress(++done, leagueSeasons.size + candidates.size)
+                    step()
                 }
                 report = report.copy(resolved = predictions.resolveFinishedPredictions())
             } catch (error: CancellationException) {
@@ -155,7 +165,76 @@ class DailyAnalysisRepository(
         }
     }
 
-    companion object { private const val REPORT_KEY = "daily-analysis-report-v1" }
+    /** The league-season files that can contain the result of these matches. */
+    private fun csvSeasons(matches: List<com.footballai.app.data.local.entity.MatchEntity>, source: String): List<Pair<Int, Int>> =
+        matches.mapNotNull { match ->
+            match.season?.let { season ->
+                val key = match.competitionId.substringAfterLast(':')
+                val csvKey = if (source == FootballDataCoUkProvider.PROVIDER_ID) key else HistoryBridge.leagues[key]
+                csvKey?.let { it to season }
+            }
+        }.distinct()
+
+    /**
+     * Reads several league files at once. Each file is independent, so three at a time
+     * turns three round trips into one; the quota guard still enforces the source's rate.
+     */
+    private suspend fun importAll(
+        pairs: List<Pair<Int, Int>>,
+        now: Long,
+        onEach: suspend () -> Unit = {},
+    ): List<Pair<Int, Outcome<SyncSummary>>> = coroutineScope {
+        val permits = Semaphore(PARALLEL_HISTORY_IMPORTS)
+        pairs.map { (league, season) ->
+            async(Dispatchers.IO) {
+                val result = permits.withPermit { importLeague(league, season, now) }
+                onEach()
+                league to result
+            }
+        }.awaitAll()
+    }
+
+    /** Folds import failures into the report's error list, in a stable order. */
+    private fun MutableList<String>.recordErrors(outcomes: List<Pair<Int, Outcome<SyncSummary>>>) {
+        for ((league, result) in outcomes) {
+            when (result) {
+                is Outcome.Failure -> add("$league: ${result.error.code}")
+                is Outcome.Success -> addAll(result.value.errors)
+            }
+        }
+    }
+
+    /**
+     * Refreshes the history of one league. The current season is read every day; the two
+     * completed ones are read once per league, which is what the marker records.
+     */
+    private suspend fun importLeague(league: Int, season: Int, now: Long): Outcome<SyncSummary> {
+        val bootstrapKey = "daily-history-v2:$league:$season"
+        val seasons = if (db.syncMetaDao().get(bootstrapKey) == "ready") {
+            listOf(season)
+        } else {
+            listOf(season, season - 1, season - 2)
+        }
+        val result = sync.importCsvHistory(listOf(league), seasons)
+        if (result is Outcome.Success) {
+            val count = ratings.matchCount(
+                FootballDataCoUkProvider.PROVIDER_ID,
+                Ids.competition(FootballDataCoUkProvider.PROVIDER_ID, league),
+            )
+            if (count >= 40) db.syncMetaDao().put(SyncMetaEntity(bootstrapKey, "ready", now))
+        }
+        return result
+    }
+
+    companion object {
+        private const val REPORT_KEY = "daily-analysis-report-v1"
+
+        /** When the fixture sweep last ran in full; a refresh on the same day may skip it. */
+        private const val FULL_PASS_KEY = "daily-full-pass-v1"
+
+        /** Independent CSV files read at the same time; enough to hide the round trips. */
+        private const val PARALLEL_HISTORY_IMPORTS = 3
+    }
 }
 
 object DailyAnalysisPolicy {

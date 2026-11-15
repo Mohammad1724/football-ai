@@ -3,6 +3,7 @@ package com.footballai.app
 import com.footballai.app.core.*
 import com.footballai.app.data.local.FootballDatabase
 import com.footballai.app.data.local.dao.*
+import com.footballai.app.data.local.entity.SyncMetaEntity
 import com.footballai.app.data.local.mapper.toEntity
 import com.footballai.app.data.provider.*
 import com.footballai.app.data.remote.FootballDataCoUkProvider
@@ -40,6 +41,7 @@ class DailyAnalysisTest {
             every { db.syncMetaDao() } returns meta
             every { meta.observeAll() } returns flowOf(emptyList())
             coEvery { meta.get(any()) } returns null
+            coEvery { meta.entity(any()) } returns null
             coEvery { meta.put(any()) } just Runs
             coEvery { registry.activeProviderId() } returns source
             every { registry.historical } returns history
@@ -107,6 +109,41 @@ class DailyAnalysisTest {
         coEvery { e.meta.get("daily-history-v2:E0:2026") } returns "ready"
         e.repo.run()
         coVerify { e.sync.importCsvHistory(listOf("E0"), listOf(2026)) }
+    }
+
+    @Test fun `a refresh after the day's full pass does not sweep every league again`() = runTest {
+        val e = Env()
+        // The fixture sweep already ran today; the CSV files may have changed, the
+        // fixture list may not, so a refresh goes straight to the results.
+        coEvery { e.meta.entity("daily-full-pass-v1") } returns
+            SyncMetaEntity("daily-full-pass-v1", "done", e.now - 60_000)
+        coEvery { e.meta.get("daily-analysis-report-v1") } returns
+            kotlinx.serialization.json.Json.encodeToString(
+                DailyAnalysisReport.serializer(),
+                DailyAnalysisReport(e.now - 60_000),
+            )
+        coEvery { e.matches.pendingResults(any(), any()) } returns emptyList()
+        coEvery { e.matches.scheduledBetween(any(), any()) } returns emptyList()
+
+        e.repo.run()
+
+        coVerify(exactly = 0) { e.sync.syncFixtures(any(), any(), any(), any(), any(), any()) }
+        coVerify(exactly = 0) { e.sync.syncCompetitions(any()) }
+    }
+
+    @Test fun `a day whose pass reported errors is swept again`() = runTest {
+        val e = Env()
+        coEvery { e.meta.entity("daily-full-pass-v1") } returns
+            SyncMetaEntity("daily-full-pass-v1", "done", e.now - 60_000)
+        coEvery { e.meta.get("daily-analysis-report-v1") } returns
+            kotlinx.serialization.json.Json.encodeToString(
+                DailyAnalysisReport.serializer(),
+                DailyAnalysisReport(e.now - 60_000, errors = listOf("E0: REQUEST_FAILED")),
+            )
+
+        e.repo.run()
+
+        coVerify { e.sync.syncFixtures(any(), any(), any(), any(), any(), any()) }
     }
 
     @Test fun `cancellation propagates and does not mark the run completed`() = runTest {

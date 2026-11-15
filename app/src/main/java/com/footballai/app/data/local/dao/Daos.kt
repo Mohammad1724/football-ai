@@ -454,6 +454,10 @@ interface SyncMetaDao {
     @Query("SELECT value FROM sync_meta WHERE key = :key")
     suspend fun get(key: String): String?
 
+    /** The whole row, for the few callers that need when it was written. */
+    @Query("SELECT * FROM sync_meta WHERE key = :key")
+    suspend fun entity(key: String): SyncMetaEntity?
+
     @Query("SELECT * FROM sync_meta")
     fun observeAll(): Flow<List<SyncMetaEntity>>
 }
