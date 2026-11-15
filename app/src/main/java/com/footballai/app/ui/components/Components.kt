@@ -846,23 +846,19 @@ fun StatComparisonRow(
 /** Tappable row that opens another screen (settings-style navigation). */
 @Composable
 fun NavigationRow(title: String, subtitle: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Row(
+    // A row that opens something is a slab, and its arrow points the way the eye travels
+    // (left, in a right-to-left layout) instead of a hard-coded glyph that mirrors badly.
+    SoftCard(
+        onClick = onClick,
         modifier = modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
+            .padding(horizontal = Spacing.page, vertical = 4.dp),
     ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(text = title, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
-            Spacer(Modifier.height(2.dp))
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        Text(text = "›", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        SoftRow(
+            title = title,
+            subtitle = subtitle,
+            showChevron = true,
+        )
     }
 }
 
