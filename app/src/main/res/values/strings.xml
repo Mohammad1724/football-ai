@@ -533,7 +533,7 @@
     <!-- Competition order: the user decides which league comes first. -->
     <string name="title_competition_order">Tournament order</string>
     <string name="competition_order_hint_short">Choose which tournament comes first, e.g. La Liga above Serie A.</string>
-    <string name="competition_order_hint">Press and hold the handle on the right of a tournament, then drag it up or down. The order is saved the moment you let go, and it sets both the tournament list and the sections of the match list.</string>
+    <string name="competition_order_hint">Press and hold a tournament, then drag it up or down. The order is saved the moment you let go, and it sets both the tournament list and the sections of the match list.</string>
     <string name="action_reset_order">Default order</string>
     <string name="empty_competition_order_title">No competition stored yet</string>
     <string name="empty_competition_order_message">Competitions appear here after the first sync, and then you can arrange them.</string>

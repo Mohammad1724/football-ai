@@ -532,7 +532,7 @@
     <!-- ترتیب مسابقات: کاربر خودش تعیین می‌کند کدام لیگ اول باشد. -->
     <string name="title_competition_order">ترتیب تورنمنت‌ها</string>
     <string name="competition_order_hint_short">انتخاب کنید کدام تورنمنت اول باشد؛ مثلاً لالیگا بالاتر از سری آ.</string>
-    <string name="competition_order_hint">گیرهٔ سمت راست هر تورنمنت را لمس کنید و نگه دارید، بعد بالا یا پایین بکشید. همان لحظه که رها کنید ترتیب ذخیره می‌شود و هم فهرست تورنمنت‌ها و هم بخش‌های فهرست بازی‌ها را تعیین می‌کند.</string>
+    <string name="competition_order_hint">یک تورنمنت را لمس کنید و نگه دارید، بعد بالا یا پایین بکشید. همان لحظه که رها کنید ترتیب ذخیره می‌شود و هم فهرست تورنمنت‌ها و هم بخش‌های فهرست بازی‌ها را تعیین می‌کند.</string>
     <string name="action_reset_order">ترتیب پیش‌فرض</string>
     <string name="empty_competition_order_title">هنوز مسابقه‌ای ذخیره نشده است</string>
     <string name="empty_competition_order_message">مسابقات پس از نخستین همگام‌سازی اینجا می‌آیند و بعد می‌توانید ترتیبشان را تغییر دهید.</string>
