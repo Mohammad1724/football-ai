@@ -1,6 +1,11 @@
+@file:OptIn(ExperimentalFoundationApi::class)
+
 package com.footballai.app.ui.screens
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -37,9 +42,11 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -59,6 +66,7 @@ import com.footballai.app.ui.components.SoftBackButton
 import com.footballai.app.ui.components.CompetitionNameText
 import com.footballai.app.ui.components.EmptyState
 import com.footballai.app.ui.components.LoadingState
+import com.footballai.app.ui.theme.FootballAiThemeExtra
 import com.footballai.app.ui.viewmodel.CompetitionOrderViewModel
 import kotlin.math.abs
 
@@ -89,6 +97,9 @@ fun CompetitionOrderScreen(onBack: () -> Unit) {
     var draggingId by remember { mutableStateOf<String?>(null) }
     var dragOffset by remember { mutableFloatStateOf(0f) }
     val rowHeights = remember { mutableStateMapOf<String, Int>() }
+    // -1 = scroll up, +1 = scroll down, 0 = the finger is not near an edge.
+    var autoScroll by remember { mutableFloatStateOf(0f) }
+    val colors = FootballAiThemeExtra.colors
 
     LaunchedEffect(state.competitions) {
         if (draggingId == null) {
@@ -97,9 +108,20 @@ fun CompetitionOrderScreen(onBack: () -> Unit) {
         }
     }
 
+    // A long list cannot be reordered with the finger alone: the row has to be able to
+    // reach the top of the screen. The list scrolls by itself while the finger rests near
+    // an edge, one frame at a time so it follows the gesture instead of running away.
+    LaunchedEffect(draggingId) {
+        while (draggingId != null) {
+            if (autoScroll != 0f) listState.scrollBy(autoScroll)
+            withFrameNanos { }
+        }
+    }
+
     fun drop() {
         draggingId = null
         dragOffset = 0f
+        autoScroll = 0f
         viewModel.applyOrder(rows.map { it.id })
     }
 
@@ -109,12 +131,34 @@ fun CompetitionOrderScreen(onBack: () -> Unit) {
         val from = rows.indexOfFirst { it.id == id }
         if (from < 0) return
         val step = if (dragOffset > 0f) 1 else -1
-        val neighbour = rows.getOrNull(from + step) ?: return
-        val neighbourHeight = rowHeights[neighbour.id] ?: return
-        if (abs(dragOffset) <= neighbourHeight / 2f) return
-        val moved = rows.removeAt(from)
-        rows.add(from + step, moved)
-        dragOffset -= step * neighbourHeight
+        val neighbour = rows.getOrNull(from + step)
+        if (neighbour == null) {
+            // Nothing to swap with at this end of the list: stop at the edge instead of
+            // letting the offset keep growing and jumping later.
+            dragOffset = 0f
+        } else {
+            val neighbourHeight = rowHeights[neighbour.id]
+            if (neighbourHeight != null && abs(dragOffset) > neighbourHeight / 2f) {
+                val moved = rows.removeAt(from)
+                rows.add(from + step, moved)
+                dragOffset -= step * neighbourHeight
+                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+            }
+        }
+
+        // Edge detection for the auto-scroll: where the dragged row currently sits, plus
+        // how far the finger has moved it, is the finger's place in the viewport.
+        val item = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == id }
+        val viewport = listState.layoutInfo.viewportSize.height
+        if (item != null && viewport > 0) {
+            val fingerY = item.offset + dragOffset + item.size / 2f
+            val edge = viewport * 0.18f
+            autoScroll = when {
+                fingerY < edge -> -14f
+                fingerY > viewport - edge -> 14f
+                else -> 0f
+            }
+        }
     }
 
     Scaffold(
@@ -162,8 +206,12 @@ fun CompetitionOrderScreen(onBack: () -> Unit) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
+                            // Rows that are pushed aside glide to their new place; the row
+                            // under the finger must not, it already follows the finger.
+                            .then(if (isDragging) Modifier else Modifier.animateItemPlacement())
                             .zIndex(if (isDragging) 1f else 0f)
                             .graphicsLayer { translationY = if (isDragging) dragOffset else 0f }
+                            .background(if (isDragging) colors.cardStrong else Color.Transparent)
                             .onGloballyPositioned { rowHeights[competition.id] = it.size.height }
                             .padding(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
                         verticalAlignment = Alignment.CenterVertically,
