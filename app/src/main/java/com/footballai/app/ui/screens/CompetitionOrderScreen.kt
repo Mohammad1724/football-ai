@@ -116,6 +116,8 @@ fun CompetitionOrderScreen(onBack: () -> Unit) {
     val density = LocalDensity.current
     // Used only until the row has been measured once.
     val defaultRowHeightPx = with(density) { 76.dp.roundToPx() }
+    // How far a row may hang past the first or last slot before it is pulled back.
+    val rubberBandPx = with(density) { 10.dp.toPx() }
 
     LaunchedEffect(state.competitions) {
         if (draggingId == null) {
@@ -152,9 +154,11 @@ fun CompetitionOrderScreen(onBack: () -> Unit) {
             val step = if (dragOffset > 0f) 1 else -1
             val neighbour = rows.getOrNull(from + step)
             if (neighbour == null) {
-                // Nothing to swap with at this end of the list: stop at the edge instead
-                // of letting the offset keep growing and jump later.
-                dragOffset = 0f
+                // First or last slot: the row may hang a few pixels past it and no more.
+                // Holding the offset at zero felt like a snap; letting it grow is what sent
+                // the row off the top of the screen once the list had nothing left to
+                // scroll and stopped feeding the offset.
+                dragOffset = dragOffset.coerceIn(-rubberBandPx, rubberBandPx)
                 return
             }
             val height = rowHeightPx(neighbour.id)
@@ -214,11 +218,15 @@ fun CompetitionOrderScreen(onBack: () -> Unit) {
             val speed = autoScrollSpeed
             if (speed != 0f) {
                 val consumed = listState.scrollBy(speed * dt)
-                if (consumed != 0f) {
-                    dragOffset += consumed
-                    settle()
-                }
+                // When the list has no room left to scroll, the same motion goes into the
+                // row instead. Without this the drag stalls the moment the list reaches its
+                // first or last item, with items still left to pass.
+                dragOffset += if (consumed != 0f) consumed else speed * dt
             }
+            // Every frame, not only when the list moved: at the top of the list nothing
+            // scrolls any more, and that is exactly when the row has to be pulled back to
+            // its first slot.
+            settle()
         }
     }
 
