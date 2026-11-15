@@ -164,8 +164,16 @@ fun MatchDetailScreen(
                     )
                 },
                 actions = {
-                    IconButton(onClick = { viewModel.refresh() }) {
-                        Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.action_sync))
+                    IconButton(onClick = { viewModel.refresh() }, enabled = !state.isRefreshing) {
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = stringResource(R.string.action_sync),
+                            tint = if (state.isRefreshing) {
+                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                            } else {
+                                MaterialTheme.colorScheme.onSurface
+                            },
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
@@ -231,7 +239,11 @@ fun MatchDetailScreen(
                             languageTag,
                             detail.summary.away.shortName,
                         ),
-                        canPredict = state.lastError?.code != com.footballai.app.core.ErrorCode.INVALID_MATCH_STATE &&
+                        // A forecast the app is not allowed to compute (a live game in
+                        // daily mode, a finished one) must not come with a retry button
+                        // that is known to fail.
+                        canPredict = (state.lastError?.code ?: state.predictionWarning?.code) !=
+                            com.footballai.app.core.ErrorCode.INVALID_MATCH_STATE &&
                             !detail.summary.status.isFinished &&
                             (detail.summary.status.isLive || detail.summary.status == com.footballai.app.domain.model.MatchStatus.SCHEDULED),
                         onPredict = { viewModel.predict(forcePersist = true) },
@@ -241,6 +253,7 @@ fun MatchDetailScreen(
                         liveTrackingSupported = state.liveTrackingSupported,
                         refreshWarning = state.refreshWarning?.let { errorLabel(it) },
                         onRetryRefresh = viewModel::refresh,
+                        predictionWarning = state.predictionWarning?.let { errorLabel(it) },
                         languageTag = languageTag,
                     )
                 }
@@ -429,6 +442,7 @@ private fun AnalysisTab(
     liveTrackingSupported: Boolean,
     refreshWarning: String?,
     onRetryRefresh: () -> Unit,
+    predictionWarning: String?,
     languageTag: String,
 ) {
     var showAdvanced by rememberSaveable(prediction?.id) { mutableStateOf(false) }
@@ -468,6 +482,25 @@ private fun AnalysisTab(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
                 )
+            }
+        }
+
+        if (predictionWarning != null && prediction != null) {
+            // The forecast on screen is the last one the app could compute. Saying so is
+            // better than pretending it is current, and far better than deleting it.
+            item {
+                Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
+                    Text(
+                        text = stringResource(R.string.prediction_not_updated),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        text = predictionWarning,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         }
 

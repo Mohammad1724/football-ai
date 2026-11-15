@@ -175,7 +175,11 @@ class AutoSyncCoordinator(
                 // The daily analysis path downloads the CSVs, rebuilds the ratings and
                 // stores predictions; it *is* the sync for this mode.
                 val report = dailyAnalysisRepository.run(progress)
-                settingsRepository.setLastSync(clock.nowEpochMs())
+                // Claiming a refresh that produced nothing at all would be a lie: the strip
+                // would say "just now" on top of data that was never updated.
+                if (report.fixturesReceived > 0 || report.errors.isEmpty()) {
+                    settingsRepository.setLastSync(clock.nowEpochMs())
+                }
                 runCatching { predictionRepository.resolveFinishedPredictions() }
                 val run = SyncRun(
                     added = report.fixturesReceived,

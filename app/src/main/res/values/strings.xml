@@ -544,4 +544,5 @@
     <string name="favourite_teams_empty_hint">You are not following a team yet. Open any match and tap the star next to a team name: its games then come first on the match list.</string>
     <string name="action_follow_team">Follow team</string>
     <string name="action_unfollow_team">Stop following</string>
+    <string name="prediction_not_updated">This forecast could not be updated just now; the last saved version is shown.</string>
 </resources>

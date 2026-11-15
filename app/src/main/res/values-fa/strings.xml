@@ -543,4 +543,5 @@
     <string name="favourite_teams_empty_hint">هنوز تیمی را دنبال نمی‌کنید. هر بازی را باز کنید و ستارهٔ کنار نام تیم را بزنید؛ از آن به بعد بازی‌های آن تیم اول فهرست می‌آید.</string>
     <string name="action_follow_team">دنبال کردن تیم</string>
     <string name="action_unfollow_team">دنبال نکردن</string>
+    <string name="prediction_not_updated">این پیش‌بینی همین حالا به‌روزرسانی نشد؛ آخرین نسخهٔ ذخیره‌شده نمایش داده می‌شود.</string>
 </resources>

@@ -83,7 +83,32 @@ class DashboardViewModel(private val container: AppContainer) : ViewModel() {
         }
         viewModelScope.launch {
             container.autoSyncCoordinator.state.collect { sync ->
-                _state.update { it.copy(autoSyncing = sync.isSyncing && !it.isSyncing) }
+                _state.update { state ->
+                    state.copy(
+                        autoSyncing = sync.isSyncing && !state.isSyncing,
+                        // An automatic attempt that failed has to say so. Otherwise the
+                        // strip silently falls back to the age of the last good sync and
+                        // the user is left with "last update 6 hours ago" and no reason.
+                        lastError = when {
+                            sync.lastError != null -> sync.lastError
+                            sync.isSyncing -> null
+                            else -> state.lastError
+                        },
+                    )
+                }
+            }
+        }
+        // The startup refresh finishes after this screen was built. Without this, the
+        // strip said "refreshing", then fell back to the age of the *previous* sync and
+        // announced "last update 6 hours ago" seconds after a successful refresh.
+        viewModelScope.launch {
+            container.settingsRepository.settings.collect { settings ->
+                val stored = settings.lastSyncEpochMs ?: return@collect
+                _state.update { state ->
+                    val known = state.sync.lastSuccessfulSyncEpochMs
+                    if (known != null && known >= stored) state
+                    else state.copy(sync = state.sync.copy(lastSuccessfulSyncEpochMs = stored))
+                }
             }
         }
         viewModelScope.launch {

@@ -41,6 +41,11 @@ data class MatchDetailUiState(
     val liveTrackingSupported: Boolean = true,
     /** True while the international archive is being downloaded and stored. */
     val isImportingHistory: Boolean = false,
+    /**
+     * Why the last attempt could not produce a *new* forecast, while an older one is
+     * still on screen. Kept apart from [lastError], which means there is nothing to show.
+     */
+    val predictionWarning: AppError? = null,
     /** Followed teams, keyed through [NameLocalization.favouriteKey], for the star. */
     val favouriteTeams: Set<String> = emptySet(),
 )
@@ -104,6 +109,9 @@ class MatchDetailViewModel(
     }
 
     fun refresh() {
+        // Four taps in a row used to queue four downloads and four predictions for the
+        // same fixture. The second tap has nothing new to ask for.
+        if (_state.value.isRefreshing) return
         viewModelScope.launch {
             guarded {
                 _state.update { it.copy(isRefreshing = true) }
@@ -127,12 +135,33 @@ class MatchDetailViewModel(
                 // keeps the local history readable and the database small.
                 val persist = !isLive || PredictionPolicy.shouldStoreLive(now, lastLivePredictionAt, forcePersist)
                 when (val result = container.predictionRepository.predict(matchId, persist = persist)) {
-                    is Outcome.Failure -> _state.update {
-                        it.copy(isPredicting = false, prediction = null, lastError = result.error)
+                    is Outcome.Failure -> {
+                        // The match changed state under the user (it kicked off, it ended,
+                        // the source stopped allowing a forecast for it). The forecast they
+                        // were reading is still the last thing the app knew, so it stays on
+                        // screen with a note, instead of the screen collapsing to "no data"
+                        // the moment a refresh lands.
+                        val kept = _state.value.prediction
+                            ?: container.predictionRepository.latestView(matchId)
+                        _state.update {
+                            it.copy(
+                                isPredicting = false,
+                                prediction = kept,
+                                predictionWarning = result.error.takeIf { _ -> kept != null },
+                                lastError = result.error.takeIf { _ -> kept == null },
+                            )
+                        }
                     }
                     is Outcome.Success -> {
                         if (isLive && persist) lastLivePredictionAt = now
-                        _state.update { it.copy(isPredicting = false, prediction = result.value, lastError = null) }
+                        _state.update {
+                            it.copy(
+                                isPredicting = false,
+                                prediction = result.value,
+                                predictionWarning = null,
+                                lastError = null,
+                            )
+                        }
                     }
                 }
             }
