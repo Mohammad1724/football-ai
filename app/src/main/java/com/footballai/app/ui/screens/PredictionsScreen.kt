@@ -33,6 +33,9 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -71,6 +74,9 @@ fun PredictionsScreen(onMatchClick: (String) -> Unit) {
     )
     val state by viewModel.state.collectAsStateWithLifecycle()
     val languageTag = LocalLanguageTag.current
+    // While the pull gesture shows its own indicator the app bar stays a plain icon: one
+    // refresh should not light up two spinners.
+    var pullActive by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -83,7 +89,7 @@ fun PredictionsScreen(onMatchClick: (String) -> Unit) {
                         onClick = { viewModel.refresh() },
                         enabled = !state.refreshing && !state.resolving,
                     ) {
-                        if (state.refreshing || state.resolving) {
+                        if ((state.refreshing || state.resolving) && !pullActive) {
                             CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                         } else {
                             Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.action_refresh))
@@ -126,6 +132,7 @@ fun PredictionsScreen(onMatchClick: (String) -> Unit) {
             SwipeRefresh(
                 isRefreshing = state.refreshing,
                 onRefresh = viewModel::refresh,
+                onPullStateChange = { pullActive = it },
                 modifier = Modifier.weight(1f),
             ) {
                 if (state.items.isEmpty()) {

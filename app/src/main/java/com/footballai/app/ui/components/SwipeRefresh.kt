@@ -71,6 +71,8 @@ fun SwipeRefresh(
     onRefresh: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    /** Told when the gesture indicator appears, so a screen does not spin twice. */
+    onPullStateChange: (Boolean) -> Unit = {},
     content: @Composable BoxScope.() -> Unit,
 ) {
     val density = LocalDensity.current
@@ -152,6 +154,7 @@ fun SwipeRefresh(
     }
 
     val indicatorVisible by remember { derivedStateOf { pull > 0f } }
+    LaunchedEffect(indicatorVisible) { onPullStateChange(indicatorVisible) }
 
     Box(modifier = modifier.nestedScroll(connection)) {
         Box(
@@ -241,8 +244,8 @@ fun SyncStatusStrip(
             horizontalArrangement = Arrangement.Start,
         ) {
             if (refreshing) {
-                CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp)
-                Spacer(Modifier.width(8.dp))
+                // No arc here: the words already say it, and three spinners on one
+                // screen (app bar, strip, pull) read as a bug rather than as progress.
                 Text(
                     text = if (progressTotal > 0) {
                         stringResource(

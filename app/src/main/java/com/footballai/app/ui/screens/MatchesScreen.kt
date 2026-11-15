@@ -140,6 +140,9 @@ fun MatchesScreen(onMatchClick: (String) -> Unit) {
     var calendarOpen by remember { mutableStateOf(false) }
     // Whether the filter block is folded away because the reader is scrolling the list.
     var filtersCollapsed by remember { mutableStateOf(false) }
+    // True while the pull gesture's own indicator is on screen: the app bar must not spin
+    // as well, or one refresh looks like three.
+    var pullActive by remember { mutableStateOf(false) }
     // Changing the day brings the filters back: a new day is a new question.
     LaunchedEffect(state.selectedDayOffset) { filtersCollapsed = false }
 
@@ -165,7 +168,7 @@ fun MatchesScreen(onMatchClick: (String) -> Unit) {
                         onClick = { viewModel.refresh() },
                         enabled = !state.isSyncing && !state.autoSyncing,
                     ) {
-                        if (state.isSyncing || state.autoSyncing) {
+                        if ((state.isSyncing || state.autoSyncing) && !pullActive) {
                             CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
                         } else {
                             Icon(
@@ -224,6 +227,7 @@ fun MatchesScreen(onMatchClick: (String) -> Unit) {
             SwipeRefresh(
                 isRefreshing = state.isSyncing,
                 onRefresh = viewModel::refresh,
+                onPullStateChange = { pullActive = it },
                 enabled = state.isOnline,
                 modifier = Modifier.weight(1f),
             ) {
