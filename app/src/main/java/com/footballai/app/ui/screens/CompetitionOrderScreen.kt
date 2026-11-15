@@ -21,6 +21,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -54,6 +55,7 @@ import com.footballai.app.R
 import com.footballai.app.domain.model.Competition
 import com.footballai.app.ui.LocalAppContainer
 import com.footballai.app.ui.LocalLanguageTag
+import com.footballai.app.ui.components.SoftBackButton
 import com.footballai.app.ui.components.CompetitionNameText
 import com.footballai.app.ui.components.EmptyState
 import com.footballai.app.ui.components.LoadingState
@@ -117,11 +119,12 @@ fun CompetitionOrderScreen(onBack: () -> Unit) {
 
     Scaffold(
         topBar = {
-            TopAppBar(
+            CenterAlignedTopAppBar(
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
-                    }
+                    SoftBackButton(
+                        onClick = onBack,
+                        contentDescription = stringResource(R.string.action_back),
+                    )
                 },
                 title = { Text(stringResource(R.string.title_competition_order)) },
                 actions = {

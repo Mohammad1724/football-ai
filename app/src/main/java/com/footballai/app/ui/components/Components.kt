@@ -70,29 +70,15 @@ fun SectionHeader(
     actionLabel: String? = null,
     onAction: (() -> Unit)? = null,
 ) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
+    Column(modifier = modifier.fillMaxWidth()) {
+        SectionLabel(text = title, actionLabel = actionLabel, onAction = onAction)
+        if (subtitle != null) {
             Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onBackground,
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
             )
-            if (subtitle != null) {
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-        if (actionLabel != null && onAction != null) {
-            TextButton(onClick = onAction) { Text(actionLabel) }
         }
     }
 }
@@ -156,14 +142,11 @@ fun MatchCard(
         label = "statusColor",
     )
 
-    Card(
+    SoftCard(
         onClick = onClick,
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = Spacing.page, vertical = 5.dp),
-        shape = Radii.cardShape,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp),
     ) {
         Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
             Row(
@@ -624,14 +607,10 @@ fun InfoCard(
     body: String,
     modifier: Modifier = Modifier,
     icon: androidx.compose.ui.graphics.vector.ImageVector = Icons.Default.Inbox,
-    containerColor: Color = MaterialTheme.colorScheme.secondaryContainer,
+    containerColor: Color? = null,
 ) {
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = containerColor),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-    ) {
-        Row(modifier = Modifier.padding(14.dp)) {
+    SoftCard(modifier = modifier.fillMaxWidth(), containerColor = containerColor) {
+        Row(modifier = Modifier.padding(16.dp)) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,

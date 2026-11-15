@@ -32,7 +32,7 @@ object Spacing {
 object Radii {
     val chip = 999.dp
     val small = 12.dp
-    val card = 20.dp
+    val card = 22.dp
     val sheet = 28.dp
 
     val cardShape = RoundedCornerShape(card)

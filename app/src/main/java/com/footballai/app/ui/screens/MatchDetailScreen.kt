@@ -38,6 +38,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Tab
@@ -79,6 +80,7 @@ import com.footballai.app.ui.LocalAppContainer
 import com.footballai.app.ui.LocalLanguageTag
 import com.footballai.app.domain.catalog.NameLocalization
 import com.footballai.app.domain.model.TeamRef
+import com.footballai.app.ui.components.SoftBackButton
 import com.footballai.app.ui.components.CompetitionNameText
 import com.footballai.app.ui.components.ConfidenceChip
 import com.footballai.app.ui.components.EmptyState
@@ -150,11 +152,12 @@ fun MatchDetailScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
+            CenterAlignedTopAppBar(
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
-                    }
+                    SoftBackButton(
+                        onClick = onBack,
+                        contentDescription = stringResource(R.string.action_back),
+                    )
                 },
                 title = {
                     val summary = detail?.summary

@@ -7,6 +7,20 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.fillMaxSize
+import com.footballai.app.ui.theme.Spacing
+import com.footballai.app.ui.theme.FootballAiThemeExtra
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.Alignment
+import androidx.compose.material3.Surface
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
@@ -15,8 +29,6 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SportsSoccer
 import androidx.compose.material.icons.filled.StackedLineChart
 import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -120,6 +132,7 @@ private fun MainNavigation() {
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
     val showBottomBar = bottomDestinations.any { it.route == currentRoute }
+    val themeColors = FootballAiThemeExtra.colors
     // Forward is to the left when the interface is right-to-left, so the slide follows
     // the direction the user reads in.
     val forward = if (LocalLayoutDirection.current == LayoutDirection.Rtl) -1 else 1
@@ -134,16 +147,63 @@ private fun MainNavigation() {
     Scaffold(
         bottomBar = {
             if (showBottomBar) {
-                NavigationBar {
-                    bottomDestinations.forEach { destination ->
-                        NavigationBarItem(
-                            selected = currentRoute == destination.route,
-                            onClick = {
-                                if (currentRoute != destination.route) openTab(destination.route)
-                            },
-                            icon = { Icon(destination.icon, contentDescription = null) },
-                            label = { Text(stringResource(destination.labelRes)) },
-                        )
+                // A floating pill instead of a bar glued to the edge: it leaves the page
+                // visible underneath, so the interface never looks cut off at the bottom.
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = Spacing.xl, vertical = Spacing.sm),
+                    shape = RoundedCornerShape(30.dp),
+                    color = MaterialTheme.colorScheme.surface,
+                    shadowElevation = 14.dp,
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = Spacing.sm, vertical = Spacing.sm),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        bottomDestinations.forEach { destination ->
+                            val selected = currentRoute == destination.route
+                            Surface(
+                                onClick = {
+                                    if (currentRoute != destination.route) openTab(destination.route)
+                                },
+                                shape = RoundedCornerShape(22.dp),
+                                color = if (selected) {
+                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                                } else {
+                                    Color.Transparent
+                                },
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                ) {
+                                    Icon(
+                                        imageVector = destination.icon,
+                                        contentDescription = null,
+                                        tint = if (selected) {
+                                            MaterialTheme.colorScheme.primary
+                                        } else {
+                                            themeColors.iconMuted
+                                        },
+                                        modifier = Modifier.size(23.dp),
+                                    )
+                                    Spacer(Modifier.height(3.dp))
+                                    Text(
+                                        text = stringResource(destination.labelRes),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = if (selected) {
+                                            MaterialTheme.colorScheme.primary
+                                        } else {
+                                            themeColors.iconMuted
+                                        },
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }

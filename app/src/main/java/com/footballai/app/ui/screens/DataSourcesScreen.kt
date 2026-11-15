@@ -27,6 +27,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -58,6 +59,7 @@ import com.footballai.app.data.repository.HistoricalSourceOption
 import com.footballai.app.data.repository.SyncSummary
 import com.footballai.app.ui.LocalAppContainer
 import com.footballai.app.ui.LocalLanguageTag
+import com.footballai.app.ui.components.SoftBackButton
 import com.footballai.app.ui.components.CompetitionNameText
 import com.footballai.app.ui.components.SectionHeader
 import com.footballai.app.ui.components.SwipeRefresh
@@ -79,11 +81,12 @@ fun DataSourcesScreen(onBack: () -> Unit) {
 
     Scaffold(
         topBar = {
-            TopAppBar(
+            CenterAlignedTopAppBar(
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
-                    }
+                    SoftBackButton(
+                        onClick = onBack,
+                        contentDescription = stringResource(R.string.action_back),
+                    )
                 },
                 title = { Text(stringResource(R.string.title_data_sources)) },
                 actions = {
