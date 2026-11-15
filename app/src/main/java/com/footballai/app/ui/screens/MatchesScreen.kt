@@ -957,10 +957,9 @@ private fun RecentMatchRow(
                 )
                 Spacer(Modifier.height(4.dp))
             }
-            // Both teams share the width equally. The home side used to be given
-            // fillMaxWidth(), which left the away side nothing and made two long
-            // national-team names print on top of each other.
-            MatchTeam(match.home, languageTag, Modifier.weight(1f))
+            // fillMaxWidth, not weight: inside a Column a weight is a *height* weight, and
+            // the team line collapsed to zero height and vanished.
+            MatchTeam(match.home, languageTag, Modifier.fillMaxWidth())
         }
         MatchMoment(match, languageTag, Modifier.width(84.dp))
         MatchTeam(match.away, languageTag, Modifier.weight(1f))

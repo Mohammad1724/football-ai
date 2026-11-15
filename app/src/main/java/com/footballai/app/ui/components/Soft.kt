@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -46,14 +47,21 @@ fun SoftCard(
     onClick: (() -> Unit)? = null,
     shape: RoundedCornerShape = Radii.cardShape,
     containerColor: Color? = null,
-    content: @Composable () -> Unit,
+    content: @Composable ColumnScope.() -> Unit,
 ) {
     val colors = FootballAiThemeExtra.colors
     val color = containerColor ?: colors.card
+    // The content slot is a Column, not a bare Box: a card that holds a list of rows must
+    // stack them. A plain Surface stacks every child on top of the first, which is how a
+    // card of four fixtures ended up drawn as one illegible pile.
     if (onClick != null) {
-        Surface(onClick = onClick, modifier = modifier, shape = shape, color = color) { content() }
+        Surface(onClick = onClick, modifier = modifier, shape = shape, color = color) {
+            Column(content = content)
+        }
     } else {
-        Surface(modifier = modifier, shape = shape, color = color) { content() }
+        Surface(modifier = modifier, shape = shape, color = color) {
+            Column(content = content)
+        }
     }
 }
 
