@@ -2,6 +2,7 @@
 
 package com.footballai.app.ui.screens
 
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
@@ -70,6 +71,9 @@ import com.footballai.app.ui.theme.FootballAiThemeExtra
 import com.footballai.app.ui.viewmodel.CompetitionOrderViewModel
 import kotlin.math.abs
 
+/** Fastest auto-scroll while dragging, in pixels per frame (~1500 px/s at 60 Hz). */
+private const val MAX_SCROLL_PER_FRAME = 25f
+
 /**
  * Puts the tournaments in the order the user wants them: La Liga above Serie A, Serie A
  * above the Bundesliga, whatever the app's own guess was.
@@ -97,8 +101,8 @@ fun CompetitionOrderScreen(onBack: () -> Unit) {
     var draggingId by remember { mutableStateOf<String?>(null) }
     var dragOffset by remember { mutableFloatStateOf(0f) }
     val rowHeights = remember { mutableStateMapOf<String, Int>() }
-    // -1 = scroll up, +1 = scroll down, 0 = the finger is not near an edge.
-    var autoScroll by remember { mutableFloatStateOf(0f) }
+    // Pixels per frame; sign is the direction. Zero means the finger is not near an edge.
+    var autoScrollSpeed by remember { mutableFloatStateOf(0f) }
     val colors = FootballAiThemeExtra.colors
 
     LaunchedEffect(state.competitions) {
@@ -108,12 +112,74 @@ fun CompetitionOrderScreen(onBack: () -> Unit) {
         }
     }
 
-    // A long list cannot be reordered with the finger alone: the row has to be able to
-    // reach the top of the screen. The list scrolls by itself while the finger rests near
-    // an edge, one frame at a time so it follows the gesture instead of running away.
+    /**
+     * Swap the dragged row with its neighbour as often as the offset has earned.
+     *
+     * This is deliberately callable without a new touch event: while the list scrolls by
+     * itself the offset keeps growing even though the finger is still, and the swaps have
+     * to happen anyway — that is what makes a row travel instead of hanging at the edge.
+     */
+    fun settle() {
+        val id = draggingId ?: return
+        var guard = 0
+        while (guard++ < 8) {
+            val from = rows.indexOfFirst { it.id == id }
+            if (from < 0) return
+            val step = if (dragOffset > 0f) 1 else -1
+            val neighbour = rows.getOrNull(from + step)
+            if (neighbour == null) {
+                // Nothing to swap with at this end of the list: stop at the edge instead
+                // of letting the offset keep growing and jump later.
+                dragOffset = 0f
+                return
+            }
+            val height = rowHeights[neighbour.id] ?: return
+            if (abs(dragOffset) <= height / 2f) return
+            val moved = rows.removeAt(from)
+            rows.add(from + step, moved)
+            dragOffset -= step * height
+            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+        }
+    }
+
+    /**
+     * How fast the list should scroll for where the dragged row currently is.
+     *
+     * Speed grows as the finger approaches the edge, so a small push near the border
+     * creeps and a push into the corner runs — a constant speed feels like the list is
+     * fighting the hand.
+     */
+    fun updateAutoScroll() {
+        val id = draggingId ?: return
+        val item = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == id }
+        val viewport = listState.layoutInfo.viewportSize.height
+        if (item == null || viewport <= 0) {
+            autoScrollSpeed = 0f
+            return
+        }
+        val fingerY = item.offset + dragOffset + item.size / 2f
+        val edge = viewport * 0.18f
+        autoScrollSpeed = when {
+            fingerY < edge -> -(((edge - fingerY) / edge).coerceIn(0f, 1f)) * MAX_SCROLL_PER_FRAME
+            fingerY > viewport - edge -> (((fingerY - (viewport - edge)) / edge).coerceIn(0f, 1f)) * MAX_SCROLL_PER_FRAME
+            else -> 0f
+        }
+    }
+
+    // The list scrolls itself while the finger rests near an edge, one frame at a time.
+    // Every scrolled pixel is added back to the row's offset, so the row stays under the
+    // finger instead of sliding away with the content — that slide was the "sticking".
     LaunchedEffect(draggingId) {
         while (draggingId != null) {
-            if (autoScroll != 0f) listState.scrollBy(autoScroll)
+            val speed = autoScrollSpeed
+            if (speed != 0f) {
+                val consumed = listState.scrollBy(speed)
+                if (consumed != 0f) {
+                    dragOffset += consumed
+                    settle()
+                }
+                updateAutoScroll()
+            }
             withFrameNanos { }
         }
     }
@@ -121,44 +187,15 @@ fun CompetitionOrderScreen(onBack: () -> Unit) {
     fun drop() {
         draggingId = null
         dragOffset = 0f
-        autoScroll = 0f
+        autoScrollSpeed = 0f
         viewModel.applyOrder(rows.map { it.id })
     }
 
     fun drag(amount: Float) {
-        val id = draggingId ?: return
+        if (draggingId == null) return
         dragOffset += amount
-        val from = rows.indexOfFirst { it.id == id }
-        if (from < 0) return
-        val step = if (dragOffset > 0f) 1 else -1
-        val neighbour = rows.getOrNull(from + step)
-        if (neighbour == null) {
-            // Nothing to swap with at this end of the list: stop at the edge instead of
-            // letting the offset keep growing and jumping later.
-            dragOffset = 0f
-        } else {
-            val neighbourHeight = rowHeights[neighbour.id]
-            if (neighbourHeight != null && abs(dragOffset) > neighbourHeight / 2f) {
-                val moved = rows.removeAt(from)
-                rows.add(from + step, moved)
-                dragOffset -= step * neighbourHeight
-                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-            }
-        }
-
-        // Edge detection for the auto-scroll: where the dragged row currently sits, plus
-        // how far the finger has moved it, is the finger's place in the viewport.
-        val item = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == id }
-        val viewport = listState.layoutInfo.viewportSize.height
-        if (item != null && viewport > 0) {
-            val fingerY = item.offset + dragOffset + item.size / 2f
-            val edge = viewport * 0.18f
-            autoScroll = when {
-                fingerY < edge -> -14f
-                fingerY > viewport - edge -> 14f
-                else -> 0f
-            }
-        }
+        settle()
+        updateAutoScroll()
     }
 
     Scaffold(
@@ -208,7 +245,7 @@ fun CompetitionOrderScreen(onBack: () -> Unit) {
                             .fillMaxWidth()
                             // Rows that are pushed aside glide to their new place; the row
                             // under the finger must not, it already follows the finger.
-                            .then(if (isDragging) Modifier else Modifier.animateItemPlacement())
+                            .then(if (isDragging) Modifier else Modifier.animateItemPlacement(tween(130)))
                             .zIndex(if (isDragging) 1f else 0f)
                             .graphicsLayer { translationY = if (isDragging) dragOffset else 0f }
                             .background(if (isDragging) colors.cardStrong else Color.Transparent)
