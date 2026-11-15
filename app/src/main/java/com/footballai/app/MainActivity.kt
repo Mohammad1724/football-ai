@@ -1,28 +1,33 @@
 package com.footballai.app
 
+import android.app.Activity
 import android.content.Context
+import android.content.ContextWrapper
 import android.content.res.Configuration
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
 import androidx.lifecycle.lifecycleScope
-import com.footballai.app.data.sync.SyncTrigger
-import kotlinx.coroutines.launch
 import com.footballai.app.data.settings.AppLanguage
 import com.footballai.app.data.settings.AppSettings
 import com.footballai.app.data.settings.ThemeMode
+import com.footballai.app.data.sync.SyncTrigger
 import com.footballai.app.ui.LocalAppContainer
 import com.footballai.app.ui.LocalLanguageTag
 import com.footballai.app.ui.navigation.FootballAiApp
 import com.footballai.app.ui.theme.FootballAiTheme
 import java.util.Locale
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 
@@ -42,6 +47,23 @@ class MainActivity : ComponentActivity() {
                 ThemeMode.SYSTEM -> isSystemInDarkTheme()
                 ThemeMode.LIGHT -> false
                 ThemeMode.DARK -> true
+            }
+
+            // The clock and the battery in the status bar are drawn by the system, not by
+            // this app, so they do not follow the in-app theme on their own. With a
+            // transparent status bar and a dark app theme on a light phone the icons stayed
+            // dark-on-dark and disappeared; the theme switch has to tell the system which
+            // way to draw them.
+            val view = LocalView.current
+            if (!view.isInEditMode) {
+                SideEffect {
+                    view.context.findActivity()?.window?.let { window ->
+                        WindowCompat.getInsetsController(window, view).apply {
+                            isAppearanceLightStatusBars = !darkTheme
+                            isAppearanceLightNavigationBars = !darkTheme
+                        }
+                    }
+                }
             }
 
             // Layout direction alone is not enough: stringResource() reads the resources of
@@ -83,6 +105,13 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch {
             container.autoSyncCoordinator.syncIfStale(SyncTrigger.RESUME)
         }
+    }
+
+    /** The Compose view's context is wrapped once per locale, so the activity is not direct. */
+    private tailrec fun Context.findActivity(): Activity? = when (this) {
+        is Activity -> this
+        is ContextWrapper -> baseContext.findActivity()
+        else -> null
     }
 
     private fun Context.withLocale(languageTag: String): Context {

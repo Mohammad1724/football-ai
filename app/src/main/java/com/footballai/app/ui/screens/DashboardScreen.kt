@@ -270,7 +270,12 @@ fun DashboardScreen(
                             )
                         }
                         items(state.liveMatches, key = { it.id }) { match ->
-                            MatchCard(match = match, languageTag = languageTag, onClick = { onMatchClick(match.id) })
+                            MatchCard(
+                                match = match,
+                                languageTag = languageTag,
+                                onClick = { onMatchClick(match.id) },
+                                modifier = Modifier.animateItemPlacement(),
+                            )
                         }
                     }
 
@@ -283,7 +288,12 @@ fun DashboardScreen(
                             )
                         }
                         items(state.todayMatches.take(6), key = { it.id }) { match ->
-                            MatchCard(match = match, languageTag = languageTag, onClick = { onMatchClick(match.id) })
+                            MatchCard(
+                                match = match,
+                                languageTag = languageTag,
+                                onClick = { onMatchClick(match.id) },
+                                modifier = Modifier.animateItemPlacement(),
+                            )
                         }
                     }
 

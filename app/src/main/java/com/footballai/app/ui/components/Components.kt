@@ -57,6 +57,8 @@ import com.footballai.app.ui.confidenceLevelLabel
 import com.footballai.app.ui.matchStatusLabel
 import com.footballai.app.ui.qualityLevelLabel
 import com.footballai.app.ui.theme.FootballAiThemeExtra
+import com.footballai.app.ui.theme.Radii
+import com.footballai.app.ui.theme.Spacing
 import coil.compose.AsyncImage
 import com.footballai.app.R
 
@@ -158,7 +160,8 @@ fun MatchCard(
         onClick = onClick,
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 5.dp),
+            .padding(horizontal = Spacing.page, vertical = 5.dp),
+        shape = Radii.cardShape,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp),
     ) {
@@ -420,7 +423,9 @@ private fun TeamRow(
                 showScore -> "—"
                 else -> Formatters.timeOnly(kickoffEpochMs, languageTag)
             },
-            style = MaterialTheme.typography.titleMedium,
+            // Goals in a fixed-width column: a two-goal line and a one-goal line keep
+            // the same width, so the eye compares the numbers, not their centring.
+            style = MaterialTheme.typography.titleMedium.copy(fontFeatureSettings = "tnum"),
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurface,
         )

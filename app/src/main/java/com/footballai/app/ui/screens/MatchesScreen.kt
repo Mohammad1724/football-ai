@@ -102,6 +102,8 @@ import com.footballai.app.ui.components.TeamMonogram
 import com.footballai.app.ui.components.TeamNameLines
 import com.footballai.app.ui.matchStatusLabel
 import com.footballai.app.ui.theme.FootballAiThemeExtra
+import com.footballai.app.ui.theme.Radii
+import com.footballai.app.ui.theme.Spacing
 import com.footballai.app.ui.viewmodel.MatchGenderFilter
 import com.footballai.app.ui.viewmodel.MatchKindFilter
 import com.footballai.app.ui.viewmodel.MatchesUiState
@@ -762,14 +764,19 @@ private fun GroupedMatchList(
         )
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 8.dp, bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+        contentPadding = PaddingValues(
+            start = Spacing.page,
+            end = Spacing.page,
+            top = Spacing.sm,
+            bottom = Spacing.xxl,
+        ),
+        verticalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
         if (favourites.isNotEmpty()) {
             item(key = "favourites") {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(22.dp),
+                    shape = Radii.cardShape,
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp),
                 ) {
@@ -834,7 +841,7 @@ private fun CompetitionCard(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(22.dp),
+        shape = Radii.cardShape,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp),
     ) {

@@ -1,6 +1,7 @@
 package com.footballai.app.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -150,11 +151,15 @@ fun PredictionsScreen(onMatchClick: (String) -> Unit) {
                 } else {
                     LazyColumn(modifier = Modifier.fillMaxSize()) {
                         items(state.items, key = { it.prediction.id }) { item ->
-                            PredictionHistoryCard(
-                                item = item,
-                                languageTag = languageTag,
-                                onClick = { onMatchClick(item.match.id) },
-                            )
+                            // A finished match resolving moves the rows under the finger;
+                            // animating the placement keeps that movement readable.
+                            Box(modifier = Modifier.animateItemPlacement()) {
+                                PredictionHistoryCard(
+                                    item = item,
+                                    languageTag = languageTag,
+                                    onClick = { onMatchClick(item.match.id) },
+                                )
+                            }
                         }
                         item { Spacer(Modifier.height(24.dp)) }
                     }

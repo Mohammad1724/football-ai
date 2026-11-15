@@ -14,6 +14,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -217,63 +223,76 @@ fun MatchDetailScreen(
             val missingArchive = state.lastError?.let { error ->
                 error.code == com.footballai.app.core.ErrorCode.NO_NATIONAL_HISTORY && error.detail == null
             } == true
-            when {
-                selectedTab == 0 -> SwipeRefresh(
-                    isRefreshing = state.isRefreshing,
-                    onRefresh = viewModel::refresh,
-                    modifier = Modifier.fillMaxSize(),
-                ) {
-                    AnalysisTab(
+            // Switching tabs is a movement, not a jump: the outgoing tab leaves the
+            // way the new one arrives, so the eye can follow which direction it went.
+            AnimatedContent(
+                targetState = selectedTab,
+                transitionSpec = {
+                    val direction = if (targetState > initialState) 1 else -1
+                    (slideInHorizontally { width -> direction * width / 8 } + fadeIn()) togetherWith
+                        (slideOutHorizontally { width -> -direction * width / 8 } + fadeOut())
+                },
+                label = "match-tab",
+                modifier = Modifier.fillMaxSize(),
+            ) { tab ->
+                when {
+                    tab == 0 -> SwipeRefresh(
+                        isRefreshing = state.isRefreshing,
+                        onRefresh = viewModel::refresh,
+                        modifier = Modifier.fillMaxSize(),
+                    ) {
+                        AnalysisTab(
+                            prediction = state.prediction,
+                            isPredicting = state.isPredicting,
+                            error = state.lastError?.let { errorLabel(it) },
+                            isLiveMatch = detail.summary.status.isLive,
+                            isFinished = detail.summary.status.isFinished,
+                            homeName = NameLocalization.displayName(
+                                detail.summary.home.name,
+                                languageTag,
+                                detail.summary.home.shortName,
+                            ),
+                            awayName = NameLocalization.displayName(
+                                detail.summary.away.name,
+                                languageTag,
+                                detail.summary.away.shortName,
+                            ),
+                            // A forecast the app is not allowed to compute (a live game in
+                            // daily mode, a finished one) must not come with a retry button
+                            // that is known to fail.
+                            canPredict = (state.lastError?.code ?: state.predictionWarning?.code) !=
+                                com.footballai.app.core.ErrorCode.INVALID_MATCH_STATE &&
+                                !detail.summary.status.isFinished &&
+                                (detail.summary.status.isLive || detail.summary.status == com.footballai.app.domain.model.MatchStatus.SCHEDULED),
+                            onPredict = { viewModel.predict(forcePersist = true) },
+                            needsNationalHistory = missingArchive,
+                            isImportingHistory = state.isImportingHistory,
+                            onImportNationalHistory = viewModel::importNationalHistory,
+                            liveTrackingSupported = state.liveTrackingSupported,
+                            refreshWarning = state.refreshWarning?.let { errorLabel(it) },
+                            onRetryRefresh = viewModel::refresh,
+                            predictionWarning = state.predictionWarning?.let { errorLabel(it) },
+                            languageTag = languageTag,
+                        )
+                    }
+
+                    hasLiveTab && tab == 1 -> LiveTab(
                         prediction = state.prediction,
-                        isPredicting = state.isPredicting,
-                        error = state.lastError?.let { errorLabel(it) },
-                        isLiveMatch = detail.summary.status.isLive,
-                        isFinished = detail.summary.status.isFinished,
-                        homeName = NameLocalization.displayName(
-                            detail.summary.home.name,
-                            languageTag,
-                            detail.summary.home.shortName,
-                        ),
-                        awayName = NameLocalization.displayName(
-                            detail.summary.away.name,
-                            languageTag,
-                            detail.summary.away.shortName,
-                        ),
-                        // A forecast the app is not allowed to compute (a live game in
-                        // daily mode, a finished one) must not come with a retry button
-                        // that is known to fail.
-                        canPredict = (state.lastError?.code ?: state.predictionWarning?.code) !=
-                            com.footballai.app.core.ErrorCode.INVALID_MATCH_STATE &&
-                            !detail.summary.status.isFinished &&
-                            (detail.summary.status.isLive || detail.summary.status == com.footballai.app.domain.model.MatchStatus.SCHEDULED),
-                        onPredict = { viewModel.predict(forcePersist = true) },
-                        needsNationalHistory = missingArchive,
-                        isImportingHistory = state.isImportingHistory,
-                        onImportNationalHistory = viewModel::importNationalHistory,
-                        liveTrackingSupported = state.liveTrackingSupported,
-                        refreshWarning = state.refreshWarning?.let { errorLabel(it) },
-                        onRetryRefresh = viewModel::refresh,
-                        predictionWarning = state.predictionWarning?.let { errorLabel(it) },
+                        detail = detail,
+                        languageTag = languageTag,
+                    )
+
+                    tab == if (hasLiveTab) 2 else 1 -> StatisticsTab(
+                        statistics = detail.statistics,
+                        languageTag = languageTag,
+                    )
+
+                    else -> HeadToHeadTab(
+                        matches = state.headToHead,
                         languageTag = languageTag,
                     )
                 }
-
-                hasLiveTab && selectedTab == 1 -> LiveTab(
-                    prediction = state.prediction,
-                    detail = detail,
-                    languageTag = languageTag,
-                )
-
-                selectedTab == if (hasLiveTab) 2 else 1 -> StatisticsTab(
-                    statistics = detail.statistics,
-                    languageTag = languageTag,
-                )
-
-                else -> HeadToHeadTab(
-                    matches = state.headToHead,
-                    languageTag = languageTag,
-                )
-            }
+                }
         }
     }
 }
@@ -337,7 +356,12 @@ private fun MatchHeader(
                         Text(
                             // A score the source has not published yet is a dash, never 0-0.
                             text = Formatters.scoreOrNull(summary.homeGoals, summary.awayGoals, languageTag) ?: "—",
-                            style = MaterialTheme.typography.headlineMedium,
+                            // The score is the one number the eye goes looking for: it gets the
+                            // largest size on the screen and fixed-width digits so 2–1 and 0–0
+                            // sit on the same axis.
+                            style = MaterialTheme.typography.displaySmall.copy(
+                                fontFeatureSettings = "tnum",
+                            ),
                             fontWeight = FontWeight.Bold,
                         )
                     } else {
