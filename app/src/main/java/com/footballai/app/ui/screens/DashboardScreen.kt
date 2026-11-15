@@ -36,6 +36,7 @@ import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -50,7 +51,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
@@ -68,6 +71,8 @@ import com.footballai.app.ui.components.MatchCard
 import com.footballai.app.ui.components.SectionHeader
 import com.footballai.app.ui.components.StatusChip
 import com.footballai.app.ui.errorLabel
+import com.footballai.app.ui.theme.Spacing
+import com.footballai.app.ui.theme.FootballAiThemeExtra
 import com.footballai.app.ui.viewmodel.DashboardViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -148,14 +153,28 @@ fun DashboardScreen(
                     modifier = Modifier.fillMaxSize(),
                     verticalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
-                    // Three tabs used to show the same fixtures. This one says what it is
-                    // for before it shows anything: today, and nothing else.
+                    // The screen opens on one number, not on a wall of cards: how much
+                    // football is happening right now. Everything else is below it.
                     item {
-                        InfoCard(
-                            title = stringResource(R.string.home_intro_title),
-                            body = stringResource(R.string.home_intro_body),
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        HomeHero(
+                            liveCount = state.liveMatches.size,
+                            todayCount = state.todayMatches.size,
+                            languageTag = languageTag,
+                            isSyncing = state.isSyncing || state.autoSyncing,
+                            onRefresh = { viewModel.refresh() },
+                            onOpenMatches = onOpenMatches,
+                            onOpenPredictions = onOpenPredictions,
+                            onOpenData = onOpenDataSources,
                         )
+                    }
+                    // The explanation is only worth space when there is nothing to show.
+                    if (state.liveMatches.isEmpty() && state.todayMatches.isEmpty()) {
+                        item {
+                            InfoCard(
+                                title = stringResource(R.string.home_intro_title),
+                                body = stringResource(R.string.home_intro_body),
+                            )
+                        }
                     }
                     if (state.dailyMode && showDataDetails) {
                         item { InfoCard(title = stringResource(R.string.daily_mode_title), body = stringResource(R.string.daily_dashboard_hint)) }
@@ -395,8 +414,8 @@ private fun SyncCard(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
             Row(
@@ -651,6 +670,125 @@ private fun StatBlock(label: String, value: String) {
             text = label,
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/**
+ * The one number the home screen is about, with the four things a person actually does
+ * from here underneath it.
+ *
+ * The count is set large and light, the way a balance is set in a wallet app: it is a
+ * fact to read at arm's length, not a heading. The round buttons replace a row of text
+ * links because a thumb finds a circle faster than a word.
+ */
+@Composable
+private fun HomeHero(
+    liveCount: Int,
+    todayCount: Int,
+    languageTag: String,
+    isSyncing: Boolean,
+    onRefresh: () -> Unit,
+    onOpenMatches: () -> Unit,
+    onOpenPredictions: () -> Unit,
+    onOpenData: () -> Unit,
+) {
+    val colors = FootballAiThemeExtra.colors
+    val headline = if (liveCount > 0) liveCount else todayCount
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = Spacing.md, bottom = Spacing.sm),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        if (headline > 0) {
+            Text(
+                text = Formatters.integer(headline, languageTag),
+                style = MaterialTheme.typography.displaySmall.copy(
+                    fontSize = 46.sp,
+                    lineHeight = 58.sp,
+                    fontWeight = FontWeight.Normal,
+                    fontFeatureSettings = "tnum",
+                ),
+                color = MaterialTheme.colorScheme.onBackground,
+            )
+            Text(
+                text = stringResource(
+                    if (liveCount > 0) R.string.home_hero_live else R.string.home_hero_today,
+                ),
+                style = MaterialTheme.typography.bodyMedium,
+                color = colors.iconMuted,
+            )
+        } else {
+            Text(
+                text = stringResource(R.string.home_hero_empty),
+                style = MaterialTheme.typography.bodyMedium,
+                color = colors.iconMuted,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = Spacing.xxl),
+            )
+        }
+        Spacer(Modifier.height(Spacing.xl))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+        ) {
+            CircleAction(
+                icon = Icons.Default.Refresh,
+                label = stringResource(R.string.home_action_refresh),
+                enabled = !isSyncing,
+                onClick = onRefresh,
+            )
+            CircleAction(
+                icon = Icons.Default.SportsSoccer,
+                label = stringResource(R.string.home_action_matches),
+                onClick = onOpenMatches,
+            )
+            CircleAction(
+                icon = Icons.Default.QueryStats,
+                label = stringResource(R.string.home_action_predictions),
+                onClick = onOpenPredictions,
+            )
+            CircleAction(
+                icon = Icons.Default.CloudDownload,
+                label = stringResource(R.string.home_action_data),
+                onClick = onOpenData,
+            )
+        }
+    }
+}
+
+/** A round, labelled shortcut: the shape a thumb finds without aiming. */
+@Composable
+private fun CircleAction(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    onClick: () -> Unit,
+    enabled: Boolean = true,
+) {
+    val colors = FootballAiThemeExtra.colors
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Surface(
+            onClick = onClick,
+            enabled = enabled,
+            shape = CircleShape,
+            color = colors.card,
+            modifier = Modifier.size(58.dp),
+        ) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = if (enabled) MaterialTheme.colorScheme.onSurface else colors.iconMuted,
+                    modifier = Modifier.size(23.dp),
+                )
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = colors.iconMuted,
         )
     }
 }

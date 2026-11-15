@@ -544,4 +544,11 @@
     <string name="action_follow_team">دنبال کردن تیم</string>
     <string name="action_unfollow_team">دنبال نکردن</string>
     <string name="prediction_not_updated">این پیش‌بینی همین حالا به‌روزرسانی نشد؛ آخرین نسخهٔ ذخیره‌شده نمایش داده می‌شود.</string>
+    <string name="home_hero_today">مسابقه امروز</string>
+    <string name="home_hero_live">مسابقه در جریان</string>
+    <string name="home_hero_empty">هنوز مسابقه‌ای برای امروز ثبت نشده</string>
+    <string name="home_action_matches">مسابقات</string>
+    <string name="home_action_predictions">پیش‌بینی‌ها</string>
+    <string name="home_action_refresh">به‌روزرسانی</string>
+    <string name="home_action_data">منابع داده</string>
 </resources>

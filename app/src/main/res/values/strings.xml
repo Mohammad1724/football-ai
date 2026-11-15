@@ -545,4 +545,11 @@
     <string name="action_follow_team">Follow team</string>
     <string name="action_unfollow_team">Stop following</string>
     <string name="prediction_not_updated">This forecast could not be updated just now; the last saved version is shown.</string>
+    <string name="home_hero_today">matches today</string>
+    <string name="home_hero_live">matches live</string>
+    <string name="home_hero_empty">No fixtures for today yet</string>
+    <string name="home_action_matches">Matches</string>
+    <string name="home_action_predictions">Predictions</string>
+    <string name="home_action_refresh">Refresh</string>
+    <string name="home_action_data">Data sources</string>
 </resources>
