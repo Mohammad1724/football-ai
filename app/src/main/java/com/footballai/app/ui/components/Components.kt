@@ -279,8 +279,11 @@ fun TeamBadge(team: TeamRef, size: Int = 26) {
             .background(MaterialTheme.colorScheme.surfaceVariant),
         contentAlignment = Alignment.Center,
     ) {
-        // Drawn first and always: whatever happens to the image, the badge is never empty.
-        TeamMonogram(team.name, size = size)
+        // The monogram is the fallback, not a layer: drawing it under a flag printed the
+        // initials on top of the flag. It is only shown when there is nothing better.
+        if (flag == null && crest == null) {
+            TeamMonogram(team.name, size = size)
+        }
         if (flag != null) {
             Text(text = flag, style = MaterialTheme.typography.bodyMedium)
         }

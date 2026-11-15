@@ -957,9 +957,12 @@ private fun RecentMatchRow(
                 )
                 Spacer(Modifier.height(4.dp))
             }
-            MatchTeam(match.home, languageTag, Modifier.fillMaxWidth())
+            // Both teams share the width equally. The home side used to be given
+            // fillMaxWidth(), which left the away side nothing and made two long
+            // national-team names print on top of each other.
+            MatchTeam(match.home, languageTag, Modifier.weight(1f))
         }
-        MatchMoment(match, languageTag, Modifier.width(78.dp))
+        MatchMoment(match, languageTag, Modifier.width(84.dp))
         MatchTeam(match.away, languageTag, Modifier.weight(1f))
     }
 }
@@ -967,11 +970,12 @@ private fun RecentMatchRow(
 @Composable
 private fun MatchTeam(team: TeamRef, languageTag: String, modifier: Modifier = Modifier) {
     Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
-        TeamBadge(team, size = 32)
+        TeamBadge(team, size = 30)
         Spacer(Modifier.width(8.dp))
         TeamNameLines(
             team = team,
             languageTag = languageTag,
+            modifier = Modifier.weight(1f, fill = false),
             primaryStyle = MaterialTheme.typography.bodyMedium,
             primaryMaxLines = 2,
         )
