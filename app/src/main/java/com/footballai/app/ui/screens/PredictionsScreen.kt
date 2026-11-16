@@ -53,6 +53,7 @@ import com.footballai.app.domain.model.PredictionWithMatch
 import com.footballai.app.ui.LocalAppContainer
 import com.footballai.app.ui.LocalLanguageTag
 import com.footballai.app.ui.components.EmptyState
+import com.footballai.app.ui.components.InfoCard
 import com.footballai.app.ui.components.LoadingState
 import com.footballai.app.ui.components.ScrollableRefreshContent
 import com.footballai.app.ui.components.SwipeRefresh
@@ -161,6 +162,23 @@ fun PredictionsScreen(onMatchClick: (String) -> Unit) {
                     }
                 } else {
                     LazyColumn(modifier = Modifier.fillMaxSize()) {
+                        // What the daily analysis did, where the forecasts it made live.
+                        state.dailyReport?.let { report ->
+                            item {
+                                InfoCard(
+                                    title = stringResource(R.string.daily_report_title),
+                                    body = stringResource(
+                                        R.string.daily_report_body,
+                                        Formatters.integer(report.coveredLeagues, languageTag),
+                                        Formatters.integer(report.candidates, languageTag),
+                                        Formatters.integer(report.predicted + report.alreadySaved, languageTag),
+                                        Formatters.integer(report.insufficientHistory, languageTag),
+                                        Formatters.integer(report.failed, languageTag),
+                                        Formatters.kickoffDateTime(report.attemptedAt, languageTag),
+                                    ),
+                                )
+                            }
+                        }
                         items(state.items, key = { it.prediction.id }) { item ->
                             // A finished match resolving moves the rows under the finger;
                             // animating the placement keeps that movement readable.

@@ -7,6 +7,9 @@ import com.footballai.app.data.settings.AppSettings
 import com.footballai.app.data.settings.ThemeMode
 import com.footballai.app.data.sync.SyncScheduler
 import com.footballai.app.di.AppContainer
+import com.footballai.app.core.Outcome
+import com.footballai.app.data.sync.SyncTrigger
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -21,14 +24,23 @@ import com.footballai.app.core.ErrorCode
 data class SettingsUiState(
     val settings: AppSettings = AppSettings(),
     val providerName: String? = null,
+    val fixturesCount: Int = 0,
     val historicalMatches: Int = 0,
     val storedPredictions: Int = 0,
     val appVersion: String = "0.4.1",
     val lastError: AppError? = null,
     val isClearing: Boolean = false,
+    /** True while the manual sync started from this screen is running. */
+    val isSyncing: Boolean = false,
+    val syncDone: Int = 0,
+    val syncTotal: Int = 0,
+    val syncWarnings: List<String> = emptyList(),
+    val justSynced: Int = 0,
 )
 
 class SettingsViewModel(private val container: AppContainer) : ViewModel() {
+
+    private var syncJob: Job? = null
 
     private val _state = MutableStateFlow(SettingsUiState())
     val state: StateFlow<SettingsUiState> = _state.asStateFlow()
@@ -39,17 +51,65 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
                 _state.update { it.copy(settings = settings) }
             }
         }
+        refreshCounts()
+    }
+
+    /**
+     * The counts and the source name live here now that the home screen is gone: this is
+     * the one place that answers "what do I have, and where did it come from".
+     */
+    private fun refreshCounts() {
         viewModelScope.launch {
             val provider = container.providerRegistry.activeProvider()
-            val (_, historical, predictions) = container.matchRepository.countsTriple()
+            val (fixtures, historical, predictions) = container.matchRepository.countsTriple()
             _state.update {
                 it.copy(
                     providerName = provider?.info?.displayName,
+                    fixturesCount = fixtures,
                     historicalMatches = historical,
                     storedPredictions = predictions,
                 )
             }
         }
+    }
+
+    /** The same refresh path the rest of the app uses; no second implementation. */
+    fun syncNow() {
+        if (syncJob?.isActive == true) return
+        syncJob = viewModelScope.launch {
+            _state.update { it.copy(isSyncing = true, lastError = null, syncDone = 0, syncTotal = 0) }
+            try {
+                val result = container.autoSyncCoordinator.syncNow(SyncTrigger.MANUAL) { done, total ->
+                    _state.update { it.copy(syncDone = done, syncTotal = total) }
+                }
+                when (result) {
+                    is Outcome.Failure -> _state.update { it.copy(lastError = result.error) }
+                    is Outcome.Success -> _state.update {
+                        it.copy(
+                            lastError = null,
+                            syncWarnings = result.value.warnings,
+                            justSynced = result.value.added,
+                        )
+                    }
+                }
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (error: Exception) {
+                _state.update {
+                    it.copy(lastError = AppError(ErrorCode.UNKNOWN, detail = error.message))
+                }
+            } finally {
+                _state.update { it.copy(isSyncing = false) }
+                refreshCounts()
+            }
+        }
+    }
+
+    /** Stops a long sync; free providers space their requests a few seconds apart. */
+    fun cancelSync() {
+        syncJob?.cancel()
+        syncJob = null
+        _state.update { it.copy(isSyncing = false, syncDone = 0, syncTotal = 0) }
     }
 
     /** Stops following a team; its matches simply go back to their normal place. */

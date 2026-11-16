@@ -95,6 +95,8 @@ data class PredictionsUiState(
     /** Fixtures the last refresh received; 0 is a valid answer, not a failure. */
     val lastSyncedAdded: Int = 0,
     val lastError: com.footballai.app.core.AppError? = null,
+    /** Summary of the last daily analysis run; the home screen used to show it. */
+    val dailyReport: com.footballai.app.data.repository.DailyAnalysisReport? = null,
 )
 
 class PredictionsViewModel(private val container: AppContainer) : ViewModel() {
@@ -124,6 +126,13 @@ class PredictionsViewModel(private val container: AppContainer) : ViewModel() {
                         isLoading = false,
                     )
                 }
+            }
+        }
+        // The forecast work belongs on the forecasts tab: this is the run that produced
+        // (or could not produce) today's analysis, so it is reported where it is used.
+        viewModelScope.launch {
+            container.dailyAnalysisRepository.reports.collect { report ->
+                _state.update { it.copy(dailyReport = report) }
             }
         }
         resolve()

@@ -23,7 +23,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.QueryStats
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SportsSoccer
@@ -54,7 +53,6 @@ import com.footballai.app.ui.LocalAppContainer
 import com.footballai.app.ui.components.LoadingState
 import com.footballai.app.ui.screens.CompetitionOrderScreen
 import com.footballai.app.ui.screens.CompetitionScreen
-import com.footballai.app.ui.screens.DashboardScreen
 import com.footballai.app.ui.screens.DataSourcesScreen
 import com.footballai.app.ui.screens.MatchDetailScreen
 import com.footballai.app.ui.screens.MatchesScreen
@@ -65,7 +63,6 @@ import com.footballai.app.ui.screens.SettingsScreen
 import com.footballai.app.ui.screens.TeamScreen
 
 object Routes {
-    const val HOME = "home"
     const val MATCHES = "matches"
     const val PREDICTIONS = "predictions"
     const val PERFORMANCE = "performance"
@@ -88,7 +85,6 @@ private data class BottomDestination(
 )
 
 private val bottomDestinations = listOf(
-    BottomDestination(Routes.HOME, R.string.nav_home, Icons.Default.Home),
     BottomDestination(Routes.MATCHES, R.string.nav_matches, Icons.Default.SportsSoccer),
     BottomDestination(Routes.PREDICTIONS, R.string.nav_predictions, Icons.Default.QueryStats),
     BottomDestination(Routes.PERFORMANCE, R.string.nav_performance, Icons.Default.StackedLineChart),
@@ -212,7 +208,7 @@ private fun MainNavigation() {
     ) { innerPadding ->
         NavHost(
             navController = navController,
-            startDestination = Routes.HOME,
+            startDestination = Routes.MATCHES,
             modifier = Modifier.padding(bottom = innerPadding.calculateBottomPadding()),
             enterTransition = {
                 if (isPushed(targetState)) {
@@ -239,15 +235,6 @@ private fun MainNavigation() {
                     fadeOut(animationSpec = tween(200))
             },
         ) {
-            composable(Routes.HOME) {
-                DashboardScreen(
-                    onMatchClick = { navController.navigate(Routes.matchDetail(it)) },
-                    onOpenDataSources = { navController.navigate(Routes.DATA_SOURCES) },
-                    onOpenSettings = { navController.navigate(Routes.SETTINGS) },
-                    onOpenMatches = { openTab(Routes.MATCHES) },
-                    onOpenPredictions = { openTab(Routes.PREDICTIONS) },
-                )
-            }
             composable(Routes.MATCHES) {
                 MatchesScreen(onMatchClick = { navController.navigate(Routes.matchDetail(it)) })
             }

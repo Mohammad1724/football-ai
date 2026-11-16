@@ -429,6 +429,7 @@
     <string name="action_done">تأیید</string>
     <string name="action_close">بستن</string>
     <string name="nav_settings">تنظیمات</string>
+    <string name="section_data_sync">داده و همگام‌سازی</string>
     <string name="section_sources">منابع داده</string>
     <string name="data_sources_hint">وضعیت منابع، کلیدها و پوشش داده</string>
     <string name="badge_national">ملی</string>

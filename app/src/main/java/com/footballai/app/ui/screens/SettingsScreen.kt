@@ -1,6 +1,7 @@
 package com.footballai.app.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Column
@@ -16,6 +17,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
@@ -26,6 +28,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
@@ -63,6 +66,8 @@ import com.footballai.app.ui.theme.Spacing
 import com.footballai.app.ui.components.InfoCard
 import com.footballai.app.ui.components.NavigationRow
 import com.footballai.app.ui.components.SectionHeader
+import com.footballai.app.ui.components.StatusChip
+import com.footballai.app.ui.theme.FootballAiThemeExtra
 import com.footballai.app.ui.components.SoftCard
 import com.footballai.app.ui.viewmodel.SettingsViewModel
 
@@ -93,6 +98,23 @@ fun SettingsScreen(onOpenDataSources: () -> Unit, onOpenCompetitionOrder: () -> 
                     subtitle = stringResource(R.string.daily_mode_hint),
                     checked = state.settings.dailyAnalysisEnabled, onCheckedChange = viewModel::setDailyAnalysis)
             }
+            item { SectionHeader(title = stringResource(R.string.section_data_sync)) }
+            item {
+                SyncSettingsCard(
+                    providerName = state.providerName,
+                    lastSyncEpochMs = state.settings.lastSyncEpochMs,
+                    fixtures = state.fixturesCount,
+                    historical = state.historicalMatches,
+                    predictions = state.storedPredictions,
+                    isSyncing = state.isSyncing,
+                    progressDone = state.syncDone,
+                    progressTotal = state.syncTotal,
+                    onSync = viewModel::syncNow,
+                    onCancel = viewModel::cancelSync,
+                    onManage = onOpenDataSources,
+                )
+            }
+
             item { SectionHeader(title = stringResource(R.string.section_sources)) }
             item {
                 NavigationRow(
@@ -374,3 +396,144 @@ private fun FollowedTeamRow(name: String, onRemove: () -> Unit) {
         }
         }
     }
+
+/**
+ * What the app has stored, where it came from, and the two actions that change it.
+ *
+ * This was the top card of the home screen. The home screen is gone because it duplicated the
+ * match list; a control panel like this belongs with the other controls.
+ */
+@Composable
+private fun SyncSettingsCard(
+    providerName: String?,
+    lastSyncEpochMs: Long?,
+    fixtures: Int,
+    historical: Int,
+    predictions: Int,
+    isSyncing: Boolean,
+    progressDone: Int,
+    progressTotal: Int,
+    onSync: () -> Unit,
+    onCancel: () -> Unit,
+    onManage: () -> Unit,
+) {
+    val languageTag = LocalLanguageTag.current
+    SoftCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = Spacing.page, vertical = 3.dp),
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Default.CloudSync,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+                Spacer(Modifier.width(10.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = providerName ?: stringResource(R.string.no_provider_title),
+                        style = MaterialTheme.typography.titleSmall,
+                    )
+                    Text(
+                        text = stringResource(
+                            R.string.last_sync,
+                            lastSyncEpochMs?.let { Formatters.kickoffDateTime(it, languageTag) }
+                                ?: stringResource(R.string.never),
+                        ),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                if (isSyncing) {
+                    StatusChip(
+                        text = stringResource(R.string.sync_in_progress),
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            }
+
+            if (providerName == null) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = stringResource(R.string.no_provider_body),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    text = listOf(
+                        Formatters.integer(fixtures, languageTag) + " " + stringResource(R.string.stat_fixtures),
+                        Formatters.integer(historical, languageTag) + " " + stringResource(R.string.stat_history),
+                        Formatters.integer(predictions, languageTag) + " " + stringResource(R.string.stat_predictions),
+                    ).joinToString(" · "),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            if (isSyncing) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = if (progressTotal > 0) {
+                        stringResource(
+                            R.string.sync_progress,
+                            Formatters.integer(progressDone, languageTag),
+                            Formatters.integer(progressTotal, languageTag),
+                        )
+                    } else {
+                        stringResource(R.string.sync_in_progress)
+                    },
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            Spacer(Modifier.height(12.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                if (isSyncing) {
+                    SyncPillButton(
+                        label = stringResource(R.string.action_cancel),
+                        filled = false,
+                        onClick = onCancel,
+                    )
+                } else {
+                    SyncPillButton(
+                        label = stringResource(R.string.action_sync_now),
+                        filled = true,
+                        onClick = onSync,
+                    )
+                    SyncPillButton(
+                        label = stringResource(R.string.action_manage),
+                        filled = false,
+                        onClick = onManage,
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** A small action shaped like a pill, so the two buttons never differ in height. */
+@Composable
+private fun SyncPillButton(label: String, filled: Boolean, onClick: () -> Unit) {
+    val colors = FootballAiThemeExtra.colors
+    Surface(
+        onClick = onClick,
+        shape = CircleShape,
+        color = if (filled) MaterialTheme.colorScheme.primary else colors.cardStrong,
+        contentColor = if (filled) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+        )
+    }
+}
