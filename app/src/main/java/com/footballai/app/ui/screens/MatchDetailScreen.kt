@@ -972,6 +972,7 @@ private fun WhyThisNumberCard(
     }
 }
 
+@Composable
 private fun Bullet(text: String) {
     Row(modifier = Modifier.padding(vertical = 1.dp)) {
         Text(
