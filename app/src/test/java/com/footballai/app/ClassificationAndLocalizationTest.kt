@@ -109,6 +109,10 @@ class ClassificationAndLocalizationTest {
         assertNull(NameLocalization.persianTeamName("Some Village FC"))
         assertNotNull(NameLocalization.flagEmoji("Japan"))
         assertNull(NameLocalization.flagEmoji("Some Village FC"))
+        // A club keeps its initials: its country's flag made a Welsh club look English and
+        // left half the list with flags while the other half showed letters.
+        assertNull(NameLocalization.flagEmoji("Arsenal"))
+        assertNull(NameLocalization.flagEmoji("Arsenal FC"))
     }
 
     @Test

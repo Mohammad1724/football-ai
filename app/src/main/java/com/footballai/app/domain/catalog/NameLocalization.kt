@@ -190,17 +190,17 @@ object NameLocalization {
         }
     }
 
-    /** Flag emoji for a national team, or null when the team has no flag. */
-    fun flagEmoji(name: String, shortName: String? = null): String? =
-        resolve(name, shortName)?.iso2?.let { emojiFor(it) }
-
     /**
-     * The flag of the country a club plays in, used only when its crest is unavailable.
-     * Null when the club is unknown or its country is not recorded — never guessed.
+     * Flag emoji for a national team. Clubs never get one.
+     *
+     * A club's identity is its crest, not the flag of the country it plays in: a Welsh club
+     * under a flag that reads as England looks like a bug, and half a list carrying flags
+     * while the other half shows initials reads as two different kinds of rows. The check is
+     * on the dictionary entry, so an unknown name gets nothing rather than a guess.
      */
-    fun clubCountryFlag(name: String, shortName: String? = null): String? {
+    fun flagEmoji(name: String, shortName: String? = null): String? {
         val entry = resolve(name, shortName) ?: return null
-        if (entry.national) return null
+        if (!entry.national) return null
         return entry.iso2?.let { emojiFor(it) }
     }
 

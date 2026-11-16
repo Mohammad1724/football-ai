@@ -86,8 +86,9 @@ fun SectionHeader(
 @Composable
 fun TeamMonogram(name: String, modifier: Modifier = Modifier, size: Int = 36) {
     val colors = FootballAiThemeExtra.colors
-    val initials = name.trim().split(" ")
-        .filter { it.isNotBlank() }
+    // Tokens that start with a digit carry no identity: "1. FC Magdeburg" is FM, not 1F.
+    val initials = name.trim().split(" ", ".")
+        .filter { token -> token.firstOrNull()?.isLetter() == true }
         .take(2)
         .joinToString("") { it.first().uppercase() }
         .ifBlank { "?" }
@@ -267,10 +268,10 @@ fun MatchCard(
  */
 @Composable
 fun TeamBadge(team: TeamRef, size: Int = 26) {
-    // A nation is shown by its flag; a club by its crest, and by the flag of its country
-    // when the crest cannot be shown at all.
+    // A nation is shown by its flag. A club is never shown by a flag: it gets the provider's
+    // crest when there is one, and its initials otherwise — every club row looks the same
+    // kind of row, whether or not the provider supplies crests.
     val flag = NameLocalization.flagEmoji(team.name, team.shortName)
-        ?: NameLocalization.clubCountryFlag(team.name, team.shortName)
     val crest = team.crestUrl?.takeIf { it.isNotBlank() }
     Box(
         modifier = Modifier
