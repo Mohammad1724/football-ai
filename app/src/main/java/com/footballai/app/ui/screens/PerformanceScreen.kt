@@ -1,5 +1,6 @@
 package com.footballai.app.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -9,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -32,6 +34,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -97,27 +100,14 @@ fun PerformanceScreen() {
                 onRefresh = viewModel::refreshStoredStats,
                 modifier = Modifier.weight(1f),
             ) {
-                LazyColumn(modifier = Modifier.fillMaxSize()) {
-                    // The screen never said what it was for. It measures the model; it
-                    // does not change anything, and that is worth one paragraph.
-                    item {
-                        InfoCard(
-                            title = stringResource(R.string.performance_intro_title),
-                            body = stringResource(R.string.performance_intro_body),
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                        )
-                    }
-                    item {
-                        Text(
-                            text = stringResource(R.string.performance_action_hint),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
-                        )
-                    }
-                    item {
-                        InfoCard(title = stringResource(R.string.performance_reading_title), body = stringResource(R.string.performance_reading_body))
-                    }
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    // The floating pill bar is drawn by the shell; this keeps the last row
+                    // off it and gives the list somewhere to end.
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 24.dp),
+                ) {
+                    // The numbers come first. They are the reason the screen exists; the
+                    // paragraphs that explain them follow, so they stop burying the answer.
                     item {
                         SectionHeader(
                             title = stringResource(R.string.section_stored_predictions),
@@ -132,6 +122,17 @@ fun PerformanceScreen() {
                             logLoss = state.storedStats.logLoss,
                             accuracy = state.storedStats.accuracy,
                             languageTag = languageTag,
+                        )
+                    }
+                    item {
+                        InfoCard(title = stringResource(R.string.performance_reading_title), body = stringResource(R.string.performance_reading_body))
+                    }
+                    item {
+                        Text(
+                            text = stringResource(R.string.performance_action_hint),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
                         )
                     }
 
@@ -240,6 +241,15 @@ fun PerformanceScreen() {
 
                     item {
                         Spacer(Modifier.height(12.dp))
+                        // What the screen measures, kept as context after the numbers.
+                        InfoCard(
+                            title = stringResource(R.string.performance_intro_title),
+                            body = stringResource(R.string.performance_intro_body),
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        )
+                    }
+                    item {
+                        Spacer(Modifier.height(8.dp))
                         InfoCard(
                             title = stringResource(R.string.honesty_title),
                             body = stringResource(R.string.honesty_body),
@@ -363,15 +373,14 @@ private fun StoredStatsCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             } else {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    MetricTile(stringResource(R.string.metric_resolved), Formatters.integer(resolved, languageTag))
-                    MetricTile(stringResource(R.string.metric_accuracy), Formatters.percent(accuracy, languageTag))
-                    MetricTile(stringResource(R.string.metric_brier), Formatters.decimal(brier, languageTag, 3))
-                    MetricTile(stringResource(R.string.metric_log_loss), Formatters.decimal(logLoss, languageTag, 3))
-                }
+                MetricGrid(
+                    metrics = listOf(
+                        stringResource(R.string.metric_resolved) to Formatters.integer(resolved, languageTag),
+                        stringResource(R.string.metric_accuracy) to Formatters.percent(accuracy, languageTag),
+                        stringResource(R.string.metric_brier) to Formatters.decimal(brier, languageTag, 3),
+                        stringResource(R.string.metric_log_loss) to Formatters.decimal(logLoss, languageTag, 3),
+                    ),
+                )
             }
         }
     }
@@ -399,25 +408,23 @@ private fun BacktestSummary(report: PerformanceReport, languageTag: String) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.height(10.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                MetricTile(stringResource(R.string.metric_brier), Formatters.decimal(report.brier, languageTag, 4))
-                MetricTile(stringResource(R.string.metric_base_rate), Formatters.decimal(report.baseRateBrier, languageTag, 4))
-                MetricTile(stringResource(R.string.metric_accuracy), Formatters.percent(report.accuracy, languageTag))
-                MetricTile(stringResource(R.string.metric_log_loss), Formatters.decimal(report.logLoss, languageTag, 3))
-            }
-            Spacer(Modifier.height(10.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                MetricTile(stringResource(R.string.metric_market_brier), report.marketBrier?.let { Formatters.decimal(it, languageTag, 4) } ?: "—")
-                MetricTile(stringResource(R.string.metric_over25), Formatters.decimal(report.over25Brier, languageTag, 4))
-                MetricTile(stringResource(R.string.metric_btts), Formatters.decimal(report.bttsBrier, languageTag, 4))
-                MetricTile(stringResource(R.string.metric_ece), Formatters.decimal(report.expectedCalibrationError, languageTag, 3))
-            }
+            MetricGrid(
+                metrics = listOf(
+                    stringResource(R.string.metric_brier) to Formatters.decimal(report.brier, languageTag, 4),
+                    stringResource(R.string.metric_base_rate) to Formatters.decimal(report.baseRateBrier, languageTag, 4),
+                    stringResource(R.string.metric_accuracy) to Formatters.percent(report.accuracy, languageTag),
+                    stringResource(R.string.metric_log_loss) to Formatters.decimal(report.logLoss, languageTag, 3),
+                ),
+            )
+            Spacer(Modifier.height(8.dp))
+            MetricGrid(
+                metrics = listOf(
+                    stringResource(R.string.metric_market_brier) to (report.marketBrier?.let { Formatters.decimal(it, languageTag, 4) } ?: "—"),
+                    stringResource(R.string.metric_over25) to Formatters.decimal(report.over25Brier, languageTag, 4),
+                    stringResource(R.string.metric_btts) to Formatters.decimal(report.bttsBrier, languageTag, 4),
+                    stringResource(R.string.metric_ece) to Formatters.decimal(report.expectedCalibrationError, languageTag, 3),
+                ),
+            )
             Spacer(Modifier.height(8.dp))
             Text(
                 text = stringResource(R.string.market_paired_comparison,
@@ -466,14 +473,50 @@ private fun CompetitionPerformanceRow(competition: CompetitionPerformance, langu
     }
 }
 
+/**
+ * One number and its name, as a slab of its own.
+ *
+ * The number is the headline: it used to be the same size as the label, four of them in one
+ * row, which is why the screen read as a wall of text with some digits in it.
+ */
 @Composable
-private fun MetricTile(label: String, value: String) {
-    Column {
-        Text(text = value, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+private fun MetricTile(label: String, value: String, modifier: Modifier = Modifier) {
+    val colors = FootballAiThemeExtra.colors
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(16.dp))
+            .background(colors.cardStrong)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+    ) {
+        Text(
+            text = value,
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+        )
         Text(
             text = label,
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 2,
         )
+    }
+}
+
+/** Two columns of [MetricTile]s: readable on a phone, instead of four squeezed into a row. */
+@Composable
+private fun MetricGrid(metrics: List<Pair<String, String>>, modifier: Modifier = Modifier) {
+    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        metrics.chunked(2).forEach { row ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                row.forEach { (label, value) ->
+                    MetricTile(label = label, value = value, modifier = Modifier.weight(1f))
+                }
+                if (row.size == 1) Spacer(Modifier.weight(1f))
+            }
+        }
     }
 }

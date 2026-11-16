@@ -92,7 +92,11 @@ fun SettingsScreen(onOpenDataSources: () -> Unit, onOpenCompetitionOrder: () -> 
             )
         },
     ) { padding ->
-        LazyColumn(modifier = Modifier.fillMaxSize().padding(padding)) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().padding(padding),
+            // Keeps the last row off the floating pill bar.
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 24.dp),
+        ) {
             item {
                 ToggleRow(title = stringResource(R.string.daily_mode_title),
                     subtitle = stringResource(R.string.daily_mode_hint),

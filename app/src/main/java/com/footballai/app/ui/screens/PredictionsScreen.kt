@@ -161,7 +161,11 @@ fun PredictionsScreen(onMatchClick: (String) -> Unit) {
                         )
                     }
                 } else {
-                    LazyColumn(modifier = Modifier.fillMaxSize()) {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        // Keeps the last forecast off the floating pill bar.
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 24.dp),
+                    ) {
                         // What the daily analysis did, where the forecasts it made live.
                         state.dailyReport?.let { report ->
                             item {
