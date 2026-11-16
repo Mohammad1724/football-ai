@@ -34,6 +34,7 @@ import com.footballai.engine.model.DataQualityLevel
 import com.footballai.engine.model.LambdaAdjustment
 import com.footballai.engine.model.LiveInput
 import com.footballai.engine.model.MatchOutcome
+import com.footballai.engine.model.OutcomeTriple
 import com.footballai.engine.model.PreMatchInput
 import com.footballai.engine.model.PredictionResult
 import com.footballai.engine.prediction.MatchPredictionEngine
@@ -244,6 +245,9 @@ class PredictionRepository(
             away = strengths.second,
             baseline = baseline,
             adjustments = adjustments,
+            market = MarketCalculator.impliedProbabilities(
+                match.oddsHome, match.oddsDraw, match.oddsAway,
+            )?.let { OutcomeTriple(it.first, it.second, it.third) },
             eloBlendWeight = ELO_BLEND_WEIGHT,
             dixonColesRho = fit?.rho,
             quality = quality,

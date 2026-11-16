@@ -102,6 +102,8 @@
     <string name="explanation_live_score">نتیجه فعلی سرنوشت بازی را شکل می‌دهد</string>
     <string name="explanation_live_time">زمان اندکی باقی است</string>
     <string name="explanation_low_scoring_league">لیگ کم‌گل</string>
+    <string name="explanation_market_aligned">هماهنگ‌شده با ضریب بازار (پیش از شروع بازی)</string>
+    <string name="market_alignment_effect">همان بازی‌ها بدون ضریب بازار: %1$s ← با ضریب: %2$s</string>
     <string name="explanation_no_edge">ادعای برتری نسبت به بازار نمی‌شود</string>
     <string name="explanation_solid_away_defence">دفاع مستحکم میهمان</string>
     <string name="explanation_solid_home_defence">دفاع مستحکم میزبان</string>

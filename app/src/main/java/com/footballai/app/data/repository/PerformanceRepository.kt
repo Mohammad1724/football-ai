@@ -168,6 +168,7 @@ class PerformanceRepository(
                 baseRateBrier = report.baseRate,
                 marketBrier = report.market?.brier,
                 pairedModelBrier = report.modelOnMarketSubset?.brier,
+                unalignedBrier = report.unalignedOnMarketSubset?.brier,
                 marketSampleCount = report.market?.count ?: 0,
                 over25Brier = report.over25.brier,
                 bttsBrier = report.btts.brier,

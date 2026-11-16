@@ -456,6 +456,20 @@ private fun BacktestSummary(report: PerformanceReport, languageTag: String) {
                     Formatters.integer(report.marketSampleCount, languageTag)),
                 style = MaterialTheme.typography.bodySmall,
             )
+            val unaligned = report.unalignedBrier
+            val aligned = report.pairedModelBrier
+            if (unaligned != null && aligned != null && unaligned.isFinite() && aligned.isFinite()) {
+                // Measured, not claimed: the same matches with the alignment switched off.
+                Text(
+                    text = stringResource(
+                        R.string.market_alignment_effect,
+                        Formatters.decimal(unaligned, languageTag, 4),
+                        Formatters.decimal(aligned, languageTag, 4),
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (aligned < unaligned) colors.positive else colors.warning,
+                )
+            }
             Text(
                 text = if (report.brier < report.baseRateBrier) {
                     stringResource(R.string.backtest_beats_base_rate)

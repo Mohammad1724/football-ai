@@ -102,6 +102,8 @@
     <string name="explanation_live_score">The current score shapes the outcome</string>
     <string name="explanation_live_time">Little time remains</string>
     <string name="explanation_low_scoring_league">Low-scoring competition</string>
+    <string name="explanation_market_aligned">Aligned with the closing market prices</string>
+    <string name="market_alignment_effect">Same matches without the prices: %1$s ← with them: %2$s</string>
     <string name="explanation_no_edge">No betting edge is claimed</string>
     <string name="explanation_solid_away_defence">Solid away defence</string>
     <string name="explanation_solid_home_defence">Solid home defence</string>

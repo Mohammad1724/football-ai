@@ -211,6 +211,7 @@ enum class ExplanationCode {
     LIVE_RED_CARD_HOME,
     LIVE_RED_CARD_AWAY,
     LIVE_INTENSITY_ADJUSTMENT,
+    MARKET_ALIGNED,
     NO_MARKET_EDGE_CLAIMED,
 }
 
@@ -236,6 +237,18 @@ enum class LambdaAdjustmentLabel {
     MANUAL,
 }
 
+/** Closing 1X2 prices of the fixture, normalised to sum to one. */
+data class OutcomeTriple(
+    val home: Double,
+    val draw: Double,
+    val away: Double,
+) {
+    val isValid: Boolean
+        get() = home.isFinite() && draw.isFinite() && away.isFinite() &&
+            home >= 0.0 && draw >= 0.0 && away >= 0.0 &&
+            home + draw + away > 0.0
+}
+
 data class PreMatchInput(
     val home: TeamStrength,
     val away: TeamStrength,
@@ -253,6 +266,14 @@ data class PreMatchInput(
     val calibration: CalibrationModel = CalibrationModel.NONE,
     /** Age of the freshest input used, in minutes; null when the caller cannot tell. */
     val dataFreshnessMinutes: Long? = null,
+    /**
+     * Market-implied 1X2 probabilities for this fixture, when a provider published odds.
+     *
+     * Closing prices aggregate far more information than any model built on results alone,
+     * and they are the one external signal this app can legally and cheaply read. When they
+     * exist the model is aligned toward them by a bounded weight instead of ignoring them.
+     */
+    val market: OutcomeTriple? = null,
 )
 
 data class LiveInput(
@@ -285,6 +306,11 @@ data class PredictionResult(
     val confidence: ConfidenceAssessment = ConfidenceAssessment.UNKNOWN,
     /** Which calibration (if any) produced the displayed probabilities. */
     val calibration: CalibrationInfo? = null,
+    /**
+     * The same probabilities before the market alignment, kept so the back-tester can
+     * measure what the alignment was worth instead of assuming it was worth something.
+     */
+    val preMarketProbabilities: OutcomeTriple? = null,
 ) {
     val expectedTotalGoals: Double get() = expectedHomeGoals + expectedAwayGoals
 

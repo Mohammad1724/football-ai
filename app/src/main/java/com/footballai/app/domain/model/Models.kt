@@ -375,6 +375,11 @@ data class PerformanceReport(
     val baseRateBrier: Double,
     val marketBrier: Double?,
     val pairedModelBrier: Double? = null,
+    /**
+     * The same model on the same matches with the market alignment removed. The pair
+     * [pairedModelBrier] / [unalignedBrier] is what the alignment was actually worth.
+     */
+    val unalignedBrier: Double? = null,
     val marketSampleCount: Int = 0,
     val over25Brier: Double,
     val bttsBrier: Double,

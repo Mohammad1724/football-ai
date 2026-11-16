@@ -12,6 +12,7 @@ import com.footballai.engine.model.LiveContext
 import com.footballai.engine.model.LiveInput
 import com.footballai.engine.model.MatchOutcome
 import com.footballai.engine.model.ModelDescriptor
+import com.footballai.engine.model.OutcomeTriple
 import com.footballai.engine.model.PreMatchInput
 import com.footballai.engine.model.PredictionResult
 import com.footballai.engine.model.QualityNote
@@ -49,6 +50,16 @@ data class EngineConfig(
     val maxEloBlendWeight: Double = 0.40,
     /** Matches per team at which the fitted strengths are trusted at full base weight. */
     val eloReliabilityMatches: Int = 20,
+    /**
+     * How much of the market's 1X2 probability is mixed in when odds exist.
+     *
+     * A prior, not a fitted value: closing prices beat every model built on results alone,
+     * but this engine has its own calibration and a hard evidence gate, so it is a
+     * disagreement to be resolved, not a surrender. The back-tester reports both arms.
+     */
+    val marketBlendWeight: Double = 0.35,
+    /** The weight used when the model's own evidence is thin: the market knows more. */
+    val marketBlendWeightThinEvidence: Double = 0.60,
 )
 
 /**
@@ -67,6 +78,18 @@ class MatchPredictionEngine(private val config: EngineConfig = EngineConfig()) {
     fun effectiveEloBlendWeight(input: PreMatchInput): Double {
         val base = input.eloBlendWeight.coerceAtLeast(0.0)
         val ceiling = config.maxEloBlendWeight
+        if (ceiling <= base) return base
+        val sample = minOf(input.home.matchesUsed, input.away.matchesUsed).coerceAtLeast(0)
+        val saturation = config.eloReliabilityMatches.coerceAtLeast(1)
+        val reliability = (sample.toDouble() / saturation).coerceIn(0.0, 1.0)
+        return base + (ceiling - base) * (1.0 - reliability)
+    }
+
+    /** How much of the market to mix in for this fixture, 0 when there are no prices. */
+    fun marketAlignmentWeight(input: PreMatchInput): Double {
+        if (input.market?.isValid != true) return 0.0
+        val base = config.marketBlendWeight
+        val ceiling = config.marketBlendWeightThinEvidence
         if (ceiling <= base) return base
         val sample = minOf(input.home.matchesUsed, input.away.matchesUsed).coerceAtLeast(0)
         val saturation = config.eloReliabilityMatches.coerceAtLeast(1)
@@ -126,14 +149,30 @@ class MatchPredictionEngine(private val config: EngineConfig = EngineConfig()) {
             rawMarkets.draw,
             rawMarkets.awayWin,
         )
-        val markets = if (calibration.isApplied) {
-            // Propagate the calibrated 1X2 masses through the whole score matrix so that
-            // over/under, BTTS and exact score stay consistent with the headline numbers.
+        // Market alignment comes after calibration: the calibrated triple is the model's
+        // best statement, and the prices are then mixed into it. Because both are pushed
+        // through the same score matrix, over/under, BTTS and exact score stay consistent
+        // with the headline numbers instead of drifting away from them.
+        val alignmentWeight = marketAlignmentWeight(input)
+        val marketTriple = input.market
+        val alignedTriple = if (marketTriple != null && alignmentWeight > 0.0) {
+            val weight = alignmentWeight.coerceIn(0.0, 0.9)
+            Triple(
+                calibratedTriple.first * (1.0 - weight) + marketTriple.home * weight,
+                calibratedTriple.second * (1.0 - weight) + marketTriple.draw * weight,
+                calibratedTriple.third * (1.0 - weight) + marketTriple.away * weight,
+            )
+        } else {
+            calibratedTriple
+        }
+        val markets = if (calibration.isApplied || alignedTriple != calibratedTriple) {
+            // Propagate the 1X2 masses through the whole score matrix so that over/under,
+            // BTTS and exact score stay consistent with the headline numbers.
             MarketCalculator.fromMatrix(
                 matrix = matrix.rescaledToOutcomes(
-                    homeWin = calibratedTriple.first,
-                    draw = calibratedTriple.second,
-                    awayWin = calibratedTriple.third,
+                    homeWin = alignedTriple.first,
+                    draw = alignedTriple.second,
+                    awayWin = alignedTriple.third,
                 ),
                 firstHalfShare = config.firstHalfShare,
                 topScoreCount = 8,
@@ -154,6 +193,13 @@ class MatchPredictionEngine(private val config: EngineConfig = EngineConfig()) {
         )
 
         val explanations = buildPreMatchExplanations(input, normalised.first, normalised.second, normalised.third)
+            .let { base ->
+                if (alignmentWeight > 0.0) {
+                    base + Explanation(ExplanationCode.MARKET_ALIGNED, alignmentWeight.coerceIn(0.05, 0.45))
+                } else {
+                    base
+                }
+            }
 
         val confidence = confidenceFor(
             input = input,
@@ -172,6 +218,11 @@ class MatchPredictionEngine(private val config: EngineConfig = EngineConfig()) {
             asOfEpochMs = input.asOfEpochMs,
             live = null,
             confidence = confidence,
+            preMarketProbabilities = if (alignmentWeight > 0.0) {
+                OutcomeTriple(calibratedTriple.first, calibratedTriple.second, calibratedTriple.third)
+            } else {
+                null
+            },
             calibration = if (calibration.isApplied) {
                 CalibrationInfo(
                     method = calibration.method.name,

@@ -1,6 +1,7 @@
 package com.footballai.engine.eval
 
 import com.footballai.engine.markets.MarketCalculator
+import com.footballai.engine.model.OutcomeTriple
 import com.footballai.engine.model.DataQualityLevel
 import com.footballai.engine.model.LeagueBaseline
 import com.footballai.engine.model.MatchOutcome
@@ -75,6 +76,10 @@ data class BacktestSample(
     val marketDraw: Double?,
     val marketAway: Double?,
     val qualityLevel: DataQualityLevel,
+    /** 1X2 before the market alignment; equal to the final triple when there were no prices. */
+    val unalignedHome: Double = homeWin,
+    val unalignedDraw: Double = draw,
+    val unalignedAway: Double = awayWin,
 )
 
 data class BacktestReport(
@@ -83,6 +88,10 @@ data class BacktestReport(
     val baseRate: Double,
     val market: MetricSummary?,
     val modelOnMarketSubset: MetricSummary?,
+    /** The model with the market alignment switched off, on every evaluated match. */
+    val unaligned: MetricSummary? = null,
+    /** The same, restricted to matches that had prices: the paired comparison. */
+    val unalignedOnMarketSubset: MetricSummary? = null,
     val over25: MetricSummary,
     val btts: MetricSummary,
     val calibration: List<CalibrationBin>,
@@ -229,6 +238,9 @@ class Backtester(private val config: BacktestConfig = BacktestConfig()) {
                         } else {
                             emptyList()
                         },
+                        market = MarketCalculator.impliedProbabilities(
+                            record.oddsHome, record.oddsDraw, record.oddsAway,
+                        )?.let { OutcomeTriple(it.first, it.second, it.third) },
                         eloBlendWeight = config.engine.eloBlendWeight,
                         dixonColesRho = fit?.rho,
                         quality = quality,
@@ -256,6 +268,9 @@ class Backtester(private val config: BacktestConfig = BacktestConfig()) {
                             marketHome = market?.first,
                             marketDraw = market?.second,
                             marketAway = market?.third,
+                            unalignedHome = prediction.preMarketProbabilities?.home ?: prediction.markets.homeWin,
+                            unalignedDraw = prediction.preMarketProbabilities?.draw ?: prediction.markets.draw,
+                            unalignedAway = prediction.preMarketProbabilities?.away ?: prediction.markets.awayWin,
                             qualityLevel = quality.level,
                         ),
                     )
@@ -315,6 +330,10 @@ class Backtester(private val config: BacktestConfig = BacktestConfig()) {
         }
         val pairedModel = samples.filter { it.marketHome != null && it.marketDraw != null && it.marketAway != null }
             .map { OutcomeSample(it.homeWin, it.draw, it.awayWin, it.actual) }
+        // The same matches again, with the market alignment removed, so the effect of
+        // leaning on the prices is measured rather than assumed.
+        val unaligned = samples.filter { it.marketHome != null }
+            .map { OutcomeSample(it.unalignedHome, it.unalignedDraw, it.unalignedAway, it.actual) }
         val overSamples = samples.filter { !it.over25.isNaN() }
             .map { BinarySample(it.over25, it.actualOver25) }
         val bttsSamples = samples.map { BinarySample(it.btts, it.actualBtts) }
@@ -337,6 +356,8 @@ class Backtester(private val config: BacktestConfig = BacktestConfig()) {
             baseRate = Metrics.baseRateBrier(outcomeSamples),
             market = if (marketSamples.isEmpty()) null else Metrics.summary(marketSamples),
             modelOnMarketSubset = if (pairedModel.isEmpty()) null else Metrics.summary(pairedModel),
+            unaligned = if (unaligned.isEmpty()) null else Metrics.summary(unaligned),
+            unalignedOnMarketSubset = if (unaligned.isEmpty()) null else Metrics.summary(unaligned),
             over25 = Metrics.binarySummary(overSamples),
             btts = Metrics.binarySummary(bttsSamples),
             calibration = calibration,
