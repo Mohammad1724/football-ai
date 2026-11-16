@@ -108,6 +108,7 @@ import com.footballai.app.ui.matchStatusLabel
 import com.footballai.app.ui.qualityNoteLabel
 import com.footballai.app.ui.theme.FootballAiThemeExtra
 import com.footballai.app.ui.viewmodel.MatchDetailViewModel
+import com.footballai.engine.confidence.ConfidenceAssessor
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
@@ -794,14 +795,20 @@ private fun AnalysisTab(
     }
 }
 
-/** How clearly the model's top pick separates from the runner-up outcome. */
-private enum class VerdictConfidence { HIGH, MEDIUM, LOW }
+/** The model's top pick, how far ahead it is, and the evidence standing behind it. */
 private enum class VerdictOutcome { HOME, DRAW, AWAY }
 
 private data class MatchVerdict(
     val outcome: VerdictOutcome,
     val probability: Double,
-    val confidence: VerdictConfidence,
+    /**
+     * How far the top outcome is ahead of the runner-up.
+     *
+     * This is a description of the distribution, not evidence: a 12-point gap from a model
+     * with no history is worth less than a 4-point gap from a calibrated one. It is shown
+     * as a number and never turned into a confidence label.
+     */
+    val separation: Double,
 )
 
 private fun computeVerdict(prediction: PredictionView): MatchVerdict {
@@ -811,13 +818,52 @@ private fun computeVerdict(prediction: PredictionView): MatchVerdict {
         VerdictOutcome.AWAY to prediction.awayWin,
     ).sortedByDescending { it.second }
     val top = ranked[0]
-    val margin = top.second - ranked[1].second
-    val confidence = when {
-        margin >= 0.20 -> VerdictConfidence.HIGH
-        margin >= 0.08 -> VerdictConfidence.MEDIUM
-        else -> VerdictConfidence.LOW
+    return MatchVerdict(
+        outcome = top.first,
+        probability = top.second,
+        separation = (top.second - ranked[1].second).coerceAtLeast(0.0),
+    )
+}
+
+/**
+ * The two facts that are actually keeping the confidence down, with their numbers.
+ *
+ * "شواهد کم" on its own tells a reader nothing they can act on. "کالیبراسیون: ۱۲۰ از ۴۰۰"
+ * tells them the model is still learning, and "داده ۳۱ ساعت پیش بهروز شده" tells them to
+ * press refresh.
+ */
+@Composable
+private fun evidenceReasonLines(prediction: PredictionView): List<String> {
+    val confidence = prediction.confidence ?: return emptyList()
+    val reasons = mutableListOf<String>()
+    if (confidence.calibrationSamples < ConfidenceAssessor.MIN_CALIBRATION_SAMPLES) {
+        reasons += stringResource(
+            R.string.verdict_reason_calibration,
+            confidence.calibrationSamples,
+            ConfidenceAssessor.MIN_CALIBRATION_SAMPLES,
+        )
     }
-    return MatchVerdict(outcome = top.first, probability = top.second, confidence = confidence)
+    when {
+        confidence.effectiveSample <= 0 ->
+            reasons += stringResource(R.string.verdict_reason_no_sample)
+        confidence.effectiveSample < ConfidenceAssessor.MIN_COMPETITION_MATCHES -> reasons += stringResource(
+            R.string.verdict_reason_sample,
+            confidence.effectiveSample,
+            ConfidenceAssessor.MIN_COMPETITION_MATCHES,
+        )
+    }
+    val freshness = confidence.freshnessMinutes
+    when {
+        freshness == null -> reasons += stringResource(R.string.verdict_reason_freshness_unknown)
+        freshness > 24 * 60 -> reasons += stringResource(R.string.verdict_reason_stale, freshness / 60)
+    }
+    if (confidence.dataCompleteness.isFinite() && confidence.dataCompleteness < 0.6) {
+        reasons += stringResource(
+            R.string.verdict_reason_partial,
+            (confidence.dataCompleteness.coerceIn(0.0, 1.0) * 100).roundToInt(),
+        )
+    }
+    return reasons.take(2)
 }
 
 /** Headline model pick above the complete 1X2 probability breakdown. */
@@ -830,6 +876,7 @@ private fun PredictionVerdictCard(
 ) {
     val colors = FootballAiThemeExtra.colors
     val verdict = remember(prediction) { computeVerdict(prediction) }
+    val reasons = evidenceReasonLines(prediction)
     val outcomeColor = when (verdict.outcome) {
         VerdictOutcome.HOME -> colors.homeSeries
         VerdictOutcome.DRAW -> colors.drawSeries
@@ -840,13 +887,6 @@ private fun PredictionVerdictCard(
         VerdictOutcome.DRAW -> stringResource(R.string.verdict_draw)
         VerdictOutcome.AWAY -> stringResource(R.string.verdict_away_win, awayTeamName)
     }
-    val confidenceLabel = stringResource(
-        when (verdict.confidence) {
-            VerdictConfidence.HIGH -> R.string.confidence_high
-            VerdictConfidence.MEDIUM -> R.string.confidence_medium
-            VerdictConfidence.LOW -> R.string.confidence_low
-        },
-    )
 
     Card(
         modifier = Modifier
@@ -882,7 +922,32 @@ private fun PredictionVerdictCard(
                 )
             }
             Spacer(Modifier.height(8.dp))
-            StatusChip(text = confidenceLabel, color = outcomeColor, filled = true)
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                // The chip reports the evidence recorded with the forecast, never the
+                // margin: a wide gap from a model with no history is not strong evidence.
+                ConfidenceChip(level = prediction.confidence?.level)
+                Text(
+                    text = stringResource(
+                        R.string.verdict_separation,
+                        Formatters.percent(verdict.separation, languageTag),
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            if (reasons.isNotEmpty()) {
+                Spacer(Modifier.height(8.dp))
+                reasons.forEach { reason ->
+                    Text(
+                        text = reason,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
             Spacer(Modifier.height(10.dp))
             Text(
                 text = stringResource(R.string.verdict_disclaimer),
