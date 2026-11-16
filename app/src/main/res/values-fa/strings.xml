@@ -228,6 +228,12 @@
     <string name="section_about">درباره</string>
     <string name="section_backtest">آزمون تاریخی</string>
     <string name="section_backtest_subtitle">ارزیابی زمانی گام‌به‌گام، بدون نشت داده</string>
+    <string name="competition_table_hint">هر لیگ با نرخ پایهٔ خودش سنجیده می‌شود: نرخ پایه یعنی «همیشه پرتکرارترین نتیجهٔ همین لیگ را بگو». اگر Brier مدل از نرخ پایه بهتر نباشد، آن لیگ چیزی به دانسته‌های ما اضافه نمی‌کند — هر چقدر هم دقتش بالا به نظر برسد.</string>
+    <string name="competition_table_summary">در %1$d لیگ از %2$d، مدل از نرخ پایهٔ همان لیگ بهتر است</string>
+    <string name="competition_base_rate">نرخ پایه: %1$s</string>
+    <string name="competition_verdict_beats">از نرخ پایه بهتر</string>
+    <string name="competition_verdict_not_better">از نرخ پایه بهتر نیست</string>
+    <string name="competition_verdict_thin">نمونه کم — داوری نشد</string>
     <string name="section_by_competition">بر اساس لیگ</string>
     <string name="section_calibration">کالیبراسیون</string>
     <string name="section_competitions">لیگ‌ها</string>

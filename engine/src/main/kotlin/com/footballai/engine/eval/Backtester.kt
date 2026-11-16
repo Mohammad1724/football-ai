@@ -88,6 +88,12 @@ data class BacktestReport(
     val calibration: List<CalibrationBin>,
     val expectedCalibrationError: Double,
     val byCompetition: Map<String, MetricSummary>,
+    /**
+     * Base-rate Brier per competition: what "always predict this league's own 1X2
+     * frequencies" scores on the same matches. A league's model Brier is only meaningful
+     * next to it, because leagues differ in how predictable they are at all.
+     */
+    val byCompetitionBaseRate: Map<String, Double> = emptyMap(),
     val byQualityLevel: Map<DataQualityLevel, MetricSummary>,
     val periodStartEpochMs: Long,
     val periodEndEpochMs: Long,
@@ -317,6 +323,9 @@ class Backtester(private val config: BacktestConfig = BacktestConfig()) {
         val byCompetition = samples.groupBy { it.competitionId }.mapValues { (_, list) ->
             Metrics.summary(list.map { OutcomeSample(it.homeWin, it.draw, it.awayWin, it.actual) })
         }
+        val byCompetitionBaseRate = samples.groupBy { it.competitionId }.mapValues { (_, list) ->
+            Metrics.baseRateBrier(list.map { OutcomeSample(it.homeWin, it.draw, it.awayWin, it.actual) })
+        }
         val byQuality = samples.groupBy { it.qualityLevel }.mapValues { (level, list) ->
             Metrics.summary(list.map { OutcomeSample(it.homeWin, it.draw, it.awayWin, it.actual) })
         }
@@ -333,6 +342,7 @@ class Backtester(private val config: BacktestConfig = BacktestConfig()) {
             calibration = calibration,
             expectedCalibrationError = Metrics.expectedCalibrationError(calibration),
             byCompetition = byCompetition,
+            byCompetitionBaseRate = byCompetitionBaseRate,
             byQualityLevel = byQuality,
             periodStartEpochMs = samples.minOfOrNull { it.kickoffEpochMs } ?: 0L,
             periodEndEpochMs = samples.maxOfOrNull { it.kickoffEpochMs } ?: 0L,

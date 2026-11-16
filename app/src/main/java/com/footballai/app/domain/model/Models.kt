@@ -406,4 +406,10 @@ data class CompetitionPerformance(
     val brier: Double,
     val logLoss: Double,
     val accuracy: Double,
-)
+    /** Base-rate Brier on the same matches; NaN when the back-test could not compute it. */
+    val baseRateBrier: Double = Double.NaN,
+) {
+    /** True only when the model measurably beat the league's own base rate. */
+    val beatsBaseRate: Boolean
+        get() = brier.isFinite() && baseRateBrier.isFinite() && brier < baseRateBrier
+}

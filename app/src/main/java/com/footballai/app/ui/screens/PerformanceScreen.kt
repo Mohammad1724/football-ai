@@ -57,6 +57,7 @@ import com.footballai.app.ui.components.InfoCard
 import com.footballai.app.ui.components.LoadingState
 import com.footballai.app.ui.components.SwipeRefresh
 import com.footballai.app.ui.components.SectionHeader
+import com.footballai.app.ui.components.StatusChip
 import com.footballai.app.ui.errorLabel
 import com.footballai.app.ui.theme.FootballAiThemeExtra
 import com.footballai.app.ui.viewmodel.CALIBRATION_CLASSES
@@ -232,8 +233,31 @@ fun PerformanceScreen() {
                                     )
                                 }
                             }
-                            item { SectionHeader(title = stringResource(R.string.section_by_competition)) }
-                            items(report.byCompetition.values.toList()) { competition ->
+                            item {
+                                SectionHeader(title = stringResource(R.string.section_by_competition))
+                                val leagues = report.byCompetition.values.toList()
+                                val judged = leagues.filter { it.matches >= MIN_LEAGUE_SAMPLE }
+                                val better = judged.count { it.beatsBaseRate }
+                                Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+                                    Text(
+                                        text = stringResource(R.string.competition_table_hint),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                    if (judged.isNotEmpty()) {
+                                        Spacer(Modifier.height(6.dp))
+                                        Text(
+                                            text = stringResource(
+                                                R.string.competition_table_summary,
+                                                better,
+                                                judged.size,
+                                            ),
+                                            style = MaterialTheme.typography.labelMedium,
+                                        )
+                                    }
+                                }
+                            }
+                            items(rankedCompetitions(report.byCompetition.values.toList())) { competition ->
                                 CompetitionPerformanceRow(competition = competition, languageTag = languageTag)
                             }
                         }
@@ -447,6 +471,18 @@ private fun BacktestSummary(report: PerformanceReport, languageTag: String) {
 
 @Composable
 private fun CompetitionPerformanceRow(competition: CompetitionPerformance, languageTag: String) {
+    val colors = FootballAiThemeExtra.colors
+    val judged = competition.matches >= MIN_LEAGUE_SAMPLE
+    val verdict = when {
+        !judged -> stringResource(R.string.competition_verdict_thin)
+        competition.beatsBaseRate -> stringResource(R.string.competition_verdict_beats)
+        else -> stringResource(R.string.competition_verdict_not_better)
+    }
+    val verdictColor = when {
+        !judged -> MaterialTheme.colorScheme.onSurfaceVariant
+        competition.beatsBaseRate -> colors.positive
+        else -> colors.warning
+    }
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -457,13 +493,28 @@ private fun CompetitionPerformanceRow(competition: CompetitionPerformance, langu
         Column(modifier = Modifier.weight(1f)) {
             Text(text = competition.competitionName, style = MaterialTheme.typography.bodyMedium, maxLines = 1)
             Text(
-                text = stringResource(
-                    R.string.competition_matches,
-                    Formatters.integer(competition.matches, languageTag),
-                ),
+                text = buildString {
+                    append(
+                        stringResource(
+                            R.string.competition_matches,
+                            Formatters.integer(competition.matches, languageTag),
+                        ),
+                    )
+                    if (competition.baseRateBrier.isFinite()) {
+                        append(" · ")
+                        append(
+                            stringResource(
+                                R.string.competition_base_rate,
+                                Formatters.decimal(competition.baseRateBrier, languageTag, 3),
+                            ),
+                        )
+                    }
+                },
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            Spacer(Modifier.height(2.dp))
+            StatusChip(text = verdict, color = verdictColor)
         }
         Text(
             text = Formatters.decimal(competition.brier, languageTag, 4),
@@ -471,6 +522,23 @@ private fun CompetitionPerformanceRow(competition: CompetitionPerformance, langu
             fontWeight = FontWeight.SemiBold,
         )
     }
+}
+
+/** Matches below which a league's own Brier cannot be judged against its base rate. */
+private const val MIN_LEAGUE_SAMPLE = 40
+
+/**
+ * Leagues that beat their own base rate first, then the ones that do not, then the ones
+ * with too little data to say — each group largest sample first. A league where the model
+ * adds nothing should not be sitting above a league where it does.
+ */
+private fun rankedCompetitions(items: List<CompetitionPerformance>): List<CompetitionPerformance> {
+    fun rank(item: CompetitionPerformance): Int = when {
+        item.matches < MIN_LEAGUE_SAMPLE -> 2
+        item.beatsBaseRate -> 0
+        else -> 1
+    }
+    return items.sortedWith(compareBy({ rank(it) }, { -it.matches }))
 }
 
 /**

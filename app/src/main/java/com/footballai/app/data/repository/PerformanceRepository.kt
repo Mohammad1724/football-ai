@@ -155,6 +155,7 @@ class PerformanceRepository(
                 brier = summary.brier,
                 logLoss = summary.logLoss,
                 accuracy = summary.accuracy,
+                baseRateBrier = report.byCompetitionBaseRate[competitionId] ?: Double.NaN,
             )
         }.sortedByDescending { it.matches }
 
