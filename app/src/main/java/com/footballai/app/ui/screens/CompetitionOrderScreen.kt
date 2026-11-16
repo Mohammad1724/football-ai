@@ -87,6 +87,13 @@ private const val MIN_SCROLL_PX_PER_SECOND = 420f
 private const val EDGE_BAND_FRACTION = 0.18f
 
 /**
+ * How far into a row the finger has to be before the dragged row takes its slot, as a share
+ * of that row's height. Without a dead zone, a finger resting exactly on a boundary (and a
+ * list scrolling 25 pixels a frame underneath it) hands the row back and forth every frame.
+ */
+private const val SWAP_MARGIN_FRACTION = 0.30f
+
+/**
  * Puts the tournaments in the order the user wants them: La Liga above Serie A, Serie A
  * above the Bundesliga, whatever the app's own guess was.
  *
@@ -162,8 +169,34 @@ fun CompetitionOrderScreen(onBack: () -> Unit) {
             ?: candidates.last().takeIf { pointerY >= it.offset + it.size }
             ?: return
         if (target.index == from) return
+        val margin = target.size * SWAP_MARGIN_FRACTION
+        val deepEnough = if (target.index > from) {
+            pointerY >= target.offset + margin
+        } else {
+            pointerY <= target.offset + target.size - margin
+        }
+        if (!deepEnough) return
+        val to = target.index
+        val height = target.size.toFloat()
+        // LazyColumn does not remember the scroll position as pixels: it remembers the item
+        // at the top of the viewport by key and pulls the list back onto it after any change
+        // (LazyListScrollPosition.updateScrollPositionIfTheFirstItemWasMoved). When the row we
+        // move is that item, or one of the rows that shift because of it, the whole list is
+        // dragged along by a row height — that is the "it goes up two or three and then slides
+        // one or two back" that the eye catches while dragging at the top edge. Scroll back by
+        // exactly the amount the anchor was displaced, in the same frame, to cancel it.
+        val anchor = listState.firstVisibleItemIndex
+        val anchorAfter = when {
+            anchor == from -> to
+            to < from && anchor in to until from -> anchor + 1
+            to > from && anchor in (from + 1)..to -> anchor - 1
+            else -> anchor
+        }
         val moved = rows.removeAt(from)
-        rows.add(target.index, moved)
+        rows.add(to, moved)
+        if (anchorAfter != anchor) {
+            listState.dispatchRawDelta((anchor - anchorAfter) * height)
+        }
         haptics.performHapticFeedback(HapticFeedbackType.LongPress)
     }
 
@@ -308,7 +341,7 @@ fun CompetitionOrderScreen(onBack: () -> Unit) {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .animateItemPlacement(tween(130))
+                                .animateItemPlacement(tween(if (draggingId == null) 130 else 70))
                                 // The row lives on in the floating layer while it is being
                                 // dragged; its slot keeps the space, but stays empty.
                                 .alpha(if (isDragged) 0f else 1f),
