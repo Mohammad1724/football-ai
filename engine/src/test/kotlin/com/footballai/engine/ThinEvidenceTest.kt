@@ -8,7 +8,9 @@ import com.footballai.engine.model.TeamStrength
 import com.footballai.engine.prediction.MatchPredictionEngine
 import com.footballai.engine.ratings.DixonColesFitter
 import kotlin.test.Test
+import com.footballai.engine.ratings.DixonColesConfig
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 /**
@@ -79,5 +81,42 @@ class ThinEvidenceTest {
             "a 240-point Elo gap should count for more, not less, when nothing else is known",
         )
         assertTrue(withoutHistory.markets.homeWin < 0.95, "and must never become a certainty")
+    }
+}
+
+class RuthlessResultTest {
+
+    /**
+     * A 10-0 should not decide the rest of the season.
+     *
+     * The match keeps its place, its weight and its result; only the goal count used as
+     * evidence is clamped, so one freak afternoon cannot outvote months of football.
+     */
+    @Test
+    fun `one thrashing does not become the team's identity`() {
+        val base = TestLeagueFactory.create(seed = 21L, teamCount = 8, seasons = 3)
+        val blitz = base.matches.mapIndexed { index, match ->
+            if (index == base.matches.size / 2) {
+                match.copy(homeGoals = 10, awayGoals = 0)
+            } else {
+                match
+            }
+        }
+        val clamped = DixonColesFitter.fit(blitz, DixonColesConfig(maxIterations = 400))
+        val unclamped = DixonColesFitter.fit(
+            blitz,
+            DixonColesConfig(maxIterations = 400, maxGoalsPerTeam = 15),
+        )
+        val a = assertNotNull(clamped)
+        val b = assertNotNull(unclamped)
+        assertEquals(b.matchesUsed, a.matchesUsed, "clamping must not drop a match")
+
+        val team = blitz[blitz.size / 2].homeTeamId
+        val clampedAttack = a.attack.getValue(team)
+        val unclampedAttack = b.attack.getValue(team)
+        assertTrue(
+            clampedAttack <= unclampedAttack + 1e-9,
+            "the clamped fit should not rate the side higher: $clampedAttack vs $unclampedAttack",
+        )
     }
 }

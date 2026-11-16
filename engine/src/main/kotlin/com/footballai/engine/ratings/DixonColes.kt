@@ -46,6 +46,16 @@ data class DixonColesConfig(
      * keeps the back-tester honest because it predicts from exactly these strengths too.
      */
     val shrinkagePriorMatches: Double = 8.0,
+    /**
+     * Goals above this are treated as this many when fitting.
+     *
+     * A 9-0 is a real result and its three points are real, but as evidence about a team's
+     * scoring rate it is an outlier that a likelihood fit will chase: the winning side's
+     * attack jumps and the losing side's defence collapses, and both stay wrong for weeks
+     * of predictions. Clamping the count keeps the match, keeps its weight and keeps the
+     * result — it only stops one afternoon from outweighing a season.
+     */
+    val maxGoalsPerTeam: Int = 7,
 )
 
 /** Fitted parameters of a Dixon-Coles model for one competition. */
@@ -125,8 +135,8 @@ object DixonColesFitter {
             val a = index.getValue(match.awayTeamId)
             homeIndex[i] = h
             awayIndex[i] = a
-            homeGoals[i] = match.homeGoals
-            awayGoals[i] = match.awayGoals
+            homeGoals[i] = match.homeGoals.coerceAtMost(config.maxGoalsPerTeam)
+            awayGoals[i] = match.awayGoals.coerceAtMost(config.maxGoalsPerTeam)
             weights[i] = match.weight
             weightSum += match.weight
             weightedHomeGoals += match.weight * match.homeGoals
