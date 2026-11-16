@@ -7,9 +7,11 @@ import com.footballai.app.core.TimeConstants
 import com.footballai.app.core.TimeProvider
 import com.footballai.app.data.local.FootballDatabase
 import com.footballai.app.data.local.Serialized
+import com.footballai.app.data.local.entity.MatchEntity
 import com.footballai.app.data.local.entity.PredictionEntity
 import com.footballai.app.data.local.entity.PredictionMarketEntity
 import com.footballai.app.data.local.mapper.parseStatus
+import com.footballai.app.domain.LineupImpact
 import com.footballai.app.domain.catalog.CompetitionCatalog
 import com.footballai.app.domain.catalog.CompetitionClassification
 import com.footballai.app.domain.catalog.NationalTeamKeys
@@ -29,6 +31,7 @@ import com.footballai.app.domain.model.QualityView
 import com.footballai.app.domain.model.ScoreLine
 import com.footballai.engine.markets.MarketCalculator
 import com.footballai.engine.model.DataQualityLevel
+import com.footballai.engine.model.LambdaAdjustment
 import com.footballai.engine.model.LiveInput
 import com.footballai.engine.model.MatchOutcome
 import com.footballai.engine.model.PreMatchInput
@@ -82,6 +85,29 @@ class PredictionRepository(
                 ),
             )
         }
+    }
+
+    /**
+     * Turns the confirmed lineups into at most one bounded adjustment.
+     *
+     * The input is the goals the app has already recorded for named players of each club
+     * in the window below; the output is null far more often than not. Nothing here reads
+     * the network, and no player is assumed to be good or bad — only counted.
+     */
+    private suspend fun lineupAdjustmentFor(match: MatchEntity, now: Long): LambdaAdjustment? {
+        val lineups = db.lineupDao().forMatchNow(match.id)
+        if (lineups.isEmpty()) return null
+        val since = now - LINEUP_GOAL_WINDOW_DAYS * TimeConstants.DAY_MS
+        val homeStarters = lineups.filter { it.teamId == match.homeTeamId && it.isStarter }.map { it.name }
+        val awayStarters = lineups.filter { it.teamId == match.awayTeamId && it.isStarter }.map { it.name }
+        if (homeStarters.isEmpty() || awayStarters.isEmpty()) return null
+        val homeGoals = db.eventDao().goalsByPlayerForTeamSince(match.homeTeamId, since)
+            .associate { it.playerName to it.goals }
+        val awayGoals = db.eventDao().goalsByPlayerForTeamSince(match.awayTeamId, since)
+            .associate { it.playerName to it.goals }
+        val homeEvidence = LineupImpact.assess(homeGoals, homeStarters)
+        val awayEvidence = LineupImpact.assess(awayGoals, awayStarters)
+        return LineupImpact.adjustment(homeEvidence, awayEvidence)
     }
 
     private suspend fun predictInternal(matchId: String, persist: Boolean): Outcome<PredictionView> {
@@ -149,9 +175,17 @@ class PredictionRepository(
         }
         val baseline = national?.baseline ?: ratingsRepository.baseline(source, match.competitionId, now)
         val fit = ratingsRepository.fit(source, match.competitionId, now)
-        val adjustments = ratingsRepository.adjustments(
+        val contextAdjustments = ratingsRepository.adjustments(
             source, match.competitionId, match.homeTeamId, match.awayTeamId, now,
         )
+        // The confirmed eleven is the only pre-match input that changes between a forecast
+        // made on Monday and the same forecast made an hour before kickoff.
+        val lineupAdjustment = lineupAdjustmentFor(match, now)
+        val adjustments = if (lineupAdjustment != null) {
+            contextAdjustments + lineupAdjustment
+        } else {
+            contextAdjustments
+        }
         // The league threshold is a club-league rule: it asks for 40 results in the
         // competition. A national fixture has no league, and is judged by the national
         // model's own evidence rule instead.
@@ -649,6 +683,13 @@ class PredictionRepository(
 
     companion object {
         const val MODEL_VERSION = "football-ai/engine-1.5.0"
+
+        /**
+         * How far back a scorer's goals still count when judging today's lineup. Long
+         * enough to cover a season, short enough that a player who left the club stops
+         * being reported as an absence.
+         */
+        private const val LINEUP_GOAL_WINDOW_DAYS = 400L
         const val ELO_BLEND_WEIGHT = 0.15
         const val LIVE_TTL_MS = PredictionPolicy.LIVE_TTL_MS
         private const val STALE_AFTER_MS = 6 * TimeConstants.HOUR_MS

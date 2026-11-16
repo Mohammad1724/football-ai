@@ -84,6 +84,8 @@
     <string name="explanation_recent_form">فرم پنج بازی اخیر، با وزن زمانی و تأثیر محدود</string>
     <string name="explanation_venue_form">عملکرد اخیر تیم‌ها در خانه و خارج از خانه</string>
     <string name="explanation_fixture_congestion">اختلاف استراحت و فشردگی مسابقات اخیر</string>
+    <string name="explanation_lineup_absence_home">ترکیب تأییدشده: بخشی از گلزنان میزبان در ترکیب اصلی نیستند</string>
+    <string name="explanation_lineup_absence_away">ترکیب تأییدشده: بخشی از گلزنان میهمان در ترکیب اصلی نیستند</string>
     <string name="explanation_elo_edge_home">رتبه الو به میزبان متمایل است</string>
     <string name="explanation_evenly_matched">دو تیم بسیار نزدیک هستند</string>
     <string name="explanation_favourite_away">میهمان شانس آشکاری دارد</string>

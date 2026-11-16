@@ -243,7 +243,28 @@ interface EventDao {
 
     @Query("SELECT * FROM match_events WHERE matchId = :matchId ORDER BY minute ASC")
     suspend fun forMatchNow(matchId: String): List<MatchEventEntity>
+
+    /**
+     * Goals this club has actually scored, attributed to the player who scored them, over
+     * the window the caller asks for. Only matches whose events were synced contribute, so
+     * an empty result means "not recorded", never "nobody scores".
+     */
+    @Query(
+        """
+        SELECT e.playerName AS playerName, COUNT(*) AS goals
+        FROM match_events e INNER JOIN matches m ON m.id = e.matchId
+        WHERE e.teamId = :teamId
+          AND e.type IN ('GOAL', 'PENALTY_GOAL')
+          AND e.playerName IS NOT NULL AND e.playerName != ''
+          AND m.kickoffEpochMs >= :sinceEpochMs
+        GROUP BY e.playerName
+        """,
+    )
+    suspend fun goalsByPlayerForTeamSince(teamId: String, sinceEpochMs: Long): List<PlayerGoalCount>
 }
+
+/** One row of [EventDao.goalsByPlayerForTeamSince]. */
+data class PlayerGoalCount(val playerName: String, val goals: Int)
 
 @Dao
 interface LineupDao {
