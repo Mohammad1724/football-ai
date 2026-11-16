@@ -108,7 +108,6 @@ import com.footballai.app.ui.matchStatusLabel
 import com.footballai.app.ui.qualityNoteLabel
 import com.footballai.app.ui.theme.FootballAiThemeExtra
 import com.footballai.app.ui.viewmodel.MatchDetailViewModel
-import com.footballai.engine.confidence.ConfidenceAssessor
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
@@ -598,6 +597,15 @@ private fun AnalysisTab(
         }
 
         item {
+            WhyThisNumberCard(
+                prediction = prediction,
+                homeTeamName = homeName,
+                awayTeamName = awayName,
+                languageTag = languageTag,
+            )
+        }
+
+        item {
             Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -825,47 +833,6 @@ private fun computeVerdict(prediction: PredictionView): MatchVerdict {
     )
 }
 
-/**
- * The two facts that are actually keeping the confidence down, with their numbers.
- *
- * "شواهد کم" on its own tells a reader nothing they can act on. "کالیبراسیون: ۱۲۰ از ۴۰۰"
- * tells them the model is still learning, and "داده ۳۱ ساعت پیش بهروز شده" tells them to
- * press refresh.
- */
-@Composable
-private fun evidenceReasonLines(prediction: PredictionView): List<String> {
-    val confidence = prediction.confidence ?: return emptyList()
-    val reasons = mutableListOf<String>()
-    if (confidence.calibrationSamples < ConfidenceAssessor.MIN_CALIBRATION_SAMPLES) {
-        reasons += stringResource(
-            R.string.verdict_reason_calibration,
-            confidence.calibrationSamples,
-            ConfidenceAssessor.MIN_CALIBRATION_SAMPLES,
-        )
-    }
-    when {
-        confidence.effectiveSample <= 0 ->
-            reasons += stringResource(R.string.verdict_reason_no_sample)
-        confidence.effectiveSample < ConfidenceAssessor.MIN_COMPETITION_MATCHES -> reasons += stringResource(
-            R.string.verdict_reason_sample,
-            confidence.effectiveSample,
-            ConfidenceAssessor.MIN_COMPETITION_MATCHES,
-        )
-    }
-    val freshness = confidence.freshnessMinutes
-    when {
-        freshness == null -> reasons += stringResource(R.string.verdict_reason_freshness_unknown)
-        freshness > 24 * 60 -> reasons += stringResource(R.string.verdict_reason_stale, freshness / 60)
-    }
-    if (confidence.dataCompleteness.isFinite() && confidence.dataCompleteness < 0.6) {
-        reasons += stringResource(
-            R.string.verdict_reason_partial,
-            (confidence.dataCompleteness.coerceIn(0.0, 1.0) * 100).roundToInt(),
-        )
-    }
-    return reasons.take(2)
-}
-
 /** Headline model pick above the complete 1X2 probability breakdown. */
 @Composable
 private fun PredictionVerdictCard(
@@ -876,7 +843,6 @@ private fun PredictionVerdictCard(
 ) {
     val colors = FootballAiThemeExtra.colors
     val verdict = remember(prediction) { computeVerdict(prediction) }
-    val reasons = evidenceReasonLines(prediction)
     val outcomeColor = when (verdict.outcome) {
         VerdictOutcome.HOME -> colors.homeSeries
         VerdictOutcome.DRAW -> colors.drawSeries
@@ -938,16 +904,6 @@ private fun PredictionVerdictCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            if (reasons.isNotEmpty()) {
-                Spacer(Modifier.height(8.dp))
-                reasons.forEach { reason ->
-                    Text(
-                        text = reason,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
             Spacer(Modifier.height(10.dp))
             Text(
                 text = stringResource(R.string.verdict_disclaimer),
@@ -956,6 +912,105 @@ private fun PredictionVerdictCard(
             )
         }
     }
+}
+
+/**
+ * Plain-language answer to "why this number?".
+ *
+ * The card above says 75%. This one says where the 75% came from in the fewest possible
+ * words: how many goals each side is expected to score, the two strongest reasons the
+ * model moved away from an even game, and one line about what it cannot know.
+ */
+@Composable
+private fun WhyThisNumberCard(
+    prediction: PredictionView,
+    homeTeamName: String,
+    awayTeamName: String,
+    languageTag: String,
+) {
+    val reasons = remember(prediction) { plainReasons(prediction) }
+    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+        Text(
+            text = stringResource(R.string.why_title),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(6.dp))
+        Bullet(
+            text = stringResource(
+                R.string.why_expected_goals,
+                Formatters.decimal(prediction.expectedHomeGoals, languageTag, 1),
+                Formatters.decimal(prediction.expectedAwayGoals, languageTag, 1),
+            ),
+        )
+        reasons.take(2).forEach { reason ->
+            Bullet(
+                text = when (reason) {
+                    PlainReason.MARKET -> stringResource(R.string.why_market)
+                    PlainReason.HOME_ADVANTAGE -> stringResource(R.string.why_home_advantage)
+                    PlainReason.ELO_HOME -> stringResource(R.string.why_elo_home, homeTeamName)
+                    PlainReason.ELO_AWAY -> stringResource(R.string.why_elo_away, awayTeamName)
+                    PlainReason.FORM -> stringResource(R.string.why_form)
+                    PlainReason.VENUE -> stringResource(R.string.why_venue)
+                    PlainReason.CONGESTION -> stringResource(R.string.why_congestion)
+                    PlainReason.HOME_ATTACK -> stringResource(R.string.why_home_attack)
+                    PlainReason.AWAY_ATTACK -> stringResource(R.string.why_away_attack)
+                    PlainReason.HOME_DEFENCE -> stringResource(R.string.why_home_defence)
+                    PlainReason.AWAY_DEFENCE -> stringResource(R.string.why_away_defence)
+                    PlainReason.LINEUP_HOME -> stringResource(R.string.why_lineup_home)
+                    PlainReason.LINEUP_AWAY -> stringResource(R.string.why_lineup_away)
+                    PlainReason.CALIBRATION -> stringResource(R.string.why_calibration)
+                },
+            )
+        }
+        Spacer(Modifier.height(6.dp))
+        Text(
+            text = stringResource(R.string.why_limits),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+private fun Bullet(text: String) {
+    Row(modifier = Modifier.padding(vertical = 1.dp)) {
+        Text(
+            text = "• ",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(text = text, style = MaterialTheme.typography.bodySmall)
+    }
+}
+
+/** The engine's reasons, in the order a reader cares about them. */
+private enum class PlainReason {
+    MARKET, HOME_ADVANTAGE, ELO_HOME, ELO_AWAY, FORM, VENUE, CONGESTION,
+    HOME_ATTACK, AWAY_ATTACK, HOME_DEFENCE, AWAY_DEFENCE,
+    LINEUP_HOME, LINEUP_AWAY, CALIBRATION,
+}
+
+private fun plainReasons(prediction: PredictionView): List<PlainReason> {
+    val mapped = prediction.explanations.mapNotNull { explanation ->
+        when (explanation.code) {
+            "MARKET_ALIGNED" -> PlainReason.MARKET
+            "HOME_ADVANTAGE" -> PlainReason.HOME_ADVANTAGE
+            "ELO_EDGE_HOME" -> PlainReason.ELO_HOME
+            "ELO_EDGE_AWAY" -> PlainReason.ELO_AWAY
+            "RECENT_FORM" -> PlainReason.FORM
+            "VENUE_FORM" -> PlainReason.VENUE
+            "FIXTURE_CONGESTION" -> PlainReason.CONGESTION
+            "STRONG_HOME_ATTACK", "WEAK_AWAY_ATTACK" -> PlainReason.HOME_ATTACK
+            "STRONG_AWAY_ATTACK", "WEAK_HOME_ATTACK" -> PlainReason.AWAY_ATTACK
+            "SOLID_HOME_DEFENCE", "LEAKY_AWAY_DEFENCE" -> PlainReason.HOME_DEFENCE
+            "SOLID_AWAY_DEFENCE", "LEAKY_HOME_DEFENCE" -> PlainReason.AWAY_DEFENCE
+            "LINEUP_ABSENCE_HOME" -> PlainReason.LINEUP_HOME
+            "LINEUP_ABSENCE_AWAY" -> PlainReason.LINEUP_AWAY
+            "CALIBRATION_ADJUSTMENT" -> PlainReason.CALIBRATION
+            else -> null
+        }
+    }
+    return mapped.distinct()
 }
 
 /**
@@ -979,16 +1034,6 @@ private fun EvidenceSection(prediction: PredictionView, languageTag: String) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             ConfidenceChip(level = confidence?.level)
-            if (confidence != null && !confidence.uncertainty.isNaN()) {
-                Text(
-                    text = stringResource(
-                        R.string.evidence_uncertainty,
-                        Formatters.decimal(confidence.uncertainty, languageTag, 2),
-                    ),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
         }
         Spacer(Modifier.height(6.dp))
         Text(
