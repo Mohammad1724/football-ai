@@ -243,7 +243,7 @@ data class PreMatchInput(
     val dixonColesRho: Double? = null,
     val quality: DataQuality,
     val asOfEpochMs: Long,
-    val modelVersion: String = "football-ai/engine-1.4.0",
+    val modelVersion: String = "football-ai/engine-1.5.0",
     val fittedMatches: Int = 0,
     /** Competition context: league / knockout / international, neutral ground, gender. */
     val competition: CompetitionProfile = CompetitionProfile.DEFAULT,

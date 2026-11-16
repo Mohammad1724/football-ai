@@ -32,6 +32,20 @@ data class DixonColesConfig(
     val minMatches: Int = 30,
     /** Numerical floor for the Dixon-Coles tau factor; keeps the likelihood well defined. */
     val tauFloor: Double = 0.05,
+    /**
+     * How many matches of evidence a team needs before half of its fitted deviation from
+     * the league mean is believed.
+     *
+     * A team with two matches in the sample is fitted from 180 minutes of football; taken
+     * at face value, that estimate swings the expected goals of every one of its remaining
+     * fixtures. Shrinking it toward the league mean by `n / (n + prior)` is the standard
+     * empirical-Bayes fix and cannot invent strength — with a full season of results the
+     * factor is above 0.9, so established teams keep what they earned.
+     *
+     * The fitted likelihood is unchanged; only the reported strengths are tempered, which
+     * keeps the back-tester honest because it predicts from exactly these strengths too.
+     */
+    val shrinkagePriorMatches: Double = 8.0,
 )
 
 /** Fitted parameters of a Dixon-Coles model for one competition. */
@@ -237,9 +251,10 @@ object DixonColesFitter {
         val defenceMap = HashMap<String, Double>(teamCount)
         val countMap = HashMap<String, Int>(teamCount)
         for (t in 0 until teamCount) {
-            attackMap[teamIds[t]] = exp(alpha[t])
-            defenceMap[teamIds[t]] = exp(beta[t])
-            countMap[teamIds[t]] = matchesByTeam[t]
+            val seen = matchesByTeam[t]
+            attackMap[teamIds[t]] = shrinkTowardsLeagueMean(exp(alpha[t]), seen, config.shrinkagePriorMatches)
+            defenceMap[teamIds[t]] = shrinkTowardsLeagueMean(exp(beta[t]), seen, config.shrinkagePriorMatches)
+            countMap[teamIds[t]] = seen
         }
 
         return DixonColesFit(
@@ -255,6 +270,18 @@ object DixonColesFitter {
             converged = converged,
             iterations = iterations,
         )
+    }
+
+    /**
+     * Pulls a multiplicative strength toward 1.0 (the league mean) by how little evidence
+     * stands behind it: `1 + (value - 1) * n / (n + prior)`.
+     */
+    internal fun shrinkTowardsLeagueMean(value: Double, matches: Int, priorMatches: Double): Double {
+        if (!value.isFinite() || value <= 0.0) return 1.0
+        if (priorMatches <= 0.0) return value
+        val seen = matches.coerceAtLeast(0)
+        val weight = seen / (seen + priorMatches)
+        return 1.0 + (value - 1.0) * weight
     }
 
     private fun renormalise(alpha: DoubleArray) {

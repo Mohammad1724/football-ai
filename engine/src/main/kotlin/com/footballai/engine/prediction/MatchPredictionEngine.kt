@@ -38,6 +38,17 @@ data class EngineConfig(
     val averageShotsPerTeam: Double = 11.5,
     val averageShotsOnTargetPerTeam: Double = 4.1,
     val maxExtraGoals: Int = 8,
+    /**
+     * Elo weight used when the Dixon-Coles fit has no usable evidence for these teams.
+     *
+     * Elo is replayed over every competition the app has ever seen, so it knows about a
+     * promoted team from its previous division while the league fit only knows the two
+     * matches it has played here. When the fitted strengths are thin, the tilt therefore
+     * leans on Elo instead of falling back to "both teams are average".
+     */
+    val maxEloBlendWeight: Double = 0.40,
+    /** Matches per team at which the fitted strengths are trusted at full base weight. */
+    val eloReliabilityMatches: Int = 20,
 )
 
 /**
@@ -49,6 +60,20 @@ data class EngineConfig(
  */
 class MatchPredictionEngine(private val config: EngineConfig = EngineConfig()) {
 
+    /**
+     * How far the Elo tilt may reach for this fixture: the base weight when both teams have
+     * a long enough record, rising toward [EngineConfig.maxEloBlendWeight] as it thins out.
+     */
+    fun effectiveEloBlendWeight(input: PreMatchInput): Double {
+        val base = input.eloBlendWeight.coerceAtLeast(0.0)
+        val ceiling = config.maxEloBlendWeight
+        if (ceiling <= base) return base
+        val sample = minOf(input.home.matchesUsed, input.away.matchesUsed).coerceAtLeast(0)
+        val saturation = config.eloReliabilityMatches.coerceAtLeast(1)
+        val reliability = (sample.toDouble() / saturation).coerceIn(0.0, 1.0)
+        return base + (ceiling - base) * (1.0 - reliability)
+    }
+
     fun expectedGoals(input: PreMatchInput): Pair<Double, Double> {
         // The competition profile only removes evidence that does not apply (a neutral
         // venue has no home advantage); it never invents an effect.
@@ -58,8 +83,9 @@ class MatchPredictionEngine(private val config: EngineConfig = EngineConfig()) {
         var lambdaAway = baseline.averageAwayGoals * input.away.attack * input.home.defence
 
         // Elo tilt: symmetric so that the total number of expected goals is preserved.
+        // The weight grows when the fitted strengths rest on very few matches.
         val eloDiff = input.home.elo - input.away.elo
-        val blend = input.eloBlendWeight * profile.eloBlendScale
+        val blend = effectiveEloBlendWeight(input) * profile.eloBlendScale
         val tilt = (eloDiff / 400.0 * blend).coerceIn(-0.25, 0.25)
         if (tilt != 0.0) {
             lambdaHome *= (1.0 + tilt)
