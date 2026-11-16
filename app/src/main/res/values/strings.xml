@@ -228,7 +228,7 @@
     <string name="section_about">About</string>
     <string name="section_backtest">Historical backtest</string>
     <string name="section_backtest_subtitle">Chronological walk-forward evaluation, no data leakage</string>
-    <string name="competition_table_hint">Each league is judged against its own base rate: &quot;always predict this league's most common result&quot;. If the model's Brier is not better than that, the league adds nothing we did not already know, however good its accuracy looks.</string>
+    <string name="competition_table_hint">Each league is judged against its own base rate: &quot;always predict this league\'s most common result&quot;. If the model\'s Brier is not better than that, the league adds nothing we did not already know, however good its accuracy looks.</string>
     <string name="competition_table_summary">The model beats the league base rate in %1$d of %2$d leagues</string>
     <string name="competition_base_rate">Base rate: %1$s</string>
     <string name="competition_verdict_beats">Beats the base rate</string>
