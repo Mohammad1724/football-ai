@@ -42,6 +42,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
@@ -71,6 +72,8 @@ import com.footballai.app.ui.components.SoftBackButton
 import com.footballai.app.ui.theme.FootballAiThemeExtra
 import com.footballai.app.ui.viewmodel.CompetitionOrderViewModel
 import kotlin.math.roundToInt
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.launch
 
 /** Fastest auto-scroll while dragging. In pixels per second, so frame rate cannot change it. */
 private const val MAX_SCROLL_PX_PER_SECOND = 1800f
@@ -132,6 +135,7 @@ fun CompetitionOrderScreen(onBack: () -> Unit) {
     // Pixels per second; sign is the direction. Zero means the finger is not near an edge.
     var autoScrollSpeed by remember { mutableFloatStateOf(0f) }
     val colors = FootballAiThemeExtra.colors
+    val scope = rememberCoroutineScope()
 
     LaunchedEffect(state.competitions) {
         if (draggingId == null) {
@@ -177,25 +181,20 @@ fun CompetitionOrderScreen(onBack: () -> Unit) {
         }
         if (!deepEnough) return
         val to = target.index
-        val height = target.size.toFloat()
-        // LazyColumn does not remember the scroll position as pixels: it remembers the item
-        // at the top of the viewport by key and pulls the list back onto it after any change
-        // (LazyListScrollPosition.updateScrollPositionIfTheFirstItemWasMoved). When the row we
-        // move is that item, or one of the rows that shift because of it, the whole list is
-        // dragged along by a row height — that is the "it goes up two or three and then slides
-        // one or two back" that the eye catches while dragging at the top edge. Scroll back by
-        // exactly the amount the anchor was displaced, in the same frame, to cancel it.
-        val anchor = listState.firstVisibleItemIndex
-        val anchorAfter = when {
-            anchor == from -> to
-            to < from && anchor in to until from -> anchor + 1
-            to > from && anchor in (from + 1)..to -> anchor - 1
-            else -> anchor
-        }
+        // LazyColumn does not remember the scroll position as pixels: it remembers the item at
+        // the top of the viewport by key and pulls the list back onto that item after any
+        // change (LazyListScrollPosition.updateScrollPositionIfTheFirstItemWasMoved). When the
+        // moved row is that item, or one of the rows that shifts because of it, the whole list
+        // is dragged along by a row height — which is what flickered the rows below on every
+        // swap. scrollToItem with the position unchanged re-asserts the pixel position and, as
+        // a side effect that is the real point here, forgets the remembered key so nothing
+        // pulls the list back. Started undispatched so it lands in this same frame.
+        val topIndex = listState.firstVisibleItemIndex
+        val topOffset = listState.firstVisibleItemScrollOffset
         val moved = rows.removeAt(from)
         rows.add(to, moved)
-        if (anchorAfter != anchor) {
-            listState.dispatchRawDelta((anchor - anchorAfter) * height)
+        scope.launch(start = CoroutineStart.UNDISPATCHED) {
+            listState.scrollToItem(topIndex, topOffset)
         }
         haptics.performHapticFeedback(HapticFeedbackType.LongPress)
     }
@@ -341,7 +340,7 @@ fun CompetitionOrderScreen(onBack: () -> Unit) {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .animateItemPlacement(tween(if (draggingId == null) 130 else 70))
+                                .animateItemPlacement(tween(if (draggingId == null) 130 else 90))
                                 // The row lives on in the floating layer while it is being
                                 // dragged; its slot keeps the space, but stays empty.
                                 .alpha(if (isDragged) 0f else 1f),
