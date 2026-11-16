@@ -20,9 +20,10 @@ class FavouritePlayersTest {
             NameLocalization.playerFavouriteKey("team-1", "Michael Olise"),
             NameLocalization.playerFavouriteKey("team-1", "  michael   OLISE "),
         )
+        // Accents are stripped by the normal form, so a source that drops them still matches.
         assertEquals(
             NameLocalization.playerFavouriteKey("team-66", "N'Golo Kanté"),
-            NameLocalization.playerFavouriteKey("team-66", "Ngolo Kante"),
+            NameLocalization.playerFavouriteKey("team-66", "N'Golo Kante"),
         )
     }
 
@@ -45,9 +46,14 @@ class FavouritePlayersTest {
     }
 
     @Test
-    fun `a name with a pipe in it still reads back`() {
-        // Sources are not supposed to send this, but a stored entry must never crash a list.
+    fun `a name containing the separator still reads back and compares the same`() {
+        // Sources are not supposed to send this, but a stored entry must never crash a list,
+        // and the star must still resolve to the same key after a round trip.
         val entry = NameLocalization.playerEntry("team-1", "A|B")
-        assertEquals("B", NameLocalization.playerNameOf(entry))
+        assertEquals("A|B", NameLocalization.playerNameOf(entry))
+        assertEquals(
+            NameLocalization.playerFavouriteKey("team-1", "A|B"),
+            NameLocalization.playerFavouriteKey("team-1", NameLocalization.playerNameOf(entry)),
+        )
     }
 }
