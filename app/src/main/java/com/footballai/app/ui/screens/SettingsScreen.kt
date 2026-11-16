@@ -151,6 +151,25 @@ fun SettingsScreen(onOpenDataSources: () -> Unit, onOpenCompetitionOrder: () -> 
                 }
             }
 
+            item { SectionHeader(title = stringResource(R.string.section_favourite_players)) }
+            if (state.settings.favouritePlayers.isEmpty()) {
+                item {
+                    Text(
+                        text = stringResource(R.string.favourite_players_empty_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                    )
+                }
+            } else {
+                items(state.settings.favouritePlayers.sorted(), key = { it }) { entry ->
+                    FollowedPlayerRow(
+                        name = com.footballai.app.domain.catalog.NameLocalization.playerNameOf(entry),
+                        onRemove = { viewModel.unfollowPlayer(entry) },
+                    )
+                }
+            }
+
             item { SectionHeader(title = stringResource(R.string.section_language)) }
             item {
                 com.footballai.app.ui.components.LanguageSelector(
@@ -539,5 +558,31 @@ private fun SyncPillButton(label: String, filled: Boolean, onClick: () -> Unit) 
             style = MaterialTheme.typography.labelMedium,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
         )
+    }
+}
+
+/** One followed player: the name only, because the club is already in the match he was found in. */
+@Composable
+private fun FollowedPlayerRow(name: String, onRemove: () -> Unit) {
+    SoftCard(modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.page, vertical = 3.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = name,
+                style = MaterialTheme.typography.bodyMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            IconButton(onClick = onRemove) {
+                Icon(
+                    imageVector = Icons.Filled.Close,
+                    contentDescription = stringResource(R.string.action_unfollow_player),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
     }
 }

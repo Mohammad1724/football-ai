@@ -48,6 +48,10 @@ data class MatchDetailUiState(
     val predictionWarning: AppError? = null,
     /** Followed teams, keyed through [NameLocalization.favouriteKey], for the star. */
     val favouriteTeams: Set<String> = emptySet(),
+    /** Followed players as stored ("teamId|name"), for the unfollow action. */
+    val favouritePlayers: Set<String> = emptySet(),
+    /** The same list as comparable keys, so a lineup row knows its own star. */
+    val favouritePlayerKeys: Set<String> = emptySet(),
 )
 
 class MatchDetailViewModel(
@@ -70,7 +74,16 @@ class MatchDetailViewModel(
             container.settingsRepository.settings.collect { settings ->
                 // Stored names are turned into keys once, so the star compares like with like.
                 _state.update {
-                    it.copy(favouriteTeams = settings.favouriteTeams.map { name -> NameLocalization.favouriteKey(name) }.toSet())
+                    it.copy(
+                        favouriteTeams = settings.favouriteTeams.map { name -> NameLocalization.favouriteKey(name) }.toSet(),
+                        favouritePlayers = settings.favouritePlayers,
+                        favouritePlayerKeys = settings.favouritePlayers.mapNotNull { entry ->
+                            val teamId = entry.substringBefore('|', "")
+                            val name = NameLocalization.playerNameOf(entry)
+                            if (teamId.isBlank() || name.isBlank()) null
+                            else NameLocalization.playerFavouriteKey(teamId, name)
+                        }.toSet(),
+                    )
                 }
             }
         }
@@ -234,6 +247,34 @@ class MatchDetailViewModel(
             when {
                 favourite && existing == null -> container.settingsRepository.toggleFavouriteTeam(teamName, true)
                 !favourite && existing != null -> container.settingsRepository.toggleFavouriteTeam(existing, false)
+                else -> Unit
+            }
+        }
+    }
+
+    /**
+     * Follows or unfollows a player from a lineup row. The stored entry is "teamId|name";
+     * the comparison uses [NameLocalization.playerFavouriteKey], so a differently spelled
+     * name — or the same name under another club — never becomes the same favourite.
+     */
+    fun toggleFavouritePlayer(teamId: String, name: String, favourite: Boolean) {
+        viewModelScope.launch {
+            val stored = container.settingsRepository.current().favouritePlayers
+            val key = NameLocalization.playerFavouriteKey(teamId, name)
+            val existing = stored.firstOrNull { entry ->
+                NameLocalization.playerFavouriteKey(
+                    entry.substringBefore('|', ""),
+                    NameLocalization.playerNameOf(entry),
+                ) == key
+            }
+            when {
+                favourite && existing == null ->
+                    container.settingsRepository.toggleFavouritePlayer(
+                        NameLocalization.playerEntry(teamId, name),
+                        true,
+                    )
+                !favourite && existing != null ->
+                    container.settingsRepository.toggleFavouritePlayer(existing, false)
                 else -> Unit
             }
         }

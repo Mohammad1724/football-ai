@@ -23,6 +23,7 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
             activeProviderId = preferences[KEY_ACTIVE_PROVIDER].orEmpty(),
             followedCompetitionKeys = preferences[KEY_FOLLOWED] ?: emptySet(),
             favouriteTeams = preferences[KEY_FAVOURITE_TEAMS] ?: emptySet(),
+            favouritePlayers = preferences[KEY_FAVOURITE_PLAYERS] ?: emptySet(),
             competitionOrder = preferences[KEY_COMPETITION_ORDER]
                 ?.split(ORDER_SEPARATOR)
                 ?.filter { it.isNotBlank() }
@@ -59,6 +60,13 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         val current = (preferences[KEY_FAVOURITE_TEAMS] ?: emptySet<String>()).toMutableSet()
         if (favourite) current.add(name) else current.remove(name)
         preferences[KEY_FAVOURITE_TEAMS] = current
+    }
+
+    /** Stores one player entry, "teamId|name", so the list stays readable in Settings. */
+    suspend fun toggleFavouritePlayer(entry: String, favourite: Boolean) = edit { preferences ->
+        val current = (preferences[KEY_FAVOURITE_PLAYERS] ?: emptySet<String>()).toMutableSet()
+        if (favourite) current.add(entry) else current.remove(entry)
+        preferences[KEY_FAVOURITE_PLAYERS] = current
     }
 
     /** Stores the user's competition order as one separated string: a set would lose it. */
@@ -100,6 +108,7 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         private val KEY_FOLLOWED = stringSetPreferencesKey("followed_competitions")
         private val KEY_COMPETITION_ORDER = stringPreferencesKey("competition_order")
         private val KEY_FAVOURITE_TEAMS = stringSetPreferencesKey("favourite_teams")
+        private val KEY_FAVOURITE_PLAYERS = stringSetPreferencesKey("favourite_players")
 
         /** Competition ids never contain a newline, so it is a safe separator. */
         private const val ORDER_SEPARATOR = "\n"

@@ -209,6 +209,20 @@ object NameLocalization {
      * when the team is known, the normalised spelling otherwise. Comparing keys instead
      * of names means a favourite added as "Man United" still matches "Manchester United".
      */
+    /**
+     * Key of a followed player: the team he plays for plus his normalised name.
+     *
+     * The team is part of the key on purpose — two players can share a name, and the same
+     * name under two clubs is two different people.
+     */
+    fun playerFavouriteKey(teamId: String, name: String): String = teamId + "|" + normalize(name)
+
+    /** What is stored for a followed player: the key in readable form. */
+    fun playerEntry(teamId: String, name: String): String = teamId + "|" + name
+
+    /** The readable half of a stored player entry, for lists that show it. */
+    fun playerNameOf(entry: String): String = entry.substringAfter('|', entry)
+
     fun favouriteKey(name: String, shortName: String? = null): String {
         val known = persianTeamName(name, shortName)
         return if (known != null) "fa:$known" else "en:" + normalize(name)

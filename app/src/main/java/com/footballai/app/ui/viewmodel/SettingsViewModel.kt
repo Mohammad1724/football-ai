@@ -117,6 +117,11 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
         viewModelScope.launch { container.settingsRepository.toggleFavouriteTeam(name, false) }
     }
 
+    /** Stops following a player; the star in the lineup goes back to empty. */
+    fun unfollowPlayer(entry: String) {
+        viewModelScope.launch { container.settingsRepository.toggleFavouritePlayer(entry, false) }
+    }
+
     fun setLanguage(language: AppLanguage) {
         viewModelScope.launch { container.settingsRepository.setLanguage(language) }
     }

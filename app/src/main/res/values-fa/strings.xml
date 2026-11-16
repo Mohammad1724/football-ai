@@ -553,4 +553,10 @@
     <string name="home_action_refresh">به‌روزرسانی</string>
     <string name="home_action_data">منابع داده</string>
     <string name="competition_matches_count">%1$s بازی</string>
+    <string name="section_favourite_players">بازیکنان محبوب</string>
+    <string name="favourite_players_empty_hint">یک بازی را باز کنید، به تب ترکیب‌ها بروید و ستارهٔ کنار بازیکن را بزنید.</string>
+    <string name="action_follow_player">دنبال کردن بازیکن</string>
+    <string name="action_unfollow_player">دنبال نکردن بازیکن</string>
+    <string name="lineup_starters">ترکیب اصلی</string>
+    <string name="lineup_bench">نیمکت</string>
 </resources>

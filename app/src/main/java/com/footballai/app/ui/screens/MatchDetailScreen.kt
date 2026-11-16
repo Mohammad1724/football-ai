@@ -73,6 +73,7 @@ import com.footballai.app.R
 import com.footballai.app.core.Formatters
 import com.footballai.app.domain.model.MarketType
 import com.footballai.app.domain.model.MatchDetail
+import com.footballai.app.domain.model.TeamLineup
 import com.footballai.app.domain.model.MatchStatisticPair
 import com.footballai.app.domain.model.PredictionView
 import com.footballai.app.domain.model.StatisticType
@@ -143,11 +144,15 @@ fun MatchDetailScreen(
     }
 
     val detail = state.detail
+    // The lineups tab is appended last and only when the source says it has (or gave) them,
+    // so the indices of the existing tabs never move.
+    val hasLineupTab = detail != null && (detail.summary.hasLineups || detail.lineups.isNotEmpty())
     val tabs = buildList {
         add(stringResource(R.string.tab_analysis))
         if (detail?.summary?.status?.isLive == true) add(stringResource(R.string.tab_live))
         add(stringResource(R.string.tab_statistics))
         add(stringResource(R.string.tab_head_to_head))
+        if (hasLineupTab) add(stringResource(R.string.missing_lineups))
     }
 
     Scaffold(
@@ -287,6 +292,20 @@ fun MatchDetailScreen(
 
                     tab == if (hasLiveTab) 2 else 1 -> StatisticsTab(
                         statistics = detail.statistics,
+                        languageTag = languageTag,
+                    )
+
+                    tab == if (hasLiveTab) 3 else 2 -> HeadToHeadTab(
+                        matches = state.headToHead,
+                        languageTag = languageTag,
+                    )
+
+                    tab == if (hasLiveTab) 4 else 3 -> LineupsTab(
+                        lineups = detail.lineups,
+                        home = detail.summary.home,
+                        away = detail.summary.away,
+                        favouritePlayerKeys = state.favouritePlayerKeys,
+                        onTogglePlayer = viewModel::toggleFavouritePlayer,
                         languageTag = languageTag,
                     )
 
@@ -1258,6 +1277,171 @@ private fun NationalHistoryCard(
                     Text(stringResource(R.string.national_history_action))
                 }
             }
+        }
+    }
+}
+
+/**
+ * The two squads, with a star on every player.
+ *
+ * Following a player is the one action this screen adds to the data the source gave: the
+ * star is keyed by the club plus the normalised name, so the same player stays followed
+ * when another source spells him differently, and two players who share a name under
+ * different clubs stay two people.
+ */
+@Composable
+private fun LineupsTab(
+    lineups: List<TeamLineup>,
+    home: TeamRef,
+    away: TeamRef,
+    favouritePlayerKeys: Set<String>,
+    onTogglePlayer: (String, String, Boolean) -> Unit,
+    languageTag: String,
+) {
+    if (lineups.isEmpty()) {
+        // Honest empty state: the source said lineups exist, this one has not arrived yet.
+        LazyColumn(modifier = Modifier.fillMaxSize()) {
+            item {
+                Text(
+                    text = stringResource(R.string.note_lineups_unavailable),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
+                )
+            }
+        }
+        return
+    }
+    LazyColumn(modifier = Modifier.fillMaxSize()) {
+        // Home first, then away: the order the match was read in.
+        lineups.sortedBy { lineup ->
+            when (lineup.teamId) {
+                home.id -> 0
+                away.id -> 1
+                else -> 2
+            }
+        }.forEach { lineup ->
+            val team = if (lineup.teamId == away.id) away else home
+            val teamName = NameLocalization.displayName(team.name, languageTag, team.shortName)
+            item {
+                LineupTeamHeader(
+                    teamName = teamName,
+                    formation = lineup.formation,
+                    starters = lineup.players.count { it.isStarter },
+                )
+            }
+            val starters = lineup.players.filter { it.isStarter }
+            val bench = lineup.players.filterNot { it.isStarter }
+            if (starters.isNotEmpty()) {
+                item {
+                    Text(
+                        text = stringResource(R.string.lineup_starters),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 2.dp),
+                    )
+                }
+                items(starters, key = { lineup.teamId + "|s|" + it.name }) { player ->
+                    LineupPlayerRow(
+                        teamId = lineup.teamId,
+                        name = player.name,
+                        number = player.number,
+                        position = player.position,
+                        isFavourite = favouritePlayerKeys.contains(
+                            NameLocalization.playerFavouriteKey(lineup.teamId, player.name),
+                        ),
+                        onTogglePlayer = onTogglePlayer,
+                    )
+                }
+            }
+            if (bench.isNotEmpty()) {
+                item {
+                    Text(
+                        text = stringResource(R.string.lineup_bench),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 2.dp),
+                    )
+                }
+                items(bench, key = { lineup.teamId + "|b|" + it.name }) { player ->
+                    LineupPlayerRow(
+                        teamId = lineup.teamId,
+                        name = player.name,
+                        number = player.number,
+                        position = player.position,
+                        isFavourite = favouritePlayerKeys.contains(
+                            NameLocalization.playerFavouriteKey(lineup.teamId, player.name),
+                        ),
+                        onTogglePlayer = onTogglePlayer,
+                    )
+                }
+            }
+        }
+        item { Spacer(Modifier.height(24.dp)) }
+    }
+}
+
+@Composable
+private fun LineupTeamHeader(teamName: String, formation: String?, starters: Int) {
+    Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 4.dp)) {
+        Text(text = teamName, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+        Text(
+            text = listOfNotNull(
+                formation?.takeIf { it.isNotBlank() },
+                if (starters > 0) Formatters.integer(starters, LocalLanguageTag.current) + " " + stringResource(R.string.lineup_starters) else null,
+            ).joinToString(" · "),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun LineupPlayerRow(
+    teamId: String,
+    name: String,
+    number: Int?,
+    position: String?,
+    isFavourite: Boolean,
+    onTogglePlayer: (String, String, Boolean) -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 16.dp, end = 4.dp, top = 2.dp, bottom = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = number?.toString() ?: "–",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.width(28.dp),
+        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = name, style = MaterialTheme.typography.bodyMedium, maxLines = 1)
+            position?.takeIf { it.isNotBlank() }?.let { position ->
+                Text(
+                    text = position,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        IconButton(
+            onClick = { onTogglePlayer(teamId, name, !isFavourite) },
+            modifier = Modifier.size(40.dp),
+        ) {
+            Icon(
+                imageVector = if (isFavourite) Icons.Filled.Star else Icons.Outlined.StarBorder,
+                contentDescription = stringResource(
+                    if (isFavourite) R.string.action_unfollow_player else R.string.action_follow_player,
+                ),
+                tint = if (isFavourite) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+            )
         }
     }
 }
