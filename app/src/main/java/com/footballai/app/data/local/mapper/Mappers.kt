@@ -139,6 +139,8 @@ fun MatchEntity.toSummary(
     competitionClass = competitionClass,
     gender = gender,
     isNeutralVenue = isNeutralVenue,
+    homeHalfTimeGoals = homeHalfTimeGoals,
+    awayHalfTimeGoals = awayHalfTimeGoals,
 )
 
 fun MatchEntity.toDetail(

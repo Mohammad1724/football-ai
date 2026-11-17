@@ -88,6 +88,12 @@ data class MatchSummary(
     val gender: String = "MEN",
     /** Only true when the source states a neutral ground. */
     val isNeutralVenue: Boolean = false,
+    /**
+     * Half-time score, when the source published one. Null is "not known", never zero:
+     * a second-half count built on a zero would be the whole match.
+     */
+    val homeHalfTimeGoals: Int? = null,
+    val awayHalfTimeGoals: Int? = null,
     /** Stored pre-match forecast, when one exists for the current model version. */
     val prediction: MatchProbability? = null,
 ) {
@@ -186,6 +192,9 @@ data class TeamResult(
     val wasHome: Boolean,
     val outcome: ResultOutcome,
     val competitionId: String,
+    /** Goals this team had scored at the break; null when the source did not say. */
+    val halfTimeGoalsFor: Int? = null,
+    val halfTimeGoalsAgainst: Int? = null,
 )
 
 data class TeamFormSummary(

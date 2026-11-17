@@ -250,6 +250,9 @@
     <string name="form_row_average">Goals per match</string>
     <string name="form_row_venue">Home · away</string>
     <string name="form_row_clean_sheets">Clean sheets</string>
+    <string name="form_row_second_half">Second-half goals</string>
+    <string name="form_row_second_half_value">%1$s of %2$s</string>
+    <string name="form_halves_note">Half-time score known for %1$s of %2$s matches.</string>
     <string name="form_row_table">Table position</string>
     <string name="form_table_rank">%1$s of %2$s</string>
     <string name="form_row_trend">Trend</string>

@@ -106,6 +106,8 @@ class MatchRepository(
                 goalsFor = goalsFor,
                 goalsAgainst = goalsAgainst,
                 wasHome = wasHome,
+                halfTimeGoalsFor = (if (wasHome) summary.homeHalfTimeGoals else summary.awayHalfTimeGoals),
+                halfTimeGoalsAgainst = (if (wasHome) summary.awayHalfTimeGoals else summary.homeHalfTimeGoals),
                 outcome = when {
                     goalsFor > goalsAgainst -> ResultOutcome.WIN
                     goalsFor == goalsAgainst -> ResultOutcome.DRAW

@@ -1270,6 +1270,11 @@ private fun TeamFormCard(
                 away = away?.let { Formatters.integer(it.cleanSheets, languageTag) },
             )
             FormRow(
+                label = stringResource(R.string.form_row_second_half),
+                home = home?.let { secondHalf(it, languageTag) },
+                away = away?.let { secondHalf(it, languageTag) },
+            )
+            FormRow(
                 label = stringResource(R.string.form_row_table),
                 home = home?.let { tablePosition(it, languageTag) },
                 away = away?.let { tablePosition(it, languageTag) },
@@ -1287,6 +1292,23 @@ private fun TeamFormCard(
                 )
                 TrendDots(home?.sequence.orEmpty(), Modifier.weight(1f))
                 TrendDots(away?.sequence.orEmpty(), Modifier.weight(1f))
+            }
+            // The half-time sample is smaller than the window whenever the source did not
+            // publish a break score; saying so keeps the ratio from looking like all ten.
+            val worstHalves = listOfNotNull(home, away)
+                .filter { it.halfTimeKnown in 1 until it.played }
+                .minByOrNull { it.halfTimeKnown.toDouble() / it.played }
+            if (worstHalves != null) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = localizedString(
+                        R.string.form_halves_note,
+                        worstHalves.halfTimeKnown,
+                        worstHalves.played,
+                    ),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
             val played = listOfNotNull(home?.played, away?.played).maxOrNull()
             if (played != null && (home == null || away == null || home.played < 10 || away.played < 10)) {
@@ -1313,6 +1335,16 @@ private fun tablePosition(form: TeamFormSnapshot, languageTag: String): String {
         R.string.form_table_rank,
         Formatters.integer(rank, languageTag),
         Formatters.integer(of, languageTag),
+    )
+}
+
+@Composable
+private fun secondHalf(form: TeamFormSnapshot, languageTag: String): String {
+    if (form.halfTimeKnown == 0 || form.halfTimeGoalsTotal == 0) return "—"
+    return localizedString(
+        R.string.form_row_second_half_value,
+        Formatters.integer(form.secondHalfGoalsFor, languageTag),
+        Formatters.integer(form.halfTimeGoalsTotal, languageTag),
     )
 }
 

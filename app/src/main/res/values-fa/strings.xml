@@ -250,6 +250,9 @@
     <string name="form_row_average">میانگین گل در هر بازی</string>
     <string name="form_row_venue">خانه · بیرون</string>
     <string name="form_row_clean_sheets">بازی بدون گل خورده</string>
+    <string name="form_row_second_half">گل در نیمهٔ دوم</string>
+    <string name="form_row_second_half_value">%1$s از %2$s</string>
+    <string name="form_halves_note">نیمهٔ اول را برای %1$s بازی از %2$s بازی داریم.</string>
     <string name="form_row_table">جایگاه در جدول</string>
     <string name="form_table_rank">%1$s از %2$s</string>
     <string name="form_row_trend">روند</string>

@@ -77,7 +77,16 @@ data class TeamFormSnapshot(
     /** Published table position, when the source gave a table for this competition. */
     val standingRank: Int? = null,
     val standingOf: Int? = null,
+    /** Goals scored after the break, over the matches that published a half-time score. */
+    val secondHalfGoalsFor: Int = 0,
+    val secondHalfGoalsAgainst: Int = 0,
+    /** How many of the [played] matches had a half-time score at all. */
+    val halfTimeKnown: Int = 0,
+    /** Goals scored in those matches, so the ratio never mixes two samples. */
+    val halfTimeGoalsTotal: Int = 0,
 ) {
+    /** True when a second-half figure describes every match in the window. */
+    val halfTimeComplete: Boolean get() = played > 0 && halfTimeKnown == played
     companion object {
         /** Small, arithmetic, and out of the UI: counts only what the rows actually say. */
         fun of(results: List<com.footballai.app.domain.model.TeamResult>): TeamFormSnapshot {
@@ -100,6 +109,16 @@ data class TeamFormSnapshot(
                 awayDraws = away.count { it.outcome == com.footballai.app.domain.model.ResultOutcome.DRAW },
                 awayLosses = away.count { it.outcome == com.footballai.app.domain.model.ResultOutcome.LOSS },
                 cleanSheets = results.count { it.goalsAgainst == 0 },
+                secondHalfGoalsFor = results.sumOf { result ->
+                    result.halfTimeGoalsFor?.let { result.goalsFor - it } ?: 0
+                },
+                secondHalfGoalsAgainst = results.sumOf { result ->
+                    result.halfTimeGoalsAgainst?.let { result.goalsAgainst - it } ?: 0
+                },
+                halfTimeKnown = results.count { it.halfTimeGoalsFor != null },
+                halfTimeGoalsTotal = results
+                    .filter { it.halfTimeGoalsFor != null }
+                    .sumOf { it.goalsFor },
                 sequence = results.sortedByDescending { it.kickoffEpochMs }
                     .map { it.outcome },
             )
