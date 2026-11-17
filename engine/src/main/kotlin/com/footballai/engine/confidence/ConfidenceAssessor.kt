@@ -99,9 +99,13 @@ object ConfidenceAssessor {
             home >= 0.0 && draw >= 0.0 && away >= 0.0 &&
             abs(home + draw + away - 1.0) <= 1e-6
 
+        // A forecast about two teams is only as well evidenced as its thinner side: the
+        // opponent's long history does not make up for our own short one. This is also
+        // the number [minTeamSample] below is built from, so the figure on screen and the
+        // figure that sets the confidence level can no longer disagree.
         val effectiveSample = minOf(
             input.competitionHistoricalMatches.coerceAtLeast(0),
-            maxOf(input.homeMatchesUsed, input.awayMatchesUsed).coerceAtLeast(0),
+            minOf(input.homeMatchesUsed, input.awayMatchesUsed).coerceAtLeast(0),
         )
         val uncertainty = entropy(home, draw, away)
         val topGap = topGap(home, draw, away)

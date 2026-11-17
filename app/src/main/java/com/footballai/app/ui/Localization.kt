@@ -160,7 +160,16 @@ fun qualityNoteLabel(code: String): String = text(
         "LINEUPS_UNAVAILABLE" -> R.string.note_lineups_unavailable
         "INJURIES_UNAVAILABLE" -> R.string.note_injuries_unavailable
         "MODEL_NOT_CALIBRATED" -> R.string.note_model_not_calibrated
-        else -> R.string.note_model_not_calibrated
+        // A note code without its own sentence used to fall through to the
+        // "uncalibrated" text, so a calibrated forecast contradicted itself on screen.
+        // Each code the engine can emit now has its own wording, and the fallback says
+        // only what is known: a limitation that does not move the numbers.
+        "CALIBRATION_APPLIED" -> R.string.note_calibration_applied
+        "CALIBRATION_UNAVAILABLE" -> R.string.note_calibration_unavailable
+        "NATIONAL_TEAM_MODEL" -> R.string.note_national_team_model
+        "NEUTRAL_VENUE" -> R.string.note_neutral_venue
+        "INSUFFICIENT_EVIDENCE" -> R.string.note_insufficient_evidence
+        else -> R.string.note_generic
     },
 )
 

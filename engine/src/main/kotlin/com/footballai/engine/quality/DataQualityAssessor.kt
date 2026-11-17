@@ -96,7 +96,11 @@ object DataQualityAssessor {
         }
         if (!inputs.hasLineups) notes.add(QualityNote(QualityNoteCode.LINEUPS_UNAVAILABLE))
         if (!inputs.hasInjuries) notes.add(QualityNote(QualityNoteCode.INJURIES_UNAVAILABLE))
-        notes.add(QualityNote(QualityNoteCode.MODEL_NOT_CALIBRATED))
+        // Calibration is deliberately *not* recorded here. This assessor only sees data
+        // availability and has no way to know whether a fitted correction was applied;
+        // stamping "uncalibrated" unconditionally put that sentence on the same screen as
+        // "yes, calibrated on N forecasts". The engine adds CALIBRATION_APPLIED or
+        // CALIBRATION_UNAVAILABLE when it actually builds the forecast.
 
         // Live-only evidence must not make HIGH unreachable before kickoff. Normalize
         // against the evidence categories applicable to this prediction context.

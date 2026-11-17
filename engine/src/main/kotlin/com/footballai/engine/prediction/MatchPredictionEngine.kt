@@ -585,7 +585,13 @@ class MatchPredictionEngine(private val config: EngineConfig = EngineConfig()) {
             if (input.competition.neutralVenue) add(QualityNote(QualityNoteCode.NEUTRAL_VENUE))
             if (input.competition.isInternational) add(QualityNote(QualityNoteCode.NATIONAL_TEAM_MODEL))
         }
-        val notes = (input.quality.notes + profileNotes + note).distinct()
+        // One statement about calibration, and it is the true one: a note carried in from
+        // an earlier stage is dropped rather than printed beside its own opposite.
+        val inherited = input.quality.notes.filterNot {
+            it.code == QualityNoteCode.MODEL_NOT_CALIBRATED || it.code == QualityNoteCode.CALIBRATION_APPLIED ||
+                it.code == QualityNoteCode.CALIBRATION_UNAVAILABLE
+        }
+        val notes = (inherited + profileNotes + note).distinct()
         return input.quality.copy(notes = notes)
     }
 

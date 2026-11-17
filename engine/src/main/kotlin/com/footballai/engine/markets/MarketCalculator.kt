@@ -92,9 +92,14 @@ object MarketCalculator {
 
         val firstHalf = firstHalfShare?.let { share ->
             val safeShare = share.coerceIn(0.3, 0.6)
+            // The correction the matrix was built with has to survive the split. Without
+            // it the half-time numbers come from a different model than the final score,
+            // and the four scorelines Dixon-Coles exists to correct (0-0, 1-0, 0-1, 1-1)
+            // are exactly the ones a half-time grid is mostly made of.
             firstHalfProbabilities(
                 homeLambda = matrix.homeLambda * safeShare,
                 awayLambda = matrix.awayLambda * safeShare,
+                rho = matrix.rho,
             )
         }
 
@@ -117,8 +122,12 @@ object MarketCalculator {
         )
     }
 
-    private fun firstHalfProbabilities(homeLambda: Double, awayLambda: Double): FirstHalfProbabilities {
-        val matrix = ScoreMatrix(homeLambda = homeLambda, awayLambda = awayLambda)
+    private fun firstHalfProbabilities(
+        homeLambda: Double,
+        awayLambda: Double,
+        rho: Double,
+    ): FirstHalfProbabilities {
+        val matrix = ScoreMatrix(homeLambda = homeLambda, awayLambda = awayLambda, rho = rho)
         return FirstHalfProbabilities(
             homeWin = matrix.homeWin(),
             draw = matrix.draw(),

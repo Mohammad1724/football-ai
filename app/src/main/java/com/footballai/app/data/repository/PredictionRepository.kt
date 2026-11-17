@@ -475,7 +475,7 @@ class PredictionRepository(
                 level = quality.level.toDomain(),
                 completeness = quality.completeness,
                 missing = quality.missing.map { it.name },
-                notes = quality.notes.map { it.code.name },
+                notes = calibrationNotes(quality.notes.map { it.code.name }, calibration?.method),
                 historicalMatchesUsed = quality.historicalMatchesUsed,
             ),
             explanations = explanations.map { ExplanationView(it.code.name, it.weight, it.params) },
@@ -524,6 +524,22 @@ class PredictionRepository(
                 )
             },
         )
+    }
+
+    /**
+     * Keeps at most one statement about calibration, and only a true one.
+     *
+     * A prediction fitted with a calibration curve must not also say it has none; a
+     * prediction without one must not claim it has. Anything else in the list is passed
+     * through untouched.
+     */
+    private fun calibrationNotes(notes: List<String>, appliedMethod: String?): List<String> {
+        val applied = appliedMethod != null && appliedMethod != "NONE"
+        val filtered = notes.filterNot { code ->
+            code == "MODEL_NOT_CALIBRATED" || code == "CALIBRATION_APPLIED" || code == "CALIBRATION_UNAVAILABLE"
+        }
+        val statement = if (applied) "CALIBRATION_APPLIED" else "CALIBRATION_UNAVAILABLE"
+        return if (notes.isEmpty()) filtered else filtered + statement
     }
 
     private fun buildMarketRows(result: PredictionResult): List<MarketRow> {
@@ -624,7 +640,10 @@ class PredictionRepository(
                 level = runCatching { QualityLevel.valueOf(entity.qualityLevel) }.getOrDefault(QualityLevel.INSUFFICIENT),
                 completeness = entity.qualityCompleteness,
                 missing = quality.missing,
-                notes = quality.notes,
+                // A forecast stored before this was fixed still carries the old note; the
+                // stored calibration says whether it applies, so the contradiction is
+                // corrected on the way out rather than waiting for a regeneration.
+                notes = calibrationNotes(quality.notes, storedConfidence.second?.method),
                 historicalMatchesUsed = entity.fittedMatches,
             ),
             explanations = Serialized.decodeExplanations(entity.explanationsJson),
