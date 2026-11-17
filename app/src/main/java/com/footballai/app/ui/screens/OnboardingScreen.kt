@@ -65,6 +65,7 @@ import com.footballai.app.domain.model.ProviderInfo
 import com.footballai.app.ui.LocalAppContainer
 import com.footballai.app.ui.components.InfoCard
 import com.footballai.app.ui.errorLabel
+import com.footballai.app.ui.localizedString
 import com.footballai.app.ui.viewmodel.FollowOption
 import com.footballai.app.ui.viewmodel.OnboardingStep
 import com.footballai.app.ui.viewmodel.OnboardingUiState
@@ -111,7 +112,7 @@ fun OnboardingScreen() {
             StepProgress(
                 current = state.stepIndex,
                 total = if (state.step == OnboardingStep.WELCOME) 1 else state.stepCount,
-                label = if (state.step == OnboardingStep.WELCOME) stringResource(R.string.daily_mode_title) else stringResource(R.string.onboarding_step, state.stepIndex, state.stepCount),
+                label = if (state.step == OnboardingStep.WELCOME) stringResource(R.string.daily_mode_title) else localizedString(R.string.onboarding_step, state.stepIndex, state.stepCount),
             )
             Column(
                 modifier = Modifier
@@ -369,7 +370,7 @@ private fun ProviderOptionCard(info: ProviderInfo, selected: Boolean, onSelect: 
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Text(
-                    text = stringResource(
+                    text = localizedString(
                         R.string.provider_quota,
                         info.quota.requestsPerMinute,
                         if (info.quota.requestsPerDay <= 0) {
@@ -480,7 +481,7 @@ private fun HistoryStep(
     }
     Spacer(Modifier.height(8.dp))
     Text(
-        text = stringResource(R.string.ob_history_estimate, state.estimatedRequests),
+        text = localizedString(R.string.ob_history_estimate, state.estimatedRequests),
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
@@ -508,7 +509,7 @@ private fun HistoryStep(
         Spacer(Modifier.height(12.dp))
         InfoCard(
             title = stringResource(R.string.ob_history_title),
-            body = stringResource(R.string.ob_history_result, imported, state.importedCompetitions),
+            body = localizedString(R.string.ob_history_result, imported, state.importedCompetitions),
             containerColor = MaterialTheme.colorScheme.secondaryContainer,
         )
     }

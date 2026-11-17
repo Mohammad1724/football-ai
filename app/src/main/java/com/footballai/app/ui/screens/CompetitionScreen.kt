@@ -1,6 +1,7 @@
 package com.footballai.app.ui.screens
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -78,7 +79,12 @@ fun CompetitionScreen(
                     title = stringResource(R.string.empty_competition_title),
                     message = stringResource(R.string.empty_competition_message),
                 )
-                else -> LazyColumn(modifier = Modifier.fillMaxSize()) {
+                // Same bottom inset as the other lists: without it the last card sits under
+                // the gesture bar and looks cut off.
+                else -> LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(bottom = 24.dp),
+                ) {
                     items(state.fixtures, key = { it.id }) { match ->
                         MatchCard(
                             match = match,

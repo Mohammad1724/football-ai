@@ -244,6 +244,9 @@
     <string name="section_explanation">Why this result</string>
     <string name="section_explanation_subtitle">Main factors behind the probabilities</string>
     <string name="section_form">Form</string>
+    <string name="form_win">Win</string>
+    <string name="form_draw">Draw</string>
+    <string name="form_loss">Loss</string>
     <string name="section_history_import">Historical data</string>
     <string name="section_history_import_subtitle">Bulk results used to fit the ratings and to backtest</string>
     <string name="section_language">Language</string>
@@ -310,6 +313,7 @@
     <string name="tab_head_to_head">H2H</string>
     <string name="tab_live">Live</string>
     <string name="tab_statistics">Statistics</string>
+    <string name="tab_lineups">Lineups</string>
     <string name="theme_dark">Dark</string>
     <string name="theme_light">Light</string>
     <string name="theme_system">System</string>

@@ -15,6 +15,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -41,10 +43,12 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.footballai.app.R
 import com.footballai.app.core.Formatters
+import com.footballai.app.domain.catalog.NameLocalization
 import com.footballai.app.domain.model.ResultOutcome
 import com.footballai.app.domain.model.TeamResult
 import com.footballai.app.ui.LocalAppContainer
 import com.footballai.app.ui.LocalLanguageTag
+import com.footballai.app.ui.localizedString
 import com.footballai.app.ui.components.SoftBackButton
 import com.footballai.app.ui.components.EmptyState
 import com.footballai.app.ui.components.LoadingState
@@ -76,7 +80,14 @@ fun TeamScreen(teamId: String, onBack: () -> Unit) {
                         contentDescription = stringResource(R.string.action_back),
                     )
                 },
-                title = { Text(profile?.team?.name ?: stringResource(R.string.title_team)) },
+                title = {
+                    // The bar follows the same rule as every other team name on the screen.
+                    Text(
+                        profile?.let {
+                            NameLocalization.displayName(it.team.name, languageTag, it.team.shortName)
+                        } ?: stringResource(R.string.title_team),
+                    )
+                },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
             )
         },
@@ -160,7 +171,7 @@ fun TeamScreen(teamId: String, onBack: () -> Unit) {
                         )
                         profile.form.sequence.take(6).forEach { outcome -> FormDot(outcome) }
                         Text(
-                            text = stringResource(
+                            text = localizedString(
                                 R.string.form_summary,
                                 profile.form.wins,
                                 profile.form.draws,
@@ -217,10 +228,12 @@ private fun FormDot(outcome: ResultOutcome) {
         ResultOutcome.DRAW -> MaterialTheme.colorScheme.onSurfaceVariant
         ResultOutcome.LOSS -> colors.danger
     }
-    val letter = when (outcome) {
-        ResultOutcome.WIN -> "W"
-        ResultOutcome.DRAW -> "D"
-        ResultOutcome.LOSS -> "L"
+    // A tick, a bar and a cross instead of W/D/L: the letters were Latin inside a Persian
+    // screen, and a single Latin letter in a coloured dot reads as a foreign word.
+    val label = when (outcome) {
+        ResultOutcome.WIN -> stringResource(R.string.form_win)
+        ResultOutcome.DRAW -> stringResource(R.string.form_draw)
+        ResultOutcome.LOSS -> stringResource(R.string.form_loss)
     }
     androidx.compose.foundation.layout.Box(
         modifier = Modifier
@@ -229,12 +242,20 @@ private fun FormDot(outcome: ResultOutcome) {
             .background(color),
         contentAlignment = Alignment.Center,
     ) {
-        Text(
-            text = letter,
-            style = MaterialTheme.typography.labelSmall,
-            color = androidx.compose.ui.graphics.Color.White,
-            fontWeight = FontWeight.Bold,
-        )
+        when (outcome) {
+            ResultOutcome.WIN, ResultOutcome.LOSS -> Icon(
+                imageVector = if (outcome == ResultOutcome.WIN) Icons.Default.Check else Icons.Default.Close,
+                contentDescription = label,
+                tint = androidx.compose.ui.graphics.Color.White,
+                modifier = Modifier.size(13.dp),
+            )
+            ResultOutcome.DRAW -> androidx.compose.foundation.layout.Box(
+                modifier = Modifier
+                    .width(9.dp)
+                    .height(2.dp)
+                    .background(androidx.compose.ui.graphics.Color.White, androidx.compose.foundation.shape.RoundedCornerShape(1.dp)),
+            ) { }
+        }
     }
 }
 
@@ -253,7 +274,11 @@ private fun ResultRow(result: TeamResult, languageTag: String) {
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(text = result.opponent.name, style = MaterialTheme.typography.bodyMedium)
+                TeamNameLines(
+                    team = result.opponent,
+                    languageTag = languageTag,
+                    primaryStyle = MaterialTheme.typography.bodyMedium,
+                )
                 Text(
                     text = Formatters.dateOnly(result.kickoffEpochMs, languageTag),
                     style = MaterialTheme.typography.labelSmall,

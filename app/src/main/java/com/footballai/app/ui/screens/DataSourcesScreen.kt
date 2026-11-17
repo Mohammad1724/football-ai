@@ -59,6 +59,7 @@ import com.footballai.app.data.repository.HistoricalSourceOption
 import com.footballai.app.data.repository.SyncSummary
 import com.footballai.app.ui.LocalAppContainer
 import com.footballai.app.ui.LocalLanguageTag
+import com.footballai.app.ui.localizedString
 import com.footballai.app.ui.components.SoftBackButton
 import com.footballai.app.ui.components.CompetitionNameText
 import com.footballai.app.ui.components.SectionHeader
@@ -401,7 +402,7 @@ private fun ProviderCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(
-                text = stringResource(
+                text = localizedString(
                     R.string.provider_quota,
                     info.quota.requestsPerMinute,
                     if (info.quota.requestsPerDay == 0) stringResource(R.string.unlimited) else info.quota.requestsPerDay.toString(),

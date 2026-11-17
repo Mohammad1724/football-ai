@@ -50,6 +50,7 @@ import com.footballai.app.domain.model.CompetitionPerformance
 import com.footballai.app.domain.model.PerformanceReport
 import com.footballai.app.ui.LocalAppContainer
 import com.footballai.app.ui.LocalLanguageTag
+import com.footballai.app.ui.localizedString
 import com.footballai.app.ui.components.CalibrationChart
 import com.footballai.app.ui.components.EmptyState
 import com.footballai.app.ui.components.ErrorState
@@ -247,7 +248,7 @@ fun PerformanceScreen() {
                                     if (judged.isNotEmpty()) {
                                         Spacer(Modifier.height(6.dp))
                                         Text(
-                                            text = stringResource(
+                                            text = localizedString(
                                                 R.string.competition_table_summary,
                                                 better,
                                                 judged.size,
@@ -333,7 +334,7 @@ private fun CalibrationStudyCard(
                     )
                     else -> {
                         Text(
-                            text = stringResource(R.string.calibration_fitted, study.sampleCount),
+                            text = localizedString(R.string.calibration_fitted, study.sampleCount),
                             style = MaterialTheme.typography.bodyMedium,
                         )
                         Spacer(Modifier.height(4.dp))
@@ -364,7 +365,7 @@ private fun CalibrationStudyCard(
                 }
                 Spacer(Modifier.height(6.dp))
                 Text(
-                    text = stringResource(R.string.calibration_local_samples, fittedSamples),
+                    text = localizedString(R.string.calibration_local_samples, fittedSamples),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

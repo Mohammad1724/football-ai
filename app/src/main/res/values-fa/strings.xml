@@ -244,6 +244,9 @@
     <string name="section_explanation">چرا این نتیجه</string>
     <string name="section_explanation_subtitle">عوامل اصلی پشت این احتمال‌ها</string>
     <string name="section_form">فرم</string>
+    <string name="form_win">برد</string>
+    <string name="form_draw">مساوی</string>
+    <string name="form_loss">باخت</string>
     <string name="section_history_import">داده تاریخی</string>
     <string name="section_history_import_subtitle">نتایج انبوه برای برازش رتبه‌ها و آزمون تاریخی</string>
     <string name="section_language">زبان</string>
@@ -310,6 +313,7 @@
     <string name="tab_head_to_head">رویارویی</string>
     <string name="tab_live">زنده</string>
     <string name="tab_statistics">آمار</string>
+    <string name="tab_lineups">ترکیب‌ها</string>
     <string name="theme_dark">تیره</string>
     <string name="theme_light">روشن</string>
     <string name="theme_system">سیستم</string>

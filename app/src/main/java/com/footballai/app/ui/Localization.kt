@@ -5,6 +5,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.res.stringResource
 import com.footballai.app.R
 import com.footballai.app.core.AppError
+import com.footballai.app.core.Formatters
 import com.footballai.app.core.ErrorCode
 import com.footballai.app.core.RelativeLabel
 import com.footballai.app.core.RelativeUnit
@@ -17,6 +18,18 @@ val LocalLanguageTag = staticCompositionLocalOf { "en" }
 
 @Composable
 private fun text(resId: Int): String = stringResource(resId)
+
+/**
+ * A formatted string whose digits follow the active language.
+ *
+ * Android formats `%d` with Latin digits whatever the locale is, so a Persian sentence
+ * such as "۳ برد، ۲ مساوی" used to arrive with "3" and "2" in it. Localising the finished
+ * sentence covers every number in it at once — the arguments and any digits the caller
+ * passed as text — instead of asking each call site to localise its own arguments.
+ */
+@Composable
+fun localizedString(resId: Int, vararg args: Any): String =
+    Formatters.localizeDigits(stringResource(resId, *args), LocalLanguageTag.current)
 
 @Composable
 fun matchStatusLabel(status: MatchStatus): String = text(
@@ -214,15 +227,15 @@ fun errorLabel(error: AppError): String {
 @Composable
 fun relativeLabel(label: RelativeLabel, isPast: Boolean): String = when (label.unit) {
     RelativeUnit.NOW -> text(R.string.relative_now)
-    RelativeUnit.MINUTES -> stringResource(
+    RelativeUnit.MINUTES -> localizedString(
         if (isPast) R.string.relative_minutes_ago else R.string.relative_in_minutes,
         label.value,
     )
-    RelativeUnit.HOURS -> stringResource(
+    RelativeUnit.HOURS -> localizedString(
         if (isPast) R.string.relative_hours_ago else R.string.relative_in_hours,
         label.value,
     )
-    RelativeUnit.DAYS -> stringResource(
+    RelativeUnit.DAYS -> localizedString(
         if (isPast) R.string.relative_days_ago else R.string.relative_in_days,
         label.value,
     )
