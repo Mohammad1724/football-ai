@@ -177,6 +177,15 @@ class ScoreMatrix private constructor(
         /** Region masses below this are treated as degenerate and never rescaled. */
         private const val MIN_REGION_MASS = 1e-9
 
+        /**
+         * Corrections at or below this are ignored, mirroring the fitter's `tauFloor`.
+         *
+         * The floor exists because the tau factor is a multiplier on a cell: near zero it
+         * would erase a scoreline the model has no evidence to erase, and below zero it
+         * would produce a negative probability.
+         */
+        private const val TAU_FLOOR = 0.05
+
         private fun build(homeLambda: Double, awayLambda: Double, rho: Double, maxGoals: Int): DoubleArray {
             require(homeLambda >= 0.0 && homeLambda.isFinite()) { "homeLambda must be non-negative and finite" }
             require(awayLambda >= 0.0 && awayLambda.isFinite()) { "awayLambda must be non-negative and finite" }
@@ -197,7 +206,12 @@ class ScoreMatrix private constructor(
                         h == 1 && a == 1 -> 1.0 - rho
                         else -> 1.0
                     }
-                    val tau = if (factor > 0.0) factor else 1.0
+                    // The same rule the fit uses: a correction at or below this floor is
+                    // treated as no correction. The two guards used to disagree — the fit
+                    // discarded anything up to 0.05, the matrix only what fell to zero — so
+                    // the model that estimated rho and the model that applied it disagreed
+                    // about which scorelines the correction even reached.
+                    val tau = if (factor > TAU_FLOOR) factor else 1.0
                     val value = pHome * Poisson.pmf(a, awayLambda) * tau
                     cells[h * size + a] = value
                     sum += value

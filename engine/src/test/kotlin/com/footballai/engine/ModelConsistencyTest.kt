@@ -226,4 +226,25 @@ class ModelConsistencyTest {
         assertEquals(375, model.selectionCount)
         assertTrue(model.holdoutLogLossAfter < model.holdoutLogLossBefore)
     }
+
+    /**
+     * The fitter discards a correction at or below its floor; the matrix used to discard
+     * only what fell to zero or below. The same rho therefore reached different scorelines
+     * depending on which side of the pipeline you asked. Both now use one rule, and extreme
+     * inputs stay a probability distribution instead of producing a negative cell.
+     */
+    @Test
+    fun `an extreme correction never breaks the score matrix`() {
+        val matrix = ScoreMatrix(homeLambda = 6.0, awayLambda = 6.0, rho = 0.2)
+        assertEquals(1.0, matrix.totalMass(), 1e-9)
+        for (h in 0..10) {
+            for (a in 0..10) {
+                val p = matrix.probability(h, a)
+                assertTrue(p >= 0.0 && p.isFinite(), "cell $h-$a must stay a probability, got $p")
+            }
+        }
+        // The 0-0 correction factor at these rates is far below the floor, so the cell is
+        // left as plain Poisson rather than being erased.
+        assertTrue(matrix.probability(0, 0) > 0.0)
+    }
 }
