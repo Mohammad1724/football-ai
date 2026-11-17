@@ -70,6 +70,13 @@ data class CalibrationModel(
     val holdoutExpectedCalibrationError: Double = Double.NaN,
     /** Reasons why no correction was adopted; empty when [method] is not NONE. */
     val reasons: List<CalibrationSkipReason> = emptyList(),
+    /**
+     * Rows used to choose between the candidates and then thrown away.
+     *
+     * Choosing and judging on the same slice makes the reported improvement the maximum
+     * of a few noisy estimates rather than an estimate of what the correction is worth.
+     */
+    val selectionCount: Int = 0,
 ) {
     val isApplied: Boolean get() = method != CalibrationMethod.NONE
 
@@ -124,6 +131,8 @@ object Calibrator {
     data class Config(
         val minSamples: Int = 400,
         val minHoldoutSamples: Int = 150,
+        /** Minimum rows reserved for choosing between candidates; they are never reported on. */
+        val minSelectionSamples: Int = 60,
         val holdoutFraction: Double = 0.25,
         /** Minimum out-of-sample log-loss gain required before a correction is used. */
         val minHoldoutImprovement: Double = 0.002,
@@ -149,9 +158,16 @@ object Calibrator {
             )
         }
 
+        // Three slices, because one slice cannot do two jobs.
+        //
+        // The oldest part *fits* the candidates, the middle part *chooses* between them,
+        // and the most recent part — which nothing has looked at yet — decides whether the
+        // winner is adopted at all and supplies the numbers reported to the user. Before
+        // this, the winner was picked on the holdout and then scored on that same holdout,
+        // so the reported improvement was the best of two noisy estimates rather than an
+        // estimate of anything.
         val holdoutSize = (usable.size * config.holdoutFraction).toInt()
         val trainSize = usable.size - holdoutSize
-        val train = usable.subList(0, trainSize)
         val holdout = usable.subList(trainSize, usable.size)
         if (holdout.size < config.minHoldoutSamples) {
             return CalibrationModel(
@@ -161,11 +177,22 @@ object Calibrator {
             )
         }
 
-        val temperature = fitTemperature(train, config)
-        val curves = fitIsotonicCurves(train, config)
+        val selectionSize = (trainSize * config.holdoutFraction).toInt()
+        val fitSize = trainSize - selectionSize
+        if (selectionSize < config.minSelectionSamples || fitSize < config.minSelectionSamples) {
+            return CalibrationModel(
+                method = CalibrationMethod.NONE,
+                sampleCount = usable.size,
+                reasons = listOf(CalibrationSkipReason.NOT_ENOUGH_HOLDOUT_SAMPLES),
+            )
+        }
+        val fitSlice = usable.subList(0, fitSize)
+        val selection = usable.subList(fitSize, trainSize)
+
+        val temperature = fitTemperature(fitSlice, config)
+        val curves = fitIsotonicCurves(fitSlice, config)
 
         val candidates = listOf(
-            CalibrationModel(method = CalibrationMethod.NONE, sampleCount = usable.size),
             CalibrationModel(
                 method = CalibrationMethod.TEMPERATURE,
                 temperature = temperature,
@@ -178,50 +205,55 @@ object Calibrator {
                 sampleCount = usable.size,
             ),
         ).filter { candidate ->
-            // A candidate must be well defined on the holdout slice.
-            holdout.all { sample ->
-                val calibrated = apply(candidate, sample.homeWin, sample.draw, sample.awayWin)
-                isValid(calibrated)
+            // A candidate must be well defined where it is chosen and where it is judged.
+            (selection + holdout).all { sample ->
+                isValid(apply(candidate, sample.homeWin, sample.draw, sample.awayWin))
             }
         }
 
-        val scored = candidates.map { candidate -> candidate to logLoss(holdout, candidate) }
-        val baselineLoss = scored.firstOrNull { it.first.method == CalibrationMethod.NONE }?.second
-            ?: return CalibrationModel(
+        val selected = candidates.minByOrNull { logLoss(selection, it) }
+        val baselineLoss = logLoss(holdout, CalibrationModel.NONE)
+        val selectedLoss = selected?.let { logLoss(holdout, it) } ?: Double.NaN
+
+        if (selected == null) {
+            return CalibrationModel(
                 method = CalibrationMethod.NONE,
                 sampleCount = usable.size,
+                holdoutCount = holdout.size,
+                holdoutLogLossBefore = baselineLoss,
+                holdoutLogLossAfter = baselineLoss,
+                selectionCount = selection.size,
                 reasons = listOf(CalibrationSkipReason.DEGENERATE_DISTRIBUTION),
             )
-        val best = scored
-            .filter { it.first.method != CalibrationMethod.NONE }
-            .minByOrNull { it.second }
+        }
 
-        if (best == null || best.second.isNaN() || baselineLoss.isNaN() ||
-            baselineLoss - best.second < config.minHoldoutImprovement
+        if (selectedLoss.isNaN() || baselineLoss.isNaN() ||
+            baselineLoss - selectedLoss < config.minHoldoutImprovement
         ) {
             return CalibrationModel(
                 method = CalibrationMethod.NONE,
                 sampleCount = usable.size,
-                trainLogLossBefore = logLoss(train, CalibrationModel.NONE),
-                trainLogLossAfter = logLoss(train, CalibrationModel.NONE),
+                trainLogLossBefore = logLoss(fitSlice, CalibrationModel.NONE),
+                trainLogLossAfter = logLoss(fitSlice, CalibrationModel.NONE),
                 holdoutCount = holdout.size,
                 holdoutLogLossBefore = baselineLoss,
                 holdoutLogLossAfter = baselineLoss,
                 holdoutExpectedCalibrationError = expectedCalibrationError(holdout, CalibrationModel.NONE),
+                selectionCount = selection.size,
                 reasons = listOf(CalibrationSkipReason.NO_OUT_OF_SAMPLE_IMPROVEMENT),
             )
         }
 
-        val chosen = best.first.copy(
+        return selected.copy(
             sampleCount = usable.size,
-            trainLogLossBefore = logLoss(train, CalibrationModel.NONE),
-            trainLogLossAfter = logLoss(train, best.first),
+            selectionCount = selection.size,
+            trainLogLossBefore = logLoss(fitSlice, CalibrationModel.NONE),
+            trainLogLossAfter = logLoss(fitSlice, selected),
             holdoutCount = holdout.size,
             holdoutLogLossBefore = baselineLoss,
-            holdoutLogLossAfter = best.second,
-            holdoutExpectedCalibrationError = expectedCalibrationError(holdout, best.first),
+            holdoutLogLossAfter = selectedLoss,
+            holdoutExpectedCalibrationError = expectedCalibrationError(holdout, selected),
         )
-        return chosen
     }
 
     /** Applies a fitted model and returns a normalised triple. */

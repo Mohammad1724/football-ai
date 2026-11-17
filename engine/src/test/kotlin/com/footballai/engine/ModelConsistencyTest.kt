@@ -2,6 +2,8 @@ package com.footballai.engine
 
 import com.footballai.engine.calibration.CalibrationMethod
 import com.footballai.engine.calibration.CalibrationModel
+import com.footballai.engine.calibration.CalibrationSample
+import com.footballai.engine.calibration.Calibrator
 import com.footballai.engine.confidence.ConfidenceAssessor
 import com.footballai.engine.confidence.ConfidenceInput
 import com.footballai.engine.eval.BinarySample
@@ -20,6 +22,7 @@ import com.footballai.engine.prediction.MatchPredictionEngine
 import com.footballai.engine.quality.DataQualityAssessor
 import com.footballai.engine.quality.QualityInputs
 import kotlin.math.abs
+import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -194,5 +197,33 @@ class ModelConsistencyTest {
         // Pooled over three outcomes: (0.8 + 0.1 + 0.9) / 6 observations = 0.3.
         assertEquals(0.3, pooled, 1e-9)
         assertTrue(abs(homeColumn - pooled) > 1e-6, "the two measures are not interchangeable")
+    }
+
+    /**
+     * Choosing a correction and judging it on the same rows turns the reported improvement
+     * into the best of a few noisy guesses. The chosen method must be picked on one slice
+     * and scored on another that nothing has looked at.
+     */
+    @Test
+    fun `a correction is chosen on one slice and judged on another`() {
+        val random = Random(19)
+        val samples = (0 until 2000).map { _ ->
+            val roll = random.nextDouble()
+            val actual = when {
+                roll < 0.45 -> MatchOutcome.HOME_WIN
+                roll < 0.72 -> MatchOutcome.DRAW
+                else -> MatchOutcome.AWAY_WIN
+            }
+            // A model that always claims 0.70 for the home side: it needs flattening, and
+            // the need is visible on any slice of this source.
+            CalibrationSample(0.70, 0.18, 0.12, actual)
+        }
+        val model = Calibrator.fit(samples)
+        assertTrue(model.isApplied, "an overconfident source must be corrected")
+        // 2000 rows: 500 withheld for judging, 375 reserved for choosing, 1125 fitted on.
+        assertEquals(2000, model.sampleCount)
+        assertEquals(500, model.holdoutCount)
+        assertEquals(375, model.selectionCount)
+        assertTrue(model.holdoutLogLossAfter < model.holdoutLogLossBefore)
     }
 }
