@@ -52,6 +52,7 @@ import com.footballai.app.domain.catalog.NameLocalization
 import com.footballai.app.domain.model.PredictionWithMatch
 import com.footballai.app.ui.LocalAppContainer
 import com.footballai.app.ui.LocalLanguageTag
+import com.footballai.app.ui.localizedString
 import com.footballai.app.ui.components.EmptyState
 import com.footballai.app.ui.components.InfoCard
 import com.footballai.app.ui.components.LoadingState
@@ -104,14 +105,14 @@ fun PredictionsScreen(onMatchClick: (String) -> Unit) {
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
             SyncStatusStrip(
                 isSyncing = state.refreshing,
-                isAuto = false,
-                progressDone = 0,
-                progressTotal = 0,
-                lastSyncEpochMs = null,
-                nowEpochMs = System.currentTimeMillis(),
+                isAuto = state.autoSyncing,
+                progressDone = state.syncDone,
+                progressTotal = state.syncTotal,
+                lastSyncEpochMs = state.lastSyncEpochMs,
+                nowEpochMs = state.nowEpochMs,
                 added = state.lastSyncedAdded.takeIf { it > 0 },
                 error = state.lastError,
-                isOnline = true,
+                isOnline = state.isOnline,
                 languageTag = languageTag,
             )
             if (state.isLoading) {
@@ -134,11 +135,17 @@ fun PredictionsScreen(onMatchClick: (String) -> Unit) {
                 isRefreshing = state.refreshing,
                 onRefresh = viewModel::refresh,
                 onPullStateChange = { pullActive = it },
+                enabled = state.isOnline,
                 modifier = Modifier.weight(1f),
             ) {
                 if (state.items.isEmpty()) {
                     // A static screen still needs a scroll for the pull gesture to reach it.
                     ScrollableRefreshContent {
+                        // A run that found nothing must still say so; hiding the report
+                        // exactly when the list is empty hid the only proof the button worked.
+                        state.dailyReport?.let { report ->
+                            DailyReportCard(report = report, languageTag = languageTag)
+                        }
                         EmptyState(
                             title = stringResource(
                                 if (state.filter == PredictionListFilter.UPCOMING) R.string.empty_upcoming_predictions_title
@@ -168,20 +175,7 @@ fun PredictionsScreen(onMatchClick: (String) -> Unit) {
                     ) {
                         // What the daily analysis did, where the forecasts it made live.
                         state.dailyReport?.let { report ->
-                            item {
-                                InfoCard(
-                                    title = stringResource(R.string.daily_report_title),
-                                    body = stringResource(
-                                        R.string.daily_report_body,
-                                        Formatters.integer(report.coveredLeagues, languageTag),
-                                        Formatters.integer(report.candidates, languageTag),
-                                        Formatters.integer(report.predicted + report.alreadySaved, languageTag),
-                                        Formatters.integer(report.insufficientHistory, languageTag),
-                                        Formatters.integer(report.failed, languageTag),
-                                        Formatters.kickoffDateTime(report.attemptedAt, languageTag),
-                                    ),
-                                )
-                            }
+                            item { DailyReportCard(report = report, languageTag = languageTag) }
                         }
                         items(state.items, key = { it.prediction.id }) { item ->
                             // A finished match resolving moves the rows under the finger;
@@ -200,6 +194,26 @@ fun PredictionsScreen(onMatchClick: (String) -> Unit) {
             }
         }
     }
+}
+
+/** What the daily analysis run did, in numbers a non-specialist can read. */
+@Composable
+private fun DailyReportCard(
+    report: com.footballai.app.data.repository.DailyAnalysisReport,
+    languageTag: String,
+) {
+    InfoCard(
+        title = stringResource(R.string.daily_report_title),
+        body = stringResource(
+            R.string.daily_report_body,
+            Formatters.integer(report.coveredLeagues, languageTag),
+            Formatters.integer(report.candidates, languageTag),
+            Formatters.integer(report.predicted + report.alreadySaved, languageTag),
+            Formatters.integer(report.insufficientHistory, languageTag),
+            Formatters.integer(report.failed, languageTag),
+            Formatters.kickoffDateTime(report.attemptedAt, languageTag),
+        ),
+    )
 }
 
 @Composable
@@ -302,7 +316,7 @@ private fun PredictionHistoryCard(item: PredictionWithMatch, languageTag: String
             val resolution = prediction.resolution
             if (resolution != null) {
                 Text(
-                    text = stringResource(
+                    text = localizedString(
                         R.string.prediction_resolved_body,
                         resolution.actualHomeGoals,
                         resolution.actualAwayGoals,

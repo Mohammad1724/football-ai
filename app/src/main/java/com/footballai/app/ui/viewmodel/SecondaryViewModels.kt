@@ -97,11 +97,21 @@ data class PredictionsUiState(
     val lastError: com.footballai.app.core.AppError? = null,
     /** Summary of the last daily analysis run; the home screen used to show it. */
     val dailyReport: com.footballai.app.data.repository.DailyAnalysisReport? = null,
+    /** Network reachability, so the strip can say "offline" instead of "no data". */
+    val isOnline: Boolean = true,
+    /** Last successful sync of any kind; null until this device has synced once. */
+    val lastSyncEpochMs: Long? = null,
+    /** Clock for the relative "updated N minutes ago" label, refreshed every 30 s. */
+    val nowEpochMs: Long = 0L,
+    /** True while a background sync runs, so the strip can show its progress. */
+    val autoSyncing: Boolean = false,
+    val syncDone: Int = 0,
+    val syncTotal: Int = 0,
 )
 
 class PredictionsViewModel(private val container: AppContainer) : ViewModel() {
 
-    private val _state = MutableStateFlow(PredictionsUiState())
+    private val _state = MutableStateFlow(PredictionsUiState(nowEpochMs = container.clock.nowEpochMs()))
     val state: StateFlow<PredictionsUiState> = _state.asStateFlow()
     private var latestItems: List<PredictionWithMatch> = emptyList()
 
@@ -133,6 +143,38 @@ class PredictionsViewModel(private val container: AppContainer) : ViewModel() {
         viewModelScope.launch {
             container.dailyAnalysisRepository.reports.collect { report ->
                 _state.update { it.copy(dailyReport = report) }
+            }
+        }
+        // The same status strip as the matches tab, fed real values: this screen used to
+        // hand it a hardcoded "online, never synced, no progress", so the offline banner
+        // and the "updated N minutes ago" line could never appear here.
+        viewModelScope.launch {
+            container.networkMonitor.isOnline.collect { online ->
+                _state.update { it.copy(isOnline = online) }
+            }
+        }
+        viewModelScope.launch {
+            container.autoSyncCoordinator.state.collect { sync ->
+                _state.update {
+                    it.copy(
+                        autoSyncing = sync.isSyncing,
+                        lastSyncEpochMs = sync.lastSuccessEpochMs ?: it.lastSyncEpochMs,
+                        nowEpochMs = container.clock.nowEpochMs(),
+                        syncDone = if (sync.isSyncing) sync.progressDone else it.syncDone,
+                        syncTotal = if (sync.isSyncing) sync.progressTotal else it.syncTotal,
+                    )
+                }
+            }
+        }
+        viewModelScope.launch {
+            container.settingsRepository.settings.collect { settings ->
+                _state.update { it.copy(lastSyncEpochMs = settings.lastSyncEpochMs ?: it.lastSyncEpochMs) }
+            }
+        }
+        viewModelScope.launch {
+            while (true) {
+                kotlinx.coroutines.delay(30_000L)
+                _state.update { it.copy(nowEpochMs = container.clock.nowEpochMs()) }
             }
         }
         resolve()
