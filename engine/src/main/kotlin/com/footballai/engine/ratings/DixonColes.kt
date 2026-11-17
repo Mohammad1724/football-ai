@@ -70,6 +70,7 @@ data class DixonColesFit(
     val matchesUsed: Int,
     val matchesByTeam: Map<String, Int>,
     val trainedThroughEpochMs: Long,
+    /** The penalised objective the optimiser reached, at the unshrunk solution. */
     val logLikelihood: Double,
     val converged: Boolean,
     val iterations: Int,
@@ -344,8 +345,17 @@ object DixonColesFitter {
             else -> 1.0
         }
 
-    /** Utility used by tests and diagnostics: log likelihood of a parameter set. */
-    fun logLikelihood(matches: List<RatingMatch>, fit: DixonColesFit): Double {
+    /**
+     * Log likelihood this parameter set implies for [matches] — evaluated at the strengths
+     * the fit *reports*, which are shrunk toward the league mean and clamped.
+     *
+     * It is therefore not the number the optimiser maximised, and it will not reproduce
+     * [DixonColesFit.logLikelihood]. That is expected: the fit's own figure is the
+     * penalised objective at the unshrunk solution. The name says which one this is so a
+     * diagnostic that disagrees with the fit is read as a measurement of the reported
+     * strengths rather than as a bug in the arithmetic.
+     */
+    fun logLikelihoodAtReportedStrengths(matches: List<RatingMatch>, fit: DixonColesFit): Double {
         var total = 0.0
         for (match in matches) {
             val (lambdaHome, lambdaAway) = fit.expectedGoals(match.homeTeamId, match.awayTeamId)
