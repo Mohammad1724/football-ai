@@ -143,6 +143,12 @@ class PredictionRepository(
         // keyed by the teams' canonical names. The fixture provider has no history of its
         // own, and a national team's strength comes from all of its matches, not from one
         // competition.
+        // How much history the *competition* has. For a national fixture the archive is the
+        // competition, so its size is the honest answer; the two teams' cap counts are team
+        // samples and are reported as such. Reading one team's record into this slot made a
+        // fixture between two 30-cap nations look like a league with 30 matches played, and
+        // the confidence label said INSUFFICIENT while tens of thousands of results existed.
+        val nationalArchiveSize = if (profile.isInternational) ratingsRepository.nationalHistoryCount() else 0
         val national = if (profile.isInternational) {
             if (classification.gender == Gender.WOMEN) {
                 // The archive is men's international football. Using it for a women's
@@ -151,7 +157,7 @@ class PredictionRepository(
                     AppError(ErrorCode.NO_NATIONAL_HISTORY, detail = "women's international history is unavailable"),
                 )
             }
-            if (ratingsRepository.nationalHistoryCount() == 0) {
+            if (nationalArchiveSize == 0) {
                 return Outcome.Failure(AppError(ErrorCode.NO_NATIONAL_HISTORY))
             }
             ratingsRepository.nationalPrepared(
@@ -189,9 +195,10 @@ class PredictionRepository(
         }
         // The league threshold is a club-league rule: it asks for 40 results in the
         // competition. A national fixture has no league, and is judged by the national
-        // model's own evidence rule instead.
+        // model's own evidence rule instead — so it is not gated here, but the size of the
+        // archive still has to reach the evidence assessment below, not a team's record.
         val historyCount = if (national != null) {
-            national.sampleSize
+            nationalArchiveSize
         } else {
             ratingsRepository.matchCount(source, match.competitionId)
         }
