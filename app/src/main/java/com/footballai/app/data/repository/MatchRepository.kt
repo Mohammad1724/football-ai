@@ -97,9 +97,16 @@ class MatchRepository(
     suspend fun headToHead(matchId: String, home: TeamRef, away: TeamRef, limit: Int = 6): List<MatchSummary> {
         val now = clock.nowEpochMs()
         val stored = decorate(db.matchDao().headToHead(matchId, home.id, away.id, limit))
-        val archived = db.historicalDao()
-            .between(aliasIds(home), aliasIds(away), now, limit)
+        val archivedRows = db.historicalDao().between(aliasIds(home), aliasIds(away), now, limit)
+        val archivedRefs = teamRefs(archivedRows.flatMap { row -> listOf(row.homeTeamId, row.awayTeamId) })
+        val archived = archivedRows
             .map { row -> row.toSummaryRow() }
+            .map { summary ->
+                summary.copy(
+                    home = archivedRefs[summary.home.id] ?: summary.home,
+                    away = archivedRefs[summary.away.id] ?: summary.away,
+                )
+            }
         return (stored + archived)
             .distinctBy { it.kickoffEpochMs }
             .sortedByDescending { it.kickoffEpochMs }
@@ -110,6 +117,19 @@ class MatchRepository(
      * Every id a team answers to: the one on the fixture, plus the one the archive uses
      * for national teams. A club is only ever matched by its own id.
      */
+    /**
+     * Stored identities for a set of ids, crest and kind included.
+     *
+     * Archive rows carry only an id and a name, so a badge built from them could never be
+     * a crest — and a national team's entry lost its kind, which is what tells the badge to
+     * draw a flag rather than initials. Where the team is stored, its own row is used.
+     */
+    private suspend fun teamRefs(ids: List<String>): Map<String, TeamRef> {
+        val distinct = ids.filter { it.isNotBlank() }.distinct()
+        if (distinct.isEmpty()) return emptyMap()
+        return db.teamDao().byIds(distinct).associate { team -> team.id to team.toRef() }
+    }
+
     private fun aliasIds(team: TeamRef): List<String> = buildList {
         add(team.id)
         if (team.isNational) add(com.footballai.app.domain.catalog.NationalTeamKeys.teamId(team.name))
@@ -178,8 +198,9 @@ class MatchRepository(
         // table only holds the days around today, which is why a Bundesliga side used to
         // have no form at all.
         val ids = aliasIds(team)
-        val fromArchive = db.historicalDao()
-            .forTeamIds(ids, clock.nowEpochMs(), limit * 2)
+        val archiveRows = db.historicalDao().forTeamIds(ids, clock.nowEpochMs(), limit * 2)
+        val archiveRefs = teamRefs(archiveRows.flatMap { row -> listOf(row.homeTeamId, row.awayTeamId) })
+        val fromArchive = archiveRows
             .map { row ->
                 val wasHome = row.homeTeamId in ids
                 val goalsFor = if (wasHome) row.homeGoals else row.awayGoals
@@ -187,9 +208,9 @@ class MatchRepository(
                 TeamResult(
                     matchId = row.id,
                     opponent = if (wasHome) {
-                        TeamRef(id = row.awayTeamId, name = row.awayTeamName)
+                        archiveRefs[row.awayTeamId] ?: TeamRef(id = row.awayTeamId, name = row.awayTeamName)
                     } else {
-                        TeamRef(id = row.homeTeamId, name = row.homeTeamName)
+                        archiveRefs[row.homeTeamId] ?: TeamRef(id = row.homeTeamId, name = row.homeTeamName)
                     },
                     kickoffEpochMs = row.kickoffEpochMs,
                     goalsFor = goalsFor,

@@ -41,8 +41,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -59,6 +61,7 @@ import com.footballai.app.domain.catalog.NameLocalization
 import com.footballai.app.core.Formatters
 import com.footballai.app.data.settings.AppLanguage
 import com.footballai.app.data.settings.ThemeMode
+import com.footballai.app.data.remote.CrestImages
 import com.footballai.app.core.CrashLog
 import com.footballai.app.ui.LocalAppContainer
 import com.footballai.app.ui.LocalLanguageTag
@@ -320,6 +323,44 @@ fun SettingsScreen(onOpenDataSources: () -> Unit, onOpenCompetitionOrder: () -> 
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                 )
+            }
+
+            // A blind report — "the badges are missing again" — has three possible causes,
+            // and the phone is the only place that can tell them apart. This asks for one
+            // real crest and prints what came back, so the next report carries a number
+            // instead of a guess: 200 means the picture arrives and the fault is elsewhere,
+            // 403 means the phone was turned away, 404 means the address is wrong.
+            item {
+                val scope = rememberCoroutineScope()
+                var probe by remember { mutableStateOf<String?>(null) }
+                var checking by remember { mutableStateOf(false) }
+                Column(modifier = Modifier.padding(horizontal = 8.dp)) {
+                    TextButton(
+                        enabled = !checking,
+                        onClick = {
+                            checking = true
+                            scope.launch {
+                                probe = CrestImages.probe(CrestImages.probeAddress)
+                                checking = false
+                            }
+                        },
+                    ) { Text(stringResource(R.string.action_check_crest)) }
+                    probe?.let { answer ->
+                        Text(
+                            text = answer,
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                        )
+                    }
+                    CrestImages.lastFailure?.let { failure ->
+                        Text(
+                            text = failure,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                        )
+                    }
+                }
             }
 
             state.lastError?.let { error ->

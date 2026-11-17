@@ -3,6 +3,7 @@ package com.footballai.app.ui.components
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -30,9 +31,11 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -52,6 +55,7 @@ import com.footballai.app.domain.model.MatchSummary
 import com.footballai.app.domain.model.QualityLevel
 import com.footballai.app.domain.model.ScoreLine
 import com.footballai.app.domain.model.TeamRef
+import com.footballai.app.data.remote.CrestImages
 import com.footballai.app.ui.LocalLanguageTag
 import com.footballai.app.ui.confidenceLevelLabel
 import com.footballai.app.ui.matchStatusLabel
@@ -59,7 +63,6 @@ import com.footballai.app.ui.qualityLevelLabel
 import com.footballai.app.ui.theme.FootballAiThemeExtra
 import com.footballai.app.ui.theme.Radii
 import com.footballai.app.ui.theme.Spacing
-import coil.compose.SubcomposeAsyncImage
 import com.footballai.app.R
 
 @Composable
@@ -289,16 +292,25 @@ fun TeamBadge(team: TeamRef, size: Int = 26) {
             if (crest == null) {
                 TeamMonogram(team.name, size = size)
             } else {
-                SubcomposeAsyncImage(
-                    model = crest,
-                    contentDescription = null,
-                    contentScale = ContentScale.Fit,
-                    modifier = Modifier
-                        .size(size.dp)
-                        .clip(CircleShape),
-                    loading = { TeamMonogram(team.name, size = size) },
-                    error = { TeamMonogram(team.name, size = size) },
-                )
+                // The crest is fetched by the app's own HTTP stack, not by an image library:
+                // when a badge stayed empty on a real phone there was nothing to look at,
+                // because the library reported neither the status nor the reason.
+                val image by produceState<ImageBitmap?>(initialValue = null, crest) {
+                    value = CrestImages.load(crest)
+                }
+                val loaded = image
+                if (loaded == null) {
+                    TeamMonogram(team.name, size = size)
+                } else {
+                    Image(
+                        bitmap = loaded,
+                        contentDescription = null,
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier
+                            .size(size.dp)
+                            .clip(CircleShape),
+                    )
+                }
             }
         }
         if (flag != null) {
