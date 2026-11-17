@@ -62,6 +62,7 @@ import com.footballai.app.data.settings.ThemeMode
 import com.footballai.app.core.CrashLog
 import com.footballai.app.ui.LocalAppContainer
 import com.footballai.app.ui.LocalLanguageTag
+import com.footballai.app.ui.localizedString
 import com.footballai.app.ui.theme.Spacing
 import com.footballai.app.ui.components.InfoCard
 import com.footballai.app.ui.components.NavigationRow
@@ -162,10 +163,17 @@ fun SettingsScreen(onOpenDataSources: () -> Unit, onOpenCompetitionOrder: () -> 
                     )
                 }
             } else {
-                items(state.settings.favouritePlayers.sorted(), key = { it }) { entry ->
+                items(state.followedPlayers, key = { it.entry }) { player ->
                     FollowedPlayerRow(
-                        name = com.footballai.app.domain.catalog.NameLocalization.playerNameOf(entry),
-                        onRemove = { viewModel.unfollowPlayer(entry) },
+                        name = player.name,
+                        club = player.teamName?.let { teamName ->
+                            com.footballai.app.domain.catalog.NameLocalization.displayName(
+                                teamName,
+                                languageTag,
+                                player.teamShortName,
+                            )
+                        },
+                        onRemove = { viewModel.unfollowPlayer(player.entry) },
                     )
                 }
             }
@@ -254,7 +262,7 @@ fun SettingsScreen(onOpenDataSources: () -> Unit, onOpenCompetitionOrder: () -> 
             item {
                 Column(modifier = Modifier.padding(horizontal = 16.dp)) {
                     Text(
-                        text = stringResource(R.string.about_version, state.appVersion),
+                        text = localizedString(R.string.about_version, state.appVersion.ifBlank { "—" }),
                         style = MaterialTheme.typography.bodySmall,
                     )
                     Text(
@@ -561,21 +569,37 @@ private fun SyncPillButton(label: String, filled: Boolean, onClick: () -> Unit) 
     }
 }
 
-/** One followed player: the name only, because the club is already in the match he was found in. */
+/**
+ * One followed player: the name, with the club underneath when the team table still knows it.
+ *
+ * The club is what tells two players with the same name apart — a list of names alone gave
+ * two identical rows and no way to know which star to remove. A club that is no longer in
+ * the table simply stays blank instead of being guessed.
+ */
 @Composable
-private fun FollowedPlayerRow(name: String, onRemove: () -> Unit) {
+private fun FollowedPlayerRow(name: String, club: String?, onRemove: () -> Unit) {
     SoftCard(modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.page, vertical = 3.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(
-                text = name,
-                style = MaterialTheme.typography.bodyMedium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
-            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = name,
+                    style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                if (!club.isNullOrBlank()) {
+                    Text(
+                        text = club,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
             IconButton(onClick = onRemove) {
                 Icon(
                     imageVector = Icons.Filled.Close,

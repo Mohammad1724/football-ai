@@ -13,13 +13,24 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.CancellationException
 import com.footballai.app.core.AppError
+import com.footballai.app.domain.catalog.NameLocalization
 import com.footballai.app.core.ErrorCode
+
+/** One followed player: the stored "teamId|name" entry, plus the club it belongs to. */
+data class FollowedPlayer(
+    val entry: String,
+    val name: String,
+    val teamName: String?,
+    val teamShortName: String?,
+)
 
 data class SettingsUiState(
     val settings: AppSettings = AppSettings(),
@@ -27,7 +38,10 @@ data class SettingsUiState(
     val fixturesCount: Int = 0,
     val historicalMatches: Int = 0,
     val storedPredictions: Int = 0,
-    val appVersion: String = "0.4.1",
+    /** Read from the installed package: a literal here went stale three versions ago. */
+    val appVersion: String = "",
+    /** Followed players with their club, resolved from the team table. */
+    val followedPlayers: List<FollowedPlayer> = emptyList(),
     val lastError: AppError? = null,
     val isClearing: Boolean = false,
     /** True while the manual sync started from this screen is running. */
@@ -46,12 +60,42 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
     val state: StateFlow<SettingsUiState> = _state.asStateFlow()
 
     init {
+        // The version shown in "about" is the one the device actually installed.
+        _state.update { it.copy(appVersion = installedVersionName()) }
         viewModelScope.launch {
             container.settingsRepository.settings.collect { settings ->
                 _state.update { it.copy(settings = settings) }
             }
         }
+        // The stored entry is "teamId|playerName", so the club is one lookup away. Without
+        // it, two players with the same name in different clubs were two identical rows.
+        viewModelScope.launch {
+            container.settingsRepository.settings
+                .map { it.favouritePlayers }
+                .distinctUntilChanged()
+                .collect { entries -> resolveFollowedPlayers(entries) }
+        }
         refreshCounts()
+    }
+
+    private suspend fun resolveFollowedPlayers(entries: Set<String>) {
+        val teamIds = entries.mapNotNull { entry ->
+            entry.substringBefore('|', "").takeIf { it.isNotBlank() }
+        }.distinct()
+        val teams = if (teamIds.isEmpty()) emptyMap() else {
+            container.database.teamDao().byIds(teamIds).associateBy { it.id }
+        }
+        val rows = entries.sorted().map { entry ->
+            val teamId = entry.substringBefore('|', "")
+            val team = teams[teamId]
+            FollowedPlayer(
+                entry = entry,
+                name = NameLocalization.playerNameOf(entry),
+                teamName = team?.name,
+                teamShortName = team?.shortName,
+            )
+        }
+        _state.update { it.copy(followedPlayers = rows) }
     }
 
     /**
@@ -165,6 +209,12 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
         viewModelScope.launch { container.settingsRepository.resetOnboarding() }
     }
 
+    private fun installedVersionName(): String = runCatching {
+        val context = container.contextForWork()
+        @Suppress("DEPRECATION")
+        context.packageManager.getPackageInfo(context.packageName, 0).versionName.orEmpty()
+    }.getOrDefault("")
+
     fun clearAllData() {
         if (_state.value.isClearing) return
         _state.update { it.copy(isClearing = true, lastError = null) }
@@ -176,7 +226,9 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
                 SyncScheduler.cancelPeriodicSync(container.contextForWork())
                 container.dailyAnalysisRepository.clearLocalData()
                 container.ratingsRepository.invalidate()
-                _state.update { it.copy(historicalMatches = 0, storedPredictions = 0) }
+                // Every counter this screen reports goes back to zero, not just two of them:
+                // a stale "1,204 matches" next to an empty database reads as a failed clear.
+                _state.update { it.copy(fixturesCount = 0, historicalMatches = 0, storedPredictions = 0) }
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {

@@ -79,6 +79,7 @@ import com.footballai.app.domain.model.PredictionView
 import com.footballai.app.domain.model.StatisticType
 import com.footballai.app.ui.LocalAppContainer
 import com.footballai.app.ui.LocalLanguageTag
+import com.footballai.app.ui.localizedString
 import com.footballai.app.domain.catalog.NameLocalization
 import com.footballai.app.domain.model.TeamRef
 import com.footballai.app.ui.components.SoftBackButton
@@ -110,6 +111,19 @@ import com.footballai.app.ui.theme.FootballAiThemeExtra
 import com.footballai.app.ui.viewmodel.MatchDetailViewModel
 import kotlin.math.roundToInt
 
+/**
+ * Tab identities.
+ *
+ * The live tab is inserted between Analysis and Statistics when a match kicks off; keeping
+ * the selection by name means the screen stays where the user left it, whatever the row
+ * looks like afterwards.
+ */
+private const val TAB_ANALYSIS = "analysis"
+private const val TAB_LIVE = "live"
+private const val TAB_STATISTICS = "statistics"
+private const val TAB_HEAD_TO_HEAD = "head_to_head"
+private const val TAB_LINEUPS = "lineups"
+
 @OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun MatchDetailScreen(
@@ -124,7 +138,10 @@ fun MatchDetailScreen(
     )
     val state by viewModel.state.collectAsStateWithLifecycle()
     val languageTag = LocalLanguageTag.current
-    var selectedTab by remember { mutableIntStateOf(0) }
+    // The chosen tab is remembered by identity, not by index: a live match adds a tab
+    // in the middle of the row, and an index kept across that change would silently
+    // point at its neighbour.
+    var selectedTabKey by rememberSaveable { mutableStateOf(TAB_ANALYSIS) }
 
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner, viewModel) {
@@ -147,13 +164,28 @@ fun MatchDetailScreen(
     // The lineups tab is appended last and only when the source says it has (or gave) them,
     // so the indices of the existing tabs never move.
     val hasLineupTab = detail != null && (detail.summary.hasLineups || detail.lineups.isNotEmpty())
-    val tabs = buildList {
-        add(stringResource(R.string.tab_analysis))
-        if (detail?.summary?.status?.isLive == true) add(stringResource(R.string.tab_live))
-        add(stringResource(R.string.tab_statistics))
-        add(stringResource(R.string.tab_head_to_head))
-        if (hasLineupTab) add(stringResource(R.string.missing_lineups))
+    val hasLiveTabNow = detail?.summary?.status?.isLive == true
+    val tabKeys = buildList {
+        add(TAB_ANALYSIS)
+        if (hasLiveTabNow) add(TAB_LIVE)
+        add(TAB_STATISTICS)
+        add(TAB_HEAD_TO_HEAD)
+        if (hasLineupTab) add(TAB_LINEUPS)
     }
+    val tabs = tabKeys.map { key ->
+        stringResource(
+            when (key) {
+                TAB_LIVE -> R.string.tab_live
+                TAB_STATISTICS -> R.string.tab_statistics
+                TAB_HEAD_TO_HEAD -> R.string.tab_head_to_head
+                TAB_LINEUPS -> R.string.tab_lineups
+                else -> R.string.tab_analysis
+            },
+        )
+    }
+    // A tab that disappears (a live match ends) falls back to the first tab instead of
+    // landing on whichever tab inherited its index.
+    val selectedTab = tabKeys.indexOf(selectedTabKey).takeIf { it >= 0 } ?: 0
 
     Scaffold(
         topBar = {
@@ -215,17 +247,17 @@ fun MatchDetailScreen(
                 onToggleFavourite = viewModel::toggleFavourite,
             )
 
-            TabRow(selectedTabIndex = selectedTab.coerceAtMost(tabs.lastIndex)) {
+            TabRow(selectedTabIndex = selectedTab) {
                 tabs.forEachIndexed { index, title ->
                     Tab(
                         selected = selectedTab == index,
-                        onClick = { selectedTab = index },
+                        onClick = { selectedTabKey = tabKeys[index] },
                         text = { Text(title, style = MaterialTheme.typography.labelMedium) },
                     )
                 }
             }
 
-            val hasLiveTab = detail.summary.status.isLive
+            val hasLiveTab = hasLiveTabNow
             // The download can only help when the archive itself is missing; an unknown
             // team name or a women's international would be unaffected by it.
             val missingArchive = state.lastError?.let { error ->
@@ -1045,13 +1077,13 @@ private fun EvidenceSection(prediction: PredictionView, languageTag: String) {
         if (confidence != null) {
             Spacer(Modifier.height(8.dp))
             Text(
-                text = stringResource(R.string.evidence_sample, confidence.effectiveSample),
+                text = localizedString(R.string.evidence_sample, confidence.effectiveSample),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(
                 text = confidence.freshnessMinutes?.let {
-                    stringResource(R.string.evidence_freshness, it)
+                    localizedString(R.string.evidence_freshness, it)
                 } ?: stringResource(R.string.evidence_freshness_unknown),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1080,7 +1112,7 @@ private fun EvidenceSection(prediction: PredictionView, languageTag: String) {
             text = if (calibration == null || calibration.method == "NONE") {
                 stringResource(R.string.calibration_none)
             } else {
-                stringResource(R.string.calibration_fitted, calibration.sampleCount)
+                localizedString(R.string.calibration_fitted, calibration.sampleCount)
             },
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1214,7 +1246,7 @@ private fun LiveTab(prediction: PredictionView?, detail: MatchDetail, languageTa
             item {
                 Column(modifier = Modifier.padding(horizontal = 16.dp)) {
                     Text(
-                        text = stringResource(R.string.live_remaining_minutes, live.remainingMinutes),
+                        text = localizedString(R.string.live_remaining_minutes, live.remainingMinutes),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
