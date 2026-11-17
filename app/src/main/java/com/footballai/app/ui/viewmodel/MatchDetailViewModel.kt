@@ -169,14 +169,14 @@ class MatchDetailViewModel(
                 if (detail != null) {
                     val headToHead = container.matchRepository.headToHead(
                         matchId = matchId,
-                        homeTeamId = detail.summary.home.id,
-                        awayTeamId = detail.summary.away.id,
+                        home = detail.summary.home,
+                        away = detail.summary.away,
                     )
                     _state.update { it.copy(headToHead = headToHead) }
                     _state.update {
                         it.copy(
-                            homeForm = formOf(detail.summary.home.id, detail.summary.competitionId),
-                            awayForm = formOf(detail.summary.away.id, detail.summary.competitionId),
+                            homeForm = formOf(detail.summary.home, detail.summary.competitionId),
+                            awayForm = formOf(detail.summary.away, detail.summary.competitionId),
                         )
                     }
                 }
@@ -211,8 +211,8 @@ class MatchDetailViewModel(
                 (refreshed ?: _state.value.detail)?.let { detail ->
                     _state.update {
                         it.copy(
-                            homeForm = formOf(detail.summary.home.id, detail.summary.competitionId),
-                            awayForm = formOf(detail.summary.away.id, detail.summary.competitionId),
+                            homeForm = formOf(detail.summary.home, detail.summary.competitionId),
+                            awayForm = formOf(detail.summary.away, detail.summary.competitionId),
                         )
                     }
                 }
@@ -367,13 +367,13 @@ class MatchDetailViewModel(
     }
 
     /** Null when the app has no finished match for that team: the panel then stays away. */
-    private suspend fun formOf(teamId: String, competitionId: String): TeamFormSnapshot? {
-        val results = container.matchRepository.recentResults(teamId, limit = 10)
+    private suspend fun formOf(team: com.footballai.app.domain.model.TeamRef, competitionId: String): TeamFormSnapshot? {
+        val results = container.matchRepository.recentResults(team, limit = 10)
         if (results.isEmpty()) return null
-        val ranks = container.matchRepository.standingRanks(competitionId, listOf(teamId))
+        val ranks = container.matchRepository.standingRanks(competitionId, listOf(team.id))
         return TeamFormSnapshot.of(results).copy(
-            standingRank = ranks[teamId]?.first,
-            standingOf = ranks[teamId]?.second,
+            standingRank = ranks[team.id]?.first,
+            standingOf = ranks[team.id]?.second,
         )
     }
 

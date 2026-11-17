@@ -12,11 +12,13 @@ import com.footballai.app.data.local.mapper.toRef
 import com.footballai.app.data.local.mapper.toSummary
 import com.footballai.app.domain.model.Competition
 import com.footballai.app.domain.model.MatchDetail
+import com.footballai.app.domain.model.MatchStatus
 import com.footballai.app.domain.model.MatchSummary
 import com.footballai.app.domain.model.ResultOutcome
 import com.footballai.app.domain.model.TeamFormSummary
 import com.footballai.app.domain.model.TeamProfile
 import com.footballai.app.domain.model.TeamRating
+import com.footballai.app.domain.model.TeamRef
 import com.footballai.app.domain.model.TeamResult
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -85,8 +87,53 @@ class MatchRepository(
     suspend fun fixturesForCompetition(competitionId: String, limit: Int = 30): List<MatchSummary> =
         decorate(db.matchDao().recentForCompetition(competitionId, limit))
 
-    suspend fun headToHead(matchId: String, homeTeamId: String, awayTeamId: String, limit: Int = 6): List<MatchSummary> =
-        decorate(db.matchDao().headToHead(matchId, homeTeamId, awayTeamId, limit))
+    /**
+     * Past meetings between the two sides.
+     *
+     * The fixtures table only ever holds the days around today, so a head-to-head built
+     * from it alone was empty for most matches. The archive holds years of the same
+     * fixture; both are read and merged, and a match present in both appears once.
+     */
+    suspend fun headToHead(matchId: String, home: TeamRef, away: TeamRef, limit: Int = 6): List<MatchSummary> {
+        val now = clock.nowEpochMs()
+        val stored = decorate(db.matchDao().headToHead(matchId, home.id, away.id, limit))
+        val archived = db.historicalDao()
+            .between(aliasIds(home), aliasIds(away), now, limit)
+            .map { row -> row.toSummaryRow() }
+        return (stored + archived)
+            .distinctBy { it.kickoffEpochMs }
+            .sortedByDescending { it.kickoffEpochMs }
+            .take(limit)
+    }
+
+    /**
+     * Every id a team answers to: the one on the fixture, plus the one the archive uses
+     * for national teams. A club is only ever matched by its own id.
+     */
+    private fun aliasIds(team: TeamRef): List<String> = buildList {
+        add(team.id)
+        if (team.isNational) add(com.footballai.app.domain.catalog.NationalTeamKeys.teamId(team.name))
+    }.distinct()
+
+    private fun com.footballai.app.data.local.entity.HistoricalMatchEntity.toSummaryRow(): MatchSummary =
+        MatchSummary(
+            id = id,
+            competitionId = competitionId,
+            competitionName = competitionName.ifBlank { competitionId },
+            competitionEmblemUrl = null,
+            home = TeamRef(id = homeTeamId, name = homeTeamName),
+            away = TeamRef(id = awayTeamId, name = awayTeamName),
+            kickoffEpochMs = kickoffEpochMs,
+            status = MatchStatus.FINISHED,
+            minute = null,
+            homeGoals = homeGoals,
+            awayGoals = awayGoals,
+            lastSyncedAt = importedAt,
+            hasStatistics = false,
+            hasLineups = false,
+            hasEvents = false,
+            hasOdds = homeOdds != null,
+        )
 
     /**
      * A team's own results, from its point of view.
@@ -124,9 +171,42 @@ class MatchRepository(
      * read and then filtered: asking for ten rows and getting seven played ones would
      * silently shrink the panel.
      */
-    suspend fun recentResults(teamId: String, limit: Int = 10): List<TeamResult> {
-        val rows = db.matchDao().recentForTeam(teamId, limit * 3)
-        return finishedResults(decorate(rows), teamId)
+    suspend fun recentResults(team: TeamRef, limit: Int = 10): List<TeamResult> {
+        val rows = db.matchDao().recentForTeam(team.id, limit * 3)
+        val fromFixtures = finishedResults(decorate(rows), team.id)
+        // A club league ships its results as an archive, not as fixtures: the fixtures
+        // table only holds the days around today, which is why a Bundesliga side used to
+        // have no form at all.
+        val ids = aliasIds(team)
+        val fromArchive = db.historicalDao()
+            .forTeamIds(ids, clock.nowEpochMs(), limit * 2)
+            .map { row ->
+                val wasHome = row.homeTeamId in ids
+                val goalsFor = if (wasHome) row.homeGoals else row.awayGoals
+                val goalsAgainst = if (wasHome) row.awayGoals else row.homeGoals
+                TeamResult(
+                    matchId = row.id,
+                    opponent = if (wasHome) {
+                        TeamRef(id = row.awayTeamId, name = row.awayTeamName)
+                    } else {
+                        TeamRef(id = row.homeTeamId, name = row.homeTeamName)
+                    },
+                    kickoffEpochMs = row.kickoffEpochMs,
+                    goalsFor = goalsFor,
+                    goalsAgainst = goalsAgainst,
+                    wasHome = wasHome,
+                    outcome = when {
+                        goalsFor > goalsAgainst -> ResultOutcome.WIN
+                        goalsFor == goalsAgainst -> ResultOutcome.DRAW
+                        else -> ResultOutcome.LOSS
+                    },
+                    competitionId = row.competitionId,
+                )
+            }
+        return (fromFixtures + fromArchive)
+            // One kickoff cannot be two matches for the same team; the archive and the
+            // fixture table disagree about the opponent id, not about when the game was.
+            .distinctBy { it.kickoffEpochMs }
             .sortedByDescending { it.kickoffEpochMs }
             .take(limit)
     }
@@ -151,13 +231,14 @@ class MatchRepository(
     suspend fun teamProfile(teamId: String): TeamProfile? {
         val team = db.teamDao().byId(teamId) ?: return null
         val recent = db.matchDao().recentForTeam(teamId, 10)
-        val summaries = decorate(recent)
         val now = clock.nowEpochMs()
         val competitionId = recent.firstOrNull()?.competitionId.orEmpty()
         val source = team.providerId
         val competition = if (competitionId.isNotEmpty()) db.competitionDao().byId(competitionId) else null
 
-        val results = finishedResults(summaries, teamId)
+        // The team page reads the same merged history as the match page, so a club whose
+        // results live in the archive is not blank on one screen and full on the other.
+        val results = recentResults(team.toRef(), 10)
 
         val form = TeamFormSummary(
             wins = results.count { it.outcome == ResultOutcome.WIN },

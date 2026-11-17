@@ -170,11 +170,15 @@ fun MatchDetailScreen(
     // so the indices of the existing tabs never move.
     val hasLineupTab = detail != null && (detail.summary.hasLineups || detail.lineups.isNotEmpty())
     val hasLiveTabNow = detail?.summary?.status?.isLive == true
+    // A tab whose content the source cannot provide is not shown at all: an empty page
+    // behind a real-looking tab reads as a broken app, not as an honest one.
+    val hasStatistics = detail != null && detail.statistics.isNotEmpty()
+    val hasHeadToHead = state.headToHead.isNotEmpty()
     val tabKeys = buildList {
         add(TAB_ANALYSIS)
         if (hasLiveTabNow) add(TAB_LIVE)
-        add(TAB_STATISTICS)
-        add(TAB_HEAD_TO_HEAD)
+        if (hasStatistics) add(TAB_STATISTICS)
+        if (hasHeadToHead) add(TAB_HEAD_TO_HEAD)
         if (hasLineupTab) add(TAB_LINEUPS)
     }
     val tabs = tabKeys.map { key ->
@@ -267,7 +271,6 @@ fun MatchDetailScreen(
                 }
             }
 
-            val hasLiveTab = hasLiveTabNow
             // The download can only help when the archive itself is missing; an unknown
             // team name or a women's international would be unaffected by it.
             val missingArchive = state.lastError?.let { error ->
@@ -285,8 +288,10 @@ fun MatchDetailScreen(
                 label = "match-tab",
                 modifier = Modifier.fillMaxSize(),
             ) { tab ->
-                when {
-                    tab == 0 -> SwipeRefresh(
+                // Dispatched by name, so adding or hiding a tab cannot move another tab's
+                // content to a neighbour's index.
+                when (tabKeys.getOrNull(tab)) {
+                    TAB_ANALYSIS -> SwipeRefresh(
                         isRefreshing = state.isRefreshing,
                         onRefresh = viewModel::refresh,
                         modifier = Modifier.fillMaxSize(),
@@ -329,26 +334,26 @@ fun MatchDetailScreen(
                         )
                     }
 
-                    hasLiveTab && tab == 1 -> LiveTab(
+                    TAB_LIVE -> LiveTab(
                         header = matchHeader,
                         prediction = state.prediction,
                         detail = detail,
                         languageTag = languageTag,
                     )
 
-                    tab == if (hasLiveTab) 2 else 1 -> StatisticsTab(
+                    TAB_STATISTICS -> StatisticsTab(
                         header = matchHeader,
                         statistics = detail.statistics,
                         languageTag = languageTag,
                     )
 
-                    tab == if (hasLiveTab) 3 else 2 -> HeadToHeadTab(
+                    TAB_HEAD_TO_HEAD -> HeadToHeadTab(
                         header = matchHeader,
                         matches = state.headToHead,
                         languageTag = languageTag,
                     )
 
-                    tab == if (hasLiveTab) 4 else 3 -> LineupsTab(
+                    TAB_LINEUPS -> LineupsTab(
                         header = matchHeader,
                         lineups = detail.lineups,
                         home = detail.summary.home,
@@ -1186,11 +1191,12 @@ private fun EvidenceSection(prediction: PredictionView, languageTag: String) {
 }
 
 /**
- * The last ten results of both teams, side by side, as numbers.
+ * Both teams' recent results, as numbers, side by side.
  *
- * The block above it says "the home attack is stronger than usual"; this says how much
- * and how often. It reads only from matches already stored, so it costs no request, and
- * it disappears rather than showing a row of dashes when a team has nothing played.
+ * One value per cell: a triple such as "7·3·0" is read in the wrong order inside a Persian
+ * paragraph, because the separators are direction-neutral and the whole run mirrors. Where
+ * a figure needs two numbers, a word sits between them ("۱۵ از ۲۵") so the reading order is
+ * pinned by the language itself.
  */
 @Composable
 private fun TeamFormCard(
@@ -1201,6 +1207,9 @@ private fun TeamFormCard(
     languageTag: String,
 ) {
     if (home == null && away == null) return
+    // The heading counts what is there: "last 10" over a single match was a claim the
+    // table underneath contradicted.
+    val window = listOfNotNull(home, away).maxOf { it.played }
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -1210,7 +1219,7 @@ private fun TeamFormCard(
     ) {
         Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp)) {
             Text(
-                text = stringResource(R.string.form_panel_title),
+                text = localizedString(R.string.form_panel_title, Formatters.integer(window, languageTag)),
                 style = MaterialTheme.typography.titleSmall,
             )
             Spacer(Modifier.height(8.dp))
@@ -1219,33 +1228,42 @@ private fun TeamFormCard(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Spacer(Modifier.weight(1.25f))
-                Text(
-                    text = homeName,
-                    style = MaterialTheme.typography.labelMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.weight(1f),
-                )
-                Text(
-                    text = awayName,
-                    style = MaterialTheme.typography.labelMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.weight(1f),
-                )
+                listOf(homeName, awayName).forEach { name ->
+                    Text(
+                        text = name,
+                        style = MaterialTheme.typography.labelMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
             }
             Spacer(Modifier.height(6.dp))
             FormRow(
-                label = stringResource(R.string.form_row_record),
-                home = home?.let { recordOf(it.wins, it.draws, it.losses, languageTag) },
-                away = away?.let { recordOf(it.wins, it.draws, it.losses, languageTag) },
+                label = stringResource(R.string.form_row_wins),
+                home = home?.let { count(it.wins, languageTag) },
+                away = away?.let { count(it.wins, languageTag) },
+            )
+            FormRow(
+                label = stringResource(R.string.form_row_draws),
+                home = home?.let { count(it.draws, languageTag) },
+                away = away?.let { count(it.draws, languageTag) },
+            )
+            FormRow(
+                label = stringResource(R.string.form_row_losses),
+                home = home?.let { count(it.losses, languageTag) },
+                away = away?.let { count(it.losses, languageTag) },
             )
             FormRow(
                 label = stringResource(R.string.form_row_goals),
-                home = home?.let { "${Formatters.integer(it.goalsFor, languageTag)} / ${Formatters.integer(it.goalsAgainst, languageTag)}" },
-                away = away?.let { "${Formatters.integer(it.goalsFor, languageTag)} / ${Formatters.integer(it.goalsAgainst, languageTag)}" },
+                home = home?.let { count(it.goalsFor, languageTag) },
+                away = away?.let { count(it.goalsFor, languageTag) },
+            )
+            FormRow(
+                label = stringResource(R.string.form_row_goals_against),
+                home = home?.let { count(it.goalsAgainst, languageTag) },
+                away = away?.let { count(it.goalsAgainst, languageTag) },
             )
             FormRow(
                 label = stringResource(R.string.form_row_average),
@@ -1253,21 +1271,13 @@ private fun TeamFormCard(
                 away = away?.let { averageGoals(it, languageTag) },
             )
             FormRow(
-                label = stringResource(R.string.form_row_venue),
+                label = stringResource(R.string.form_row_home_wins),
                 home = home?.let {
-                    recordOf(it.homeWins, it.homeDraws, it.homeLosses, languageTag) + " / " +
-                        recordOf(it.awayWins, it.awayDraws, it.awayLosses, languageTag)
+                    ofTotal(it.homeWins, it.homeWins + it.homeDraws + it.homeLosses, languageTag)
                 },
                 away = away?.let {
-                    recordOf(it.homeWins, it.homeDraws, it.homeLosses, languageTag) + " / " +
-                        recordOf(it.awayWins, it.awayDraws, it.awayLosses, languageTag)
+                    ofTotal(it.homeWins, it.homeWins + it.homeDraws + it.homeLosses, languageTag)
                 },
-                small = true,
-            )
-            FormRow(
-                label = stringResource(R.string.form_row_clean_sheets),
-                home = home?.let { Formatters.integer(it.cleanSheets, languageTag) },
-                away = away?.let { Formatters.integer(it.cleanSheets, languageTag) },
             )
             FormRow(
                 label = stringResource(R.string.form_row_second_half),
@@ -1303,19 +1313,18 @@ private fun TeamFormCard(
                 Text(
                     text = localizedString(
                         R.string.form_halves_note,
-                        worstHalves.halfTimeKnown,
-                        worstHalves.played,
+                        Formatters.integer(worstHalves.halfTimeKnown, languageTag),
+                        Formatters.integer(worstHalves.played, languageTag),
                     ),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            val played = listOfNotNull(home?.played, away?.played).maxOrNull()
-            if (played != null && (home == null || away == null || home.played < 10 || away.played < 10)) {
+            if (window < 10) {
                 Spacer(Modifier.height(8.dp))
                 Text(
                     // Honesty about the sample: ten rows are only "the last ten" if ten exist.
-                    text = localizedString(R.string.form_panel_note, played),
+                    text = localizedString(R.string.form_panel_note, Formatters.integer(window, languageTag)),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -1324,35 +1333,35 @@ private fun TeamFormCard(
     }
 }
 
-private fun recordOf(wins: Int, draws: Int, losses: Int, languageTag: String): String =
-    listOf(wins, draws, losses).joinToString("·") { Formatters.integer(it, languageTag) }
+@Composable
+private fun count(value: Int, languageTag: String): String = Formatters.integer(value, languageTag)
+
+@Composable
+private fun ofTotal(value: Int, total: Int, languageTag: String): String = localizedString(
+    R.string.form_of_total,
+    Formatters.integer(value, languageTag),
+    Formatters.integer(total, languageTag),
+)
+
+@Composable
+private fun averageGoals(form: TeamFormSnapshot, languageTag: String): String =
+    if (form.played == 0) "—" else Formatters.decimal(form.goalsFor.toDouble() / form.played, languageTag, 1)
+
+@Composable
+private fun secondHalf(form: TeamFormSnapshot, languageTag: String): String {
+    if (form.halfTimeKnown == 0 || form.halfTimeGoalsTotal == 0) return "—"
+    return ofTotal(form.secondHalfGoalsFor, form.halfTimeGoalsTotal, languageTag)
+}
 
 @Composable
 private fun tablePosition(form: TeamFormSnapshot, languageTag: String): String {
     val rank = form.standingRank ?: return "—"
     val of = form.standingOf ?: return "—"
-    return localizedString(
-        R.string.form_table_rank,
-        Formatters.integer(rank, languageTag),
-        Formatters.integer(of, languageTag),
-    )
+    return ofTotal(rank, of, languageTag)
 }
 
 @Composable
-private fun secondHalf(form: TeamFormSnapshot, languageTag: String): String {
-    if (form.halfTimeKnown == 0 || form.halfTimeGoalsTotal == 0) return "—"
-    return localizedString(
-        R.string.form_row_second_half_value,
-        Formatters.integer(form.secondHalfGoalsFor, languageTag),
-        Formatters.integer(form.halfTimeGoalsTotal, languageTag),
-    )
-}
-
-private fun averageGoals(form: TeamFormSnapshot, languageTag: String): String =
-    if (form.played == 0) "—" else Formatters.decimal(form.goalsFor.toDouble() / form.played, languageTag, 1)
-
-@Composable
-private fun FormRow(label: String, home: String?, away: String?, small: Boolean = false) {
+private fun FormRow(label: String, home: String?, away: String?) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -1366,7 +1375,7 @@ private fun FormRow(label: String, home: String?, away: String?, small: Boolean 
         listOf(home, away).forEach { value ->
             Text(
                 text = value ?: "—",
-                style = if (small) MaterialTheme.typography.labelMedium else MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Medium,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.weight(1f),
@@ -1375,7 +1384,7 @@ private fun FormRow(label: String, home: String?, away: String?, small: Boolean 
     }
 }
 
-/** One dot per result, newest on the left of its column: a shape instead of three words. */
+/** One dot per result: a shape instead of three words, and no digits to reorder. */
 @Composable
 private fun TrendDots(outcomes: List<ResultOutcome>, modifier: Modifier = Modifier) {
     val colors = FootballAiThemeExtra.colors

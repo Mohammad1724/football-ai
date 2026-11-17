@@ -429,6 +429,29 @@ interface HistoricalDao {
     @Query("SELECT COUNT(*) FROM historical_matches WHERE source = :source")
     suspend fun countForSource(source: String): Int
 
+    /**
+     * The archive rows that involve one of these team ids, newest first.
+     *
+     * A caller passes more than one id when a team is known under two names: the id the
+     * fixture uses and the id the archive uses. Nothing is matched on a guess — the query
+     * only returns what the ids point at.
+     */
+    @Query(
+        "SELECT * FROM historical_matches WHERE " +
+            "(homeTeamId IN (:teamIds) OR awayTeamId IN (:teamIds)) " +
+            "AND kickoffEpochMs <= :asOfEpochMs ORDER BY kickoffEpochMs DESC LIMIT :limit",
+    )
+    suspend fun forTeamIds(teamIds: List<String>, asOfEpochMs: Long, limit: Int): List<HistoricalMatchEntity>
+
+    /** Past meetings between two sides, whatever name each side is recorded under. */
+    @Query(
+        "SELECT * FROM historical_matches WHERE " +
+            "((homeTeamId IN (:homeIds) AND awayTeamId IN (:awayIds)) OR " +
+            "(homeTeamId IN (:awayIds) AND awayTeamId IN (:homeIds))) " +
+            "AND kickoffEpochMs <= :asOfEpochMs ORDER BY kickoffEpochMs DESC LIMIT :limit",
+    )
+    suspend fun between(homeIds: List<String>, awayIds: List<String>, asOfEpochMs: Long, limit: Int): List<HistoricalMatchEntity>
+
     @Query("SELECT MIN(kickoffEpochMs) FROM historical_matches WHERE source = :source")
     suspend fun earliestForSource(source: String): Long?
 
