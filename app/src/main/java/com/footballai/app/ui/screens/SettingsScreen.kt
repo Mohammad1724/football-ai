@@ -340,7 +340,14 @@ fun SettingsScreen(onOpenDataSources: () -> Unit, onOpenCompetitionOrder: () -> 
                         onClick = {
                             checking = true
                             scope.launch {
-                                probe = CrestImages.probe(CrestImages.probeAddress)
+                                // The address answer first, then what the stored data
+                                // actually holds: the two together say whether the phone
+                                // cannot reach the picture or the picture has no address.
+                                val network = CrestImages.probe(CrestImages.probeAddress)
+                                val data = runCatching {
+                                    container.matchRepository.crestDiagnostics()
+                                }.getOrElse { error -> "teams: unreadable (${error::class.java.simpleName})" }
+                                probe = network + "\n" + data
                                 checking = false
                             }
                         },

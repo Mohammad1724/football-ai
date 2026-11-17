@@ -65,6 +65,14 @@ interface TeamDao {
 
     @Query("SELECT COUNT(*) FROM teams")
     suspend fun count(): Int
+
+    /** How many stored teams actually carry a badge address. */
+    @Query("SELECT COUNT(*) FROM teams WHERE crestUrl IS NOT NULL AND crestUrl != ''")
+    suspend fun countWithCrest(): Int
+
+    /** The team the last sync touched: the row a badge would be drawn from. */
+    @Query("SELECT * FROM teams ORDER BY updatedAt DESC LIMIT 1")
+    suspend fun mostRecentlyUpdated(): TeamEntity?
 }
 
 @Dao

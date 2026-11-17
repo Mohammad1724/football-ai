@@ -303,6 +303,33 @@ class MatchRepository(
         )
     }
 
+    /**
+     * What the badge is looking at, in one line, for the diagnostics row.
+     *
+     * "The picture arrives but no badge shows" has exactly two causes — the address is
+     * missing on the stored team, or the screen does not draw it — and they are told apart
+     * by counting addresses instead of by guessing: zero with a sample row is a data fault,
+     * a healthy count is a display fault.
+     */
+    suspend fun crestDiagnostics(): String {
+        val total = db.teamDao().count()
+        val withCrest = db.teamDao().countWithCrest()
+        val sample = db.teamDao().mostRecentlyUpdated()
+        val sampleText = if (sample == null) {
+            "sample: none"
+        } else {
+            val url = sample.crestUrl?.takeIf { it.isNotBlank() }
+                ?: com.footballai.app.domain.catalog.CrestUrls.forClub(
+                    providerId = sample.providerId,
+                    providerKey = sample.providerKey,
+                    kind = runCatching { com.footballai.engine.model.TeamKind.valueOf(sample.kind) }
+                        .getOrDefault(com.footballai.engine.model.TeamKind.CLUB),
+                )
+            "sample: ${sample.providerId}/${sample.kind}/${sample.providerKey} -> ${url ?: "no address"}"
+        }
+        return "teams: $withCrest of $total with a crest · $sampleText"
+    }
+
     suspend fun matchEntity(matchId: String): MatchEntity? = db.matchDao().byId(matchId)
 
     suspend fun teamEntity(teamId: String): TeamEntity? = db.teamDao().byId(teamId)

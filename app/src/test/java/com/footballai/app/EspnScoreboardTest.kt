@@ -111,6 +111,12 @@ class EspnScoreboardTest {
         assertNull(scheduled.homeGoals)
         assertNull(scheduled.awayGoals)
         assertEquals("Cyprus", scheduled.home.name)
+        // The badge draws nothing without an address, and this is where the address enters
+        // the app: the payload's own logo field has to survive the mapping.
+        assertEquals(
+            "https://a.espncdn.com/i/teamlogos/countries/500/cyp.png",
+            scheduled.home.crestUrl,
+        )
         assertEquals("Montenegro", scheduled.away.name)
         assertEquals("Alphamega Stadium", scheduled.venue)
         assertEquals("uefa.nations", scheduled.competitionKey)
