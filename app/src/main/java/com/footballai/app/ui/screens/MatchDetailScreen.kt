@@ -1284,11 +1284,17 @@ private fun TeamFormCard(
                 home = home?.let { secondHalf(it, languageTag) },
                 away = away?.let { secondHalf(it, languageTag) },
             )
-            FormRow(
-                label = stringResource(R.string.form_row_table),
-                home = home?.let { tablePosition(it, languageTag) },
-                away = away?.let { tablePosition(it, languageTag) },
-            )
+            // A table row with two dashes is worse than no row: it reads as a missing
+            // number the app forgot to fetch. The row appears the moment a position is
+            // known, and the match screen asks the source for that table when it is not.
+            val ranked = listOfNotNull(home, away).any { it.standingRank != null }
+            if (ranked) {
+                FormRow(
+                    label = stringResource(R.string.form_row_table),
+                    home = home?.let { team -> team.standingRank?.let { tablePosition(team, languageTag) } },
+                    away = away?.let { team -> team.standingRank?.let { tablePosition(team, languageTag) } },
+                )
+            }
             Spacer(Modifier.height(6.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),

@@ -243,7 +243,14 @@ class EspnOpenProvider(
                     rank = rank,
                     teamKey = teamKey,
                     teamName = entry.team?.displayName ?: entry.team?.name ?: entry.team?.shortDisplayName.orEmpty(),
-                    crestUrl = null,
+                    // The table document publishes the same crest list as the scoreboard.
+                    // Reading it here is what lets a table row draw a badge; when the row
+                    // has none the badge keeps the initials it already shows.
+                    crestUrl = entry.team?.logos
+                        ?.firstOrNull { logo -> logo.rel.any { it.equals("default", ignoreCase = true) } }
+                        ?.href
+                        ?.takeIf { it.isNotBlank() }
+                        ?: entry.team?.logos?.firstOrNull()?.href?.takeIf { it.isNotBlank() },
                     points = stat("points") ?: 0,
                     played = stat("gamesPlayed") ?: 0,
                     goalDifference = stat("pointDifferential") ?: 0,

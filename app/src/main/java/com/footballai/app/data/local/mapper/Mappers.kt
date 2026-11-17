@@ -7,6 +7,7 @@ import com.footballai.app.data.local.entity.MatchStatisticsEntity
 import com.footballai.app.data.local.entity.TeamEntity
 import com.footballai.app.data.provider.RemoteMatch
 import com.footballai.app.data.provider.RemoteTeam
+import com.footballai.app.domain.catalog.CrestUrls
 import com.footballai.app.domain.model.Competition
 import com.footballai.app.domain.model.MatchDetail
 import com.footballai.app.domain.model.MatchEvent
@@ -103,14 +104,23 @@ fun CompetitionEntity.toDomain(): Competition = Competition(
     classificationSource = classificationSource,
 )
 
-fun TeamEntity.toRef(): TeamRef = TeamRef(
-    id = id,
-    name = name,
-    shortName = shortName,
-    crestUrl = crestUrl,
-    kind = runCatching { TeamKind.valueOf(kind) }.getOrDefault(TeamKind.CLUB),
-    countryCode = countryCode,
-)
+fun TeamEntity.toRef(): TeamRef {
+    val resolvedKind = runCatching { TeamKind.valueOf(kind) }.getOrDefault(TeamKind.CLUB)
+    return TeamRef(
+        id = id,
+        name = name,
+        shortName = shortName,
+        // A row stored before the source published a crest link keeps its initials today,
+        // and the list of monograms the user sees is the proof: the badge is only drawn
+        // when the address is known. The source's own published address for a club id is
+        // used as the last resort, so an old row heals on the next screen instead of
+        // waiting for a sync that may already have happened.
+        crestUrl = crestUrl?.takeIf { it.isNotBlank() }
+            ?: CrestUrls.forClub(providerId, providerKey, resolvedKind),
+        kind = resolvedKind,
+        countryCode = countryCode,
+    )
+}
 
 fun MatchEntity.toSummary(
     competitionName: String,

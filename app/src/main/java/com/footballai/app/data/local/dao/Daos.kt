@@ -499,6 +499,10 @@ interface StandingDao {
 
     @Query("SELECT COUNT(*) FROM standings WHERE competitionId = :competitionId")
     suspend fun countForCompetition(competitionId: String): Int
+
+    /** The newest season stored for a competition: the table to fall back to, never a guess. */
+    @Query("SELECT MAX(season) FROM standings WHERE competitionId = :competitionId")
+    suspend fun latestSeason(competitionId: String): Int?
 }
 
 @Dao

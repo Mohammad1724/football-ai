@@ -59,7 +59,7 @@ import com.footballai.app.ui.qualityLevelLabel
 import com.footballai.app.ui.theme.FootballAiThemeExtra
 import com.footballai.app.ui.theme.Radii
 import com.footballai.app.ui.theme.Spacing
-import coil.compose.AsyncImage
+import coil.compose.SubcomposeAsyncImage
 import com.footballai.app.R
 
 @Composable
@@ -282,22 +282,27 @@ fun TeamBadge(team: TeamRef, size: Int = 26) {
     ) {
         // The monogram is the fallback, not a layer: drawing it under a flag printed the
         // initials on top of the flag. It is only shown when there is nothing better.
-        if (flag == null && crest == null) {
-            TeamMonogram(team.name, size = size)
+        // A crest that is still downloading — or that the source has removed — falls back
+        // to the same initials instead of leaving an empty circle, so a club row never
+        // shows a hole where its badge should be.
+        if (flag == null) {
+            if (crest == null) {
+                TeamMonogram(team.name, size = size)
+            } else {
+                SubcomposeAsyncImage(
+                    model = crest,
+                    contentDescription = null,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier
+                        .size(size.dp)
+                        .clip(CircleShape),
+                    loading = { TeamMonogram(team.name, size = size) },
+                    error = { TeamMonogram(team.name, size = size) },
+                )
+            }
         }
         if (flag != null) {
             Text(text = flag, style = MaterialTheme.typography.bodyMedium)
-        }
-        if (crest != null) {
-            AsyncImage(
-                model = crest,
-                contentDescription = null,
-                contentScale = ContentScale.Fit,
-                modifier = Modifier
-                    .size(size.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
-            )
         }
     }
 }

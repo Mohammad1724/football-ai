@@ -82,6 +82,29 @@ class EspnStandingsTest {
     }
 
     @Test
+    fun `a table row carries the crest the document publishes`() {
+        val withLogos = """
+            {"children":[{"standings":{"season":2026,"entries":[
+              {"team":{"id":"132","displayName":"Bayern Munich","logos":[
+                {"href":"https://a.espncdn.com/i/teamlogos/soccer/500-dark/132.png","rel":["dark"]},
+                {"href":"https://a.espncdn.com/i/teamlogos/soccer/500/132.png","rel":["full","default"]}
+              ]},"stats":[{"name":"rank","value":1.0}]}
+            ]}}]}
+        """.trimIndent()
+        val result = provider.parseStandings(withLogos)
+        assertIs<Outcome.Success<List<RemoteStandingRow>>>(result)
+        // The default crest, not the dark variant: the badge is drawn on a light circle.
+        assertEquals("https://a.espncdn.com/i/teamlogos/soccer/500/132.png", result.value.single().crestUrl)
+    }
+
+    @Test
+    fun `a row without a published crest keeps no crest rather than a guessed one`() {
+        val result = provider.parseStandings(payload)
+        assertIs<Outcome.Success<List<RemoteStandingRow>>>(result)
+        assertEquals(listOf(null, null), result.value.map { it.crestUrl })
+    }
+
+    @Test
     fun `an unreadable document is an error, not an empty table`() {
         val result = provider.parseStandings("{\"children\":\"not a list\"}")
         assertIs<Outcome.Failure>(result)

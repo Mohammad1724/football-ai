@@ -219,8 +219,18 @@ class MatchRepository(
      */
     suspend fun standingRanks(competitionId: String, teamIds: List<String>): Map<String, Pair<Int, Int>> {
         if (competitionId.isBlank() || teamIds.isEmpty()) return emptyMap()
-        val season = db.competitionDao().byId(competitionId)?.season ?: return emptyMap()
-        val rows = db.standingDao().byCompetition(competitionId, season)
+        // The season on the competition row is what the fixture sync last wrote, and the
+        // table may have been stored under a different one (a league that rolls over
+        // mid-week, a season number the source changed). Asking only for that one number
+        // was why a stored table could exist and still print a dash, so the newest table
+        // this competition has is used when the exact season has no rows.
+        val stored = db.competitionDao().byId(competitionId)?.season
+            ?.let { season -> db.standingDao().byCompetition(competitionId, season) }
+            .orEmpty()
+        val rows = stored.ifEmpty {
+            val newest = db.standingDao().latestSeason(competitionId) ?: return emptyMap()
+            db.standingDao().byCompetition(competitionId, newest)
+        }
         if (rows.isEmpty()) return emptyMap()
         val byTeam = rows.associateBy { it.teamId }
         return teamIds.distinct().mapNotNull { id ->

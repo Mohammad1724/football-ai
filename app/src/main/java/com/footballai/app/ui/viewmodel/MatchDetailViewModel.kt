@@ -139,6 +139,8 @@ class MatchDetailViewModel(
     private var trackingJob: Job? = null
     private var lastLivePredictionAt: Long = 0L
     private var lastDetailsSyncAt: Long = 0L
+    /** The table for this competition is fetched once per visit, not once per redraw. */
+    private var tableFetchTried = false
 
     init {
         load()
@@ -195,6 +197,7 @@ class MatchDetailViewModel(
                 // though the stored data was enough to predict. It is computed either way.
                 predict()
                 maybeStartTracking()
+                detail?.let { ensureTable(it) }
             }
         }
     }
@@ -218,6 +221,12 @@ class MatchDetailViewModel(
                 }
                 predict()
                 maybeStartTracking()
+                // A table that was not on the device a minute ago may be there now, and a
+                // person who taps refresh is asking for exactly that.
+                (refreshed ?: _state.value.detail)?.let { detail ->
+                    tableFetchTried = false
+                    ensureTable(detail)
+                }
             }
         }
     }
@@ -363,6 +372,40 @@ class MatchDetailViewModel(
                     container.settingsRepository.toggleFavouritePlayer(existing, false)
                 else -> Unit
             }
+        }
+    }
+
+    /**
+     * Fetches the league table for this match's competition when the two ranks are unknown.
+     *
+     * The table used to be downloaded only for competitions the user follows, so the
+     * "where they stand" row of an unfollowed league had nothing to read and printed a
+     * dash — the source publishes that table, the app had simply never asked for it. The
+     * request is one document per competition, at most once a day (the sync layer owns
+     * that marker), and only when a rank is actually missing. A failure changes nothing:
+     * the row stays away rather than claiming a position.
+     */
+    private suspend fun ensureTable(detail: MatchDetail) {
+        if (tableFetchTried) return
+        val missing = _state.value.homeForm?.standingRank == null ||
+            _state.value.awayForm?.standingRank == null
+        if (!missing) return
+        tableFetchTried = true
+        val competition = container.matchRepository.competitionEntity(detail.summary.competitionId)
+            ?: return
+        val written = runCatching {
+            container.syncRepository.refreshStandings(
+                providerId = competition.providerId,
+                competitionKeys = listOf(competition.providerKey),
+            )
+        }.getOrDefault(0)
+        if (written <= 0) return
+        val competitionId = detail.summary.competitionId
+        _state.update {
+            it.copy(
+                homeForm = formOf(detail.summary.home, competitionId),
+                awayForm = formOf(detail.summary.away, competitionId),
+            )
         }
     }
 

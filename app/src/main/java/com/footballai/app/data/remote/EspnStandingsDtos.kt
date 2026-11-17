@@ -38,6 +38,14 @@ data class EspnStandingTeam(
     val displayName: String? = null,
     val name: String? = null,
     val shortDisplayName: String? = null,
+    /** The same crest list the scoreboard carries, so a table row can draw a badge too. */
+    val logos: List<EspnStandingLogo> = emptyList(),
+)
+
+@Serializable
+data class EspnStandingLogo(
+    val href: String? = null,
+    val rel: List<String> = emptyList(),
 )
 
 @Serializable
