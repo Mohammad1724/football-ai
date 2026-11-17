@@ -95,7 +95,10 @@ class PredictionEngineTest {
         assertEquals(1.0, live.markets.homeWin + live.markets.draw + live.markets.awayWin, 1e-9)
         val context = assertNotNull(live.live)
         assertEquals(89, context.minute)
-        assertEquals(1, context.remainingMinutes)
+        // Four minutes of stoppage time are still to be played at 89, so the horizon is
+        // five minutes rather than one. The old count made a two-goal lead look safer than
+        // it is and, on a level score, overstated "no more goals" by about ten points.
+        assertEquals(5, context.remainingMinutes)
     }
 
     @Test
@@ -147,7 +150,8 @@ class PredictionEngineTest {
     fun `invalid minute values are clamped`() {
         val live = engine.predictLive(LiveInput(preMatch = input(), minute = 130, homeGoals = 1, awayGoals = 1))
         val context = assertNotNull(live.live)
-        assertEquals(90, context.minute)
+        // 90 regulation minutes plus the configured four of stoppage time.
+        assertEquals(94, context.minute)
         assertEquals(0, context.remainingMinutes)
         assertTrue(live.markets.draw > 0.85, "with no time left the drawn scoreline dominates")
         assertTrue(live.markets.homeWin + live.markets.awayWin < 0.15)

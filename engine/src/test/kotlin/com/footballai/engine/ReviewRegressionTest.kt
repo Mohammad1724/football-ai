@@ -22,13 +22,23 @@ class ReviewRegressionTest {
     )
 
     @Test fun `zero horizon has no future goals and a certain current score`() {
-        val result = MatchPredictionEngine().predictLive(LiveInput(input(), 90, 2, 1))
+        // Past regulation plus stoppage, where nothing can be scored any more. Minute 90
+        // itself is not that point: the match is still running.
+        val result = MatchPredictionEngine().predictLive(LiveInput(input(), 94, 2, 1))
         assertEquals(0.0, result.expectedHomeGoals)
         assertEquals(0.0, result.expectedAwayGoals)
         assertEquals(1.0, result.markets.homeWin, 1e-12)
         assertEquals(1.0, result.live!!.noMoreGoals, 1e-12)
         assertEquals(0.0, result.live!!.nextGoalHome)
         assertEquals(0.0, result.live!!.nextGoalAway)
+    }
+
+    @Test fun `minute ninety still has stoppage time to play`() {
+        val result = MatchPredictionEngine().predictLive(LiveInput(input(), 90, 2, 1))
+        val live = result.live!!
+        assertEquals(4, live.remainingMinutes)
+        assertTrue(live.noMoreGoals < 0.95, "the clock reaching ninety is not the final whistle")
+        assertTrue(result.markets.homeWin > 0.95)
     }
 
     @Test fun `zero poisson matrix is a point mass`() {

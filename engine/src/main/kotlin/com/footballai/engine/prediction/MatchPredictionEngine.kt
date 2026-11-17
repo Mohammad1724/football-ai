@@ -30,6 +30,17 @@ data class EngineConfig(
     val maxLambda: Double = 6.0,
     val firstHalfShare: Double = 0.44,
     val matchLengthMinutes: Int = 90,
+    /**
+     * Minutes played after the clock reaches [matchLengthMinutes], used when the caller
+     * cannot supply the real figure.
+     *
+     * Without it the model treated minute 90 as the end of the match and minute 89 as
+     * sixty seconds of football, which is where forecasts get their most confident: at
+     * 89 the probability of no further goal came out at 0.97 for a match that still had
+     * four or five minutes to play. This is a disclosed assumption, in the same class as
+     * [firstHalfShare], not data read from a provider.
+     */
+    val stoppageTimeAllowanceMinutes: Int = 4,
     /** Scoring multiplier for a team that received a red card. */
     val redCardOwnFactor: Double = 0.88,
     /** Scoring multiplier for the opponent of a team that received a red card. */
@@ -245,10 +256,17 @@ class MatchPredictionEngine(private val config: EngineConfig = EngineConfig()) {
         val preMatch = input.preMatch
         val (fullHome, fullAway) = expectedGoals(preMatch)
 
-        val totalMinutes = (config.matchLengthMinutes + input.addedTimeMinutes).coerceAtLeast(1)
+        // The horizon of a football match is regulation time plus its stoppage time, not
+        // ninety minutes. A caller that knows the real figure supplies it; otherwise the
+        // configured allowance stands in, so the last minutes are not modelled as if the
+        // whistle were already at the clock.
+        val addedMinutes = maxOf(input.addedTimeMinutes, config.stoppageTimeAllowanceMinutes)
+        val totalMinutes = (config.matchLengthMinutes + addedMinutes).coerceAtLeast(1)
         val minutesPlayed = input.minute.coerceIn(0, totalMinutes)
         val remainingMinutes = totalMinutes - minutesPlayed
-        val remainingShare = (remainingMinutes.toDouble() / config.matchLengthMinutes)
+        // Share of the *match* still to be played, so that a minute spent is a minute gone
+        // whether or not the clock has passed ninety.
+        val remainingShare = (remainingMinutes.toDouble() / totalMinutes)
             .coerceIn(0.0, 1.0)
 
         var lambdaHome = fullHome * remainingShare
