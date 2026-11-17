@@ -81,13 +81,32 @@ object CrestImages {
     var lastFailure: String? = null
         private set
 
+    /**
+     * The same picture through a public image mirror.
+     *
+     * A crest address that the phone cannot open is not a wrong address: a feed can be
+     * reachable while the image host behind it is not, and that is invisible from inside
+     * the app. The mirror receives only the address of a club logo — no account, no
+     * device id, nothing about the reader — and is used only after the source itself has
+     * refused, never first.
+     */
+    fun mirrorUrl(url: String): String {
+        val host = url.trim().removePrefix("https://").removePrefix("http://")
+        // Slashes are kept readable: the mirror takes a plain address, and an encoded
+        // "a.espncdn.com%2Fi%2F..." is accepted by some paths and rejected by others.
+        val encoded = java.net.URLEncoder.encode(host, "UTF-8").replace("%2F", "/")
+        return "https://images.weserv.nl/?url=$encoded&w=120&h=120&fit=contain&output=png"
+    }
+
     suspend fun load(url: String): ImageBitmap? {
         val key = url.trim()
         if (key.isEmpty()) return null
         cache.get(key)?.let { cached -> return cached }
         if (isKnownBad(key)) return null
         return withContext(Dispatchers.IO) {
-            val bytes = fetch(key) ?: run {
+            // The source first; the mirror only when the source refused, and the failure
+            // text says which of the two answered so a report can tell them apart.
+            val bytes = fetch(key) ?: fetch(mirrorUrl(key)) ?: run {
                 rememberBad(key)
                 return@withContext null
             }
@@ -110,18 +129,24 @@ object CrestImages {
      * means the phone was turned away — and the diagnostics row prints which one it was.
      */
     suspend fun probe(url: String): String = withContext(Dispatchers.IO) {
+        val direct = status(url)
+        val mirror = status(mirrorUrl(url))
+        "source: $direct / mirror: $mirror"
+    }
+
+    /** One request, status kept: a 404 is a wrong address, a 403 is a refusal. */
+    private fun status(url: String): String {
         val request = Request.Builder()
             .url(url)
             .header("User-Agent", browserUserAgent)
             .header("Accept", "image/avif,image/webp,image/png,image/*;q=0.8")
             .build()
-        runCatching {
+        return runCatching {
             client.newCall(request).execute().use { response ->
-                val size = response.body?.contentLength() ?: -1L
-                val type = response.header("Content-Type").orEmpty()
-                "HTTP ${response.code} · $type · ${if (size >= 0) "$size bytes" else "size unknown"}"
+                val type = response.header("Content-Type").orEmpty().substringBefore(';')
+                "HTTP ${response.code} ${type}".trim()
             }
-        }.getOrElse { error -> "request failed: ${error::class.java.simpleName}" }
+        }.getOrElse { error -> "failed (${error::class.java.simpleName})" }
     }
 
     private fun fetch(url: String): ByteArray? {
