@@ -344,10 +344,17 @@ fun SettingsScreen(onOpenDataSources: () -> Unit, onOpenCompetitionOrder: () -> 
                                 // actually holds: the two together say whether the phone
                                 // cannot reach the picture or the picture has no address.
                                 val network = CrestImages.probe(CrestImages.probeAddress)
+                                // One tap should also *repair* what it can: a club the
+                                // source never gave an address for is looked up by name,
+                                // and the badge appears without another sync.
+                                val repaired = runCatching {
+                                    container.syncRepository.backfillCrests(force = true)
+                                }.getOrElse { -1 }
                                 val data = runCatching {
                                     container.matchRepository.crestDiagnostics()
                                 }.getOrElse { error -> "teams: unreadable (${error::class.java.simpleName})" }
-                                probe = network + "\n" + data
+                                CrestImages.forgetFailures()
+                                probe = network + "\n" + data + "\nrepaired: $repaired"
                                 checking = false
                             }
                         },

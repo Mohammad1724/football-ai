@@ -57,6 +57,7 @@ class EspnOpenProvider(
 
         /** The table lives under a different path prefix on the same host. */
         private const val STANDINGS_BASE_URL = "https://site.api.espn.com/apis/v2/sports/soccer"
+        private const val SEARCH_BASE_URL = "https://site.api.espn.com/apis/common/v3/search"
 
         /**
          * Days fetched per competition per sync: yesterday, today and the next two.
@@ -258,6 +259,54 @@ class EspnOpenProvider(
                 )
             },
         )
+    }
+
+    /**
+     * The crest the source publishes for a team it knows by name.
+     *
+     * A club that arrived through the archived leagues carries no logo in its own payload,
+     * so its badge had nothing to draw. The source's public search does know the club and
+     * its crests, so it is asked once per name — and only an exact name match is accepted:
+     * a search for "Bayern Munich" also returns "Bayern Munich II", and putting a reserve
+     * team's badge on the first team is worse than showing initials.
+     */
+    suspend fun crestForTeamName(name: String): Outcome<String?> {
+        val query = name.trim()
+        if (query.length < 3) return Outcome.Success(null)
+        val url = "$SEARCH_BASE_URL?query=${java.net.URLEncoder.encode(query, "UTF-8")}" +
+            "&limit=6&type=team"
+        return when (val response = client.get(PROVIDER_ID, info.quota, url)) {
+            is Outcome.Failure -> response
+            is Outcome.Success -> Outcome.Success(parseCrestSearch(response.value, query))
+        }
+    }
+
+    internal fun parseCrestSearch(payload: String, query: String): String? {
+        val decoded = runCatching {
+            json.decodeFromString(EspnSearchResponse.serializer(), payload)
+        }.getOrNull() ?: return null
+        val wanted = normalizedName(query)
+        if (wanted.isEmpty()) return null
+        val match = decoded.items.firstOrNull { item ->
+            normalizedName(item.name) == wanted ||
+                normalizedName(item.displayName) == wanted ||
+                normalizedName(item.location) == wanted
+        } ?: return null
+        return match.logos
+            .firstOrNull { logo -> logo.rel.any { it.equals("default", ignoreCase = true) } }
+            ?.href
+            ?.takeIf { it.isNotBlank() }
+            ?: match.logos.firstOrNull()?.href?.takeIf { it.isNotBlank() }
+    }
+
+    /** Diacritics, punctuation and case are not part of a club's identity. */
+    private fun normalizedName(value: String?): String {
+        if (value == null) return ""
+        val folded = java.text.Normalizer.normalize(value, java.text.Normalizer.Form.NFD)
+            .replace(Regex("\\p{Mn}+"), "")
+        return folded.lowercase()
+            .replace(Regex("[^a-z0-9]+"), " ")
+            .trim()
     }
 
     /** One request per day, bounded to [WINDOW_DAYS] days around today. */

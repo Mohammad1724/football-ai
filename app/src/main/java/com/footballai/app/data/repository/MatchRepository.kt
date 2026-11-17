@@ -327,7 +327,10 @@ class MatchRepository(
                 )
             "sample: ${sample.providerId}/${sample.kind}/${sample.providerKey} -> ${url ?: "no address"}"
         }
-        return "teams: $withCrest of $total with a crest · $sampleText"
+        val bySource = db.teamDao().crestCountsByProvider()
+            .joinToString(" · ") { count -> "${count.providerId} ${count.withCrest}/${count.total}" }
+        return "teams: $withCrest of $total with a crest · $sampleText" +
+            (if (bySource.isEmpty()) "" else "\nby source: $bySource")
     }
 
     suspend fun matchEntity(matchId: String): MatchEntity? = db.matchDao().byId(matchId)

@@ -26,6 +26,7 @@ import com.footballai.app.domain.catalog.CompetitionCatalog
 import com.footballai.app.domain.model.MatchStatus
 import com.footballai.app.domain.model.StatisticType
 import androidx.room.withTransaction
+import com.footballai.app.data.remote.EspnOpenProvider
 import com.footballai.app.data.remote.CsvFixtureIdentity
 import com.footballai.app.data.remote.FootballDataCoUkProvider
 import com.footballai.engine.model.TeamKind
@@ -537,6 +538,40 @@ class SyncRepository(
     }
 
     /**
+     * Gives a badge address to clubs whose own payload carried none.
+     *
+     * The archived leagues arrive without logos, and a badge needs an address before it can
+     * draw anything: that is why a list of clubs could show initials while the picture
+     * itself was reachable. The source's public search knows the club and its crest, so a
+     * bounded number of teams that actually appear in a fixture are asked once a day, and
+     * only an exact name match is stored — a reserve side is a different club.
+     *
+     * A team the search cannot confirm keeps no address and keeps its initials: nothing is
+     * guessed, and a wrong crest is worse than a monogram.
+     */
+    suspend fun backfillCrests(
+        providerId: String = EspnOpenProvider.PROVIDER_ID,
+        limit: Int = 40,
+        force: Boolean = false,
+    ): Int {
+        val provider = registry.provider(providerId) as? EspnOpenProvider ?: return 0
+        val now = clock.nowEpochMs()
+        val last = db.syncMetaDao().entity(CREST_BACKFILL_MARKER)?.updatedAt ?: 0L
+        if (!force && now - last < STANDINGS_MAX_AGE_MS) return 0
+        var filled = 0
+        for (team in db.teamDao().crestlessInFixtures(limit)) {
+            val url = when (val result = provider.crestForTeamName(team.name)) {
+                is Outcome.Success -> result.value
+                is Outcome.Failure -> null
+            } ?: continue
+            db.teamDao().upsertAll(listOf(team.copy(crestUrl = url, updatedAt = now)))
+            filled++
+        }
+        db.syncMetaDao().put(SyncMetaEntity(CREST_BACKFILL_MARKER, "ok", now))
+        return filled
+    }
+
+    /**
      * Imports bulk history from football-data.co.uk. Requests are estimated up front
      * so the user can decide whether the download is worth it.
      */
@@ -861,6 +896,7 @@ class SyncRepository(
     companion object {
         /** A table changes at most after a round of matches, so a day is generous. */
         private const val STANDINGS_MAX_AGE_MS = 24L * 60L * 60L * 1000L
+        private const val CREST_BACKFILL_MARKER = "crest-backfill-v1"
         private const val STANDINGS_MARKER = "standings"
         private const val DETAILS_TTL_MS = 90_000L
         private const val HISTORY_LOOKBACK_DAYS = 420L

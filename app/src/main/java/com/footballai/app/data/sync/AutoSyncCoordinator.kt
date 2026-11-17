@@ -211,6 +211,9 @@ class AutoSyncCoordinator(
                 runCatching {
                     syncRepository.refreshStandings(providerId ?: "", settings.followedCompetitionKeys.toList())
                 }
+                // Badges: a club whose payload carried no logo gets its address from the
+                // source's own search, once a day, for teams that appear in a fixture.
+                runCatching { syncRepository.backfillCrests() }
                 val run = SyncRun(
                     added = report.fixturesReceived,
                     warnings = report.errors,
@@ -236,6 +239,7 @@ class AutoSyncCoordinator(
                     runCatching {
                         syncRepository.refreshStandings(id, settings.followedCompetitionKeys.toList())
                     }
+                    runCatching { syncRepository.backfillCrests(providerId = id) }
                     val run = SyncRun(
                         added = result.value.fixtures,
                         warnings = result.value.errors,

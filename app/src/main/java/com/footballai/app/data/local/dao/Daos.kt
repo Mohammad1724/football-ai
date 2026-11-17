@@ -49,6 +49,13 @@ interface CompetitionDao {
     suspend fun count(): Int
 }
 
+/** How many stored teams of one source carry a badge address. */
+data class TeamCrestCount(
+    val providerId: String,
+    val total: Int,
+    val withCrest: Int,
+)
+
 @Dao
 interface TeamDao {
     @Query("SELECT * FROM teams WHERE id IN (SELECT homeTeamId FROM matches WHERE competitionId = :competition UNION SELECT awayTeamId FROM matches WHERE competitionId = :competition)")
@@ -73,6 +80,21 @@ interface TeamDao {
     /** The team the last sync touched: the row a badge would be drawn from. */
     @Query("SELECT * FROM teams ORDER BY updatedAt DESC LIMIT 1")
     suspend fun mostRecentlyUpdated(): TeamEntity?
+
+    /** Teams that have no badge address but do appear in a fixture: the ones a reader sees. */
+    @Query(
+        "SELECT * FROM teams WHERE (crestUrl IS NULL OR crestUrl = '') AND id IN " +
+            "(SELECT homeTeamId FROM matches UNION SELECT awayTeamId FROM matches) " +
+            "ORDER BY updatedAt DESC LIMIT :limit",
+    )
+    suspend fun crestlessInFixtures(limit: Int): List<TeamEntity>
+
+    @Query(
+        "SELECT providerId AS providerId, COUNT(*) AS total, " +
+            "SUM(CASE WHEN crestUrl IS NULL OR crestUrl = '' THEN 0 ELSE 1 END) AS withCrest " +
+            "FROM teams GROUP BY providerId ORDER BY total DESC",
+    )
+    suspend fun crestCountsByProvider(): List<TeamCrestCount>
 }
 
 @Dao

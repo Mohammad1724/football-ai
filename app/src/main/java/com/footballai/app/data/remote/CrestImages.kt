@@ -56,6 +56,9 @@ object CrestImages {
     private val failed = LinkedHashSet<String>()
     private val failedLock = Any()
 
+    /** A repair may have fixed an address, so the "do not ask again" set is dropped. */
+    fun forgetFailures() = synchronized(failedLock) { failed.clear() }
+
     private fun isKnownBad(url: String): Boolean = synchronized(failedLock) { url in failed }
 
     private fun rememberBad(url: String) = synchronized(failedLock) {
