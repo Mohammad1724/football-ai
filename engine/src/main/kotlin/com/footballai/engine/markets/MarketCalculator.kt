@@ -92,13 +92,20 @@ object MarketCalculator {
 
         val firstHalf = firstHalfShare?.let { share ->
             val safeShare = share.coerceIn(0.3, 0.6)
-            // The correction the matrix was built with has to survive the split. Without
-            // it the half-time numbers come from a different model than the final score,
-            // and the four scorelines Dixon-Coles exists to correct (0-0, 1-0, 0-1, 1-1)
-            // are exactly the ones a half-time grid is mostly made of.
+            // Two things have to survive the split.
+            //
+            // The correction: without it the half-time numbers come from a different model
+            // than the final score, and the four scorelines Dixon-Coles exists to correct
+            // (0-0, 1-0, 0-1, 1-1) are exactly the ones a half-time grid is mostly made of.
+            //
+            // And the matrix itself: a calibrated or market-aligned full-time table has
+            // already moved probability between outcomes, which moves the goals each side
+            // is expected to score. Splitting the *original* lambdas left the half-time row
+            // standing still while the rows above it changed, so one table showed two
+            // models. The expected goals are read back from the matrix instead.
             firstHalfProbabilities(
-                homeLambda = matrix.homeLambda * safeShare,
-                awayLambda = matrix.awayLambda * safeShare,
+                homeLambda = matrix.impliedHomeGoals() * safeShare,
+                awayLambda = matrix.impliedAwayGoals() * safeShare,
                 rho = matrix.rho,
             )
         }

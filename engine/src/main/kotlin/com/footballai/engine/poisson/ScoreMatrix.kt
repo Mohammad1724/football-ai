@@ -40,6 +40,32 @@ class ScoreMatrix private constructor(
 
     fun totalMass(): Double = cells.sum()
 
+    /**
+     * Goals each side is expected to score *under this matrix*, as opposed to the lambdas
+     * it was built from.
+     *
+     * The two agree for a fresh matrix and diverge the moment it is rescaled: lifting the
+     * share of home wins also lifts the number of goals the home side is expected to score.
+     * Anything derived from the matrix afterwards — the half-time grid, for instance — has
+     * to start from these numbers if it is to describe the same match as the full-time
+     * table above it.
+     */
+    fun impliedHomeGoals(): Double {
+        var sum = 0.0
+        for (h in 0..maxGoals) {
+            for (a in 0..maxGoals) sum += h * cells[index(h, a)]
+        }
+        return sum
+    }
+
+    fun impliedAwayGoals(): Double {
+        var sum = 0.0
+        for (h in 0..maxGoals) {
+            for (a in 0..maxGoals) sum += a * cells[index(h, a)]
+        }
+        return sum
+    }
+
     fun homeWin(): Double {
         var sum = 0.0
         for (h in 0..maxGoals) for (a in 0 until h) sum += cells[index(h, a)]
