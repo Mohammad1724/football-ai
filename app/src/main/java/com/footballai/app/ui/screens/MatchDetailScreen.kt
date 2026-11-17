@@ -239,13 +239,18 @@ fun MatchDetailScreen(
                 return@Column
             }
 
-            MatchHeader(
-                detail = detail,
-                languageTag = languageTag,
-                onTeamClick = onTeamClick,
-                favouriteTeams = state.favouriteTeams,
-                onToggleFavourite = viewModel::toggleFavourite,
-            )
+            // The match card used to sit above the tab row, so it never moved: on a phone
+            // it kept roughly half the screen for the whole visit. It is now the first item
+            // of each tab's list, which scrolls it away while the tabs stay in reach.
+            val matchHeader: @Composable () -> Unit = {
+                MatchHeader(
+                    detail = detail,
+                    languageTag = languageTag,
+                    onTeamClick = onTeamClick,
+                    favouriteTeams = state.favouriteTeams,
+                    onToggleFavourite = viewModel::toggleFavourite,
+                )
+            }
 
             TabRow(selectedTabIndex = selectedTab) {
                 tabs.forEachIndexed { index, title ->
@@ -282,6 +287,7 @@ fun MatchDetailScreen(
                         modifier = Modifier.fillMaxSize(),
                     ) {
                         AnalysisTab(
+                            header = matchHeader,
                             prediction = state.prediction,
                             isPredicting = state.isPredicting,
                             error = state.lastError?.let { errorLabel(it) },
@@ -317,22 +323,26 @@ fun MatchDetailScreen(
                     }
 
                     hasLiveTab && tab == 1 -> LiveTab(
+                        header = matchHeader,
                         prediction = state.prediction,
                         detail = detail,
                         languageTag = languageTag,
                     )
 
                     tab == if (hasLiveTab) 2 else 1 -> StatisticsTab(
+                        header = matchHeader,
                         statistics = detail.statistics,
                         languageTag = languageTag,
                     )
 
                     tab == if (hasLiveTab) 3 else 2 -> HeadToHeadTab(
+                        header = matchHeader,
                         matches = state.headToHead,
                         languageTag = languageTag,
                     )
 
                     tab == if (hasLiveTab) 4 else 3 -> LineupsTab(
+                        header = matchHeader,
                         lineups = detail.lineups,
                         home = detail.summary.home,
                         away = detail.summary.away,
@@ -342,6 +352,7 @@ fun MatchDetailScreen(
                     )
 
                     else -> HeadToHeadTab(
+                        header = matchHeader,
                         matches = state.headToHead,
                         languageTag = languageTag,
                     )
@@ -505,6 +516,7 @@ private enum class PredictionGlossary { EXPECTED_GOALS, DATA_COVERAGE }
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 private fun AnalysisTab(
+    header: @Composable () -> Unit,
     prediction: PredictionView?,
     isPredicting: Boolean,
     error: String?,
@@ -526,6 +538,7 @@ private fun AnalysisTab(
     var showAdvanced by rememberSaveable(prediction?.id) { mutableStateOf(false) }
     var glossary by remember { mutableStateOf<PredictionGlossary?>(null) }
     LazyColumn(modifier = Modifier.fillMaxSize()) {
+        item { header() }
         if (refreshWarning != null) {
             // A failed refresh is not an empty screen. The stored analysis below stays.
             item {
@@ -1058,16 +1071,15 @@ private fun plainReasons(prediction: PredictionView): List<PlainReason> {
 private fun EvidenceSection(prediction: PredictionView, languageTag: String) {
     val confidence = prediction.confidence
     val calibration = prediction.calibration
+    // The chip and two short lines answer the question the heading asks. Everything that
+    // explains the method itself — gaps, calibration, the 90-minute rule — waits behind
+    // one button: a reader who wants it asks for it, and a reader who does not is no
+    // longer scrolling through five paragraphs to reach the rest of the page.
+    var detailsOpen by rememberSaveable(prediction.id) { mutableStateOf(false) }
     Spacer(Modifier.height(12.dp))
     SectionHeader(title = stringResource(R.string.evidence_title))
     Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            ConfidenceChip(level = confidence?.level)
-        }
+        ConfidenceChip(level = confidence?.level)
         Spacer(Modifier.height(6.dp))
         Text(
             text = stringResource(R.string.confidence_disclaimer),
@@ -1075,7 +1087,7 @@ private fun EvidenceSection(prediction: PredictionView, languageTag: String) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         if (confidence != null) {
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(6.dp))
             Text(
                 text = localizedString(R.string.evidence_sample, confidence.effectiveSample),
                 style = MaterialTheme.typography.bodySmall,
@@ -1088,6 +1100,16 @@ private fun EvidenceSection(prediction: PredictionView, languageTag: String) {
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+        }
+        TextButton(onClick = { detailsOpen = !detailsOpen }) {
+            Text(
+                stringResource(
+                    if (detailsOpen) R.string.evidence_details_hide else R.string.evidence_details_show,
+                ),
+            )
+        }
+        if (!detailsOpen) return@Column
+        if (confidence != null) {
             if (confidence.gaps.isNotEmpty()) {
                 Spacer(Modifier.height(8.dp))
                 Text(
@@ -1195,9 +1217,15 @@ private fun ExpectedGoals(label: String, value: Double, languageTag: String) {
 }
 
 @Composable
-private fun LiveTab(prediction: PredictionView?, detail: MatchDetail, languageTag: String) {
+private fun LiveTab(
+    header: @Composable () -> Unit,
+    prediction: PredictionView?,
+    detail: MatchDetail,
+    languageTag: String,
+) {
     val live = prediction?.live
     LazyColumn(modifier = Modifier.fillMaxSize()) {
+        item { header() }
         item {
             Row(
                 modifier = Modifier
@@ -1286,15 +1314,22 @@ private fun LiveTab(prediction: PredictionView?, detail: MatchDetail, languageTa
 }
 
 @Composable
-private fun StatisticsTab(statistics: List<MatchStatisticPair>, languageTag: String) {
-    if (statistics.isEmpty()) {
-        EmptyState(
-            title = stringResource(R.string.empty_statistics_title),
-            message = stringResource(R.string.empty_statistics_message),
-        )
-        return
-    }
+private fun StatisticsTab(
+    header: @Composable () -> Unit,
+    statistics: List<MatchStatisticPair>,
+    languageTag: String,
+) {
     LazyColumn(modifier = Modifier.fillMaxSize()) {
+        item { header() }
+        if (statistics.isEmpty()) {
+            item {
+                EmptyState(
+                    title = stringResource(R.string.empty_statistics_title),
+                    message = stringResource(R.string.empty_statistics_message),
+                )
+            }
+            return@LazyColumn
+        }
         items(statistics) { pair ->
             StatComparisonRow(
                 label = statisticLabel(pair.type),
@@ -1325,17 +1360,21 @@ private fun statisticLabel(type: StatisticType): String = when (type) {
 
 @Composable
 private fun HeadToHeadTab(
+    header: @Composable () -> Unit,
     matches: List<com.footballai.app.domain.model.MatchSummary>,
     languageTag: String,
 ) {
-    if (matches.isEmpty()) {
-        EmptyState(
-            title = stringResource(R.string.empty_h2h_title),
-            message = stringResource(R.string.empty_h2h_message),
-        )
-        return
-    }
     LazyColumn(modifier = Modifier.fillMaxSize()) {
+        item { header() }
+        if (matches.isEmpty()) {
+            item {
+                EmptyState(
+                    title = stringResource(R.string.empty_h2h_title),
+                    message = stringResource(R.string.empty_h2h_message),
+                )
+            }
+            return@LazyColumn
+        }
         items(matches) { match ->
             Card(
                 modifier = Modifier
@@ -1434,6 +1473,7 @@ private fun NationalHistoryCard(
  */
 @Composable
 private fun LineupsTab(
+    header: @Composable () -> Unit,
     lineups: List<TeamLineup>,
     home: TeamRef,
     away: TeamRef,
@@ -1444,6 +1484,7 @@ private fun LineupsTab(
     if (lineups.isEmpty()) {
         // Honest empty state: the source said lineups exist, this one has not arrived yet.
         LazyColumn(modifier = Modifier.fillMaxSize()) {
+            item { header() }
             item {
                 Text(
                     text = stringResource(R.string.note_lineups_unavailable),
@@ -1456,6 +1497,7 @@ private fun LineupsTab(
         return
     }
     LazyColumn(modifier = Modifier.fillMaxSize()) {
+        item { header() }
         // Home first, then away: the order the match was read in.
         lineups.sortedBy { lineup ->
             when (lineup.teamId) {
