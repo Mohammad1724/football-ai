@@ -129,6 +129,23 @@ class MatchRepository(
             .take(limit)
     }
 
+    /**
+     * Where these teams stand in a competition table, with the size of that table.
+     *
+     * Empty when the source has published no table for the season: the screen then says
+     * nothing rather than showing a position it cannot support.
+     */
+    suspend fun standingRanks(competitionId: String, teamIds: List<String>): Map<String, Pair<Int, Int>> {
+        if (competitionId.isBlank() || teamIds.isEmpty()) return emptyMap()
+        val season = db.competitionDao().byId(competitionId)?.season ?: return emptyMap()
+        val rows = db.standingDao().byCompetition(competitionId, season)
+        if (rows.isEmpty()) return emptyMap()
+        val byTeam = rows.associateBy { it.teamId }
+        return teamIds.distinct().mapNotNull { id ->
+            byTeam[id]?.let { id to (it.rank to rows.size) }
+        }.toMap()
+    }
+
     suspend fun teamProfile(teamId: String): TeamProfile? {
         val team = db.teamDao().byId(teamId) ?: return null
         val recent = db.matchDao().recentForTeam(teamId, 10)

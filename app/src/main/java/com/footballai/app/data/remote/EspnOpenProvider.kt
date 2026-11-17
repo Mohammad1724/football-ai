@@ -55,6 +55,9 @@ class EspnOpenProvider(
         const val PROVIDER_ID = "espn-open"
         const val DEFAULT_BASE_URL = "https://site.api.espn.com/apis/site/v2/sports/soccer"
 
+        /** The table lives under a different path prefix on the same host. */
+        private const val STANDINGS_BASE_URL = "https://site.api.espn.com/apis/v2/sports/soccer"
+
         /**
          * Days fetched per competition per sync: yesterday, today and the next two.
          *
@@ -119,7 +122,9 @@ class EspnOpenProvider(
             lineups = false,
             injuries = false,
             odds = false,
-            standings = false,
+            // The table is published on the same host, one document per league, so it
+            // costs a single request a day and needs no key.
+            standings = true,
             historicalSeasons = 0,
         ),
         // Self-imposed, not published by the provider: one request covers one day of one
@@ -198,8 +203,55 @@ class EspnOpenProvider(
     override suspend fun lineups(matchKey: String): Outcome<List<RemoteLineup>> =
         Outcome.Success(emptyList())
 
-    override suspend fun standings(competitionKey: String, season: Int): Outcome<List<RemoteStandingRow>> =
-        Outcome.Success(emptyList())
+    override suspend fun standings(
+        competitionKey: String,
+        season: Int,
+    ): Outcome<List<RemoteStandingRow>> = withContext(Dispatchers.IO) {
+        if (byKey[competitionKey] == null) {
+            return@withContext Outcome.Failure(
+                AppError(ErrorCode.NOT_FOUND, detail = "Unknown ESPN competition $competitionKey"),
+            )
+        }
+        val url = "$STANDINGS_BASE_URL/$competitionKey/standings"
+        when (val response = client.get(PROVIDER_ID, info.quota, url)) {
+            is Outcome.Failure -> response
+            is Outcome.Success -> parseStandings(response.value)
+        }
+    }
+
+    /**
+     * Translation of one table payload, kept apart from the request so it can be tested
+     * against a captured document.
+     *
+     * A row without a team id or a rank is dropped: a table that cannot say where a team
+     * stands is not a table, and inventing the position would be worse than leaving it out.
+     */
+    internal fun parseStandings(payload: String): Outcome<List<RemoteStandingRow>> {
+        val decoded = try {
+            json.decodeFromString(EspnStandingsResponse.serializer(), payload)
+        } catch (error: Exception) {
+            return Outcome.Failure(AppError(ErrorCode.PARSE_ERROR, detail = "ESPN standings", cause = error))
+        }
+        val entries = decoded.children.firstOrNull()?.standings?.entries.orEmpty()
+        return Outcome.Success(
+            entries.mapNotNull { entry ->
+                val teamKey = entry.team?.id?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+                fun stat(name: String): Int? =
+                    entry.stats.firstOrNull { it.name == name }?.value?.toInt()
+                val rank = stat("rank") ?: return@mapNotNull null
+                RemoteStandingRow(
+                    rank = rank,
+                    teamKey = teamKey,
+                    teamName = entry.team?.displayName ?: entry.team?.name ?: entry.team?.shortDisplayName.orEmpty(),
+                    crestUrl = null,
+                    points = stat("points") ?: 0,
+                    played = stat("gamesPlayed") ?: 0,
+                    goalDifference = stat("pointDifferential") ?: 0,
+                    form = null,
+                )
+            },
+        )
+    }
 
     /** One request per day, bounded to [WINDOW_DAYS] days around today. */
     private fun windowDates(fromEpochMs: Long?, toEpochMs: Long?): List<LocalDate> {

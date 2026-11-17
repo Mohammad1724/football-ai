@@ -74,6 +74,9 @@ data class TeamFormSnapshot(
     val cleanSheets: Int,
     /** Newest first, for the trend dots. */
     val sequence: List<com.footballai.app.domain.model.ResultOutcome>,
+    /** Published table position, when the source gave a table for this competition. */
+    val standingRank: Int? = null,
+    val standingOf: Int? = null,
 ) {
     companion object {
         /** Small, arithmetic, and out of the UI: counts only what the rows actually say. */
@@ -153,8 +156,8 @@ class MatchDetailViewModel(
                     _state.update { it.copy(headToHead = headToHead) }
                     _state.update {
                         it.copy(
-                            homeForm = formOf(detail.summary.home.id),
-                            awayForm = formOf(detail.summary.away.id),
+                            homeForm = formOf(detail.summary.home.id, detail.summary.competitionId),
+                            awayForm = formOf(detail.summary.away.id, detail.summary.competitionId),
                         )
                     }
                 }
@@ -189,8 +192,8 @@ class MatchDetailViewModel(
                 (refreshed ?: _state.value.detail)?.let { detail ->
                     _state.update {
                         it.copy(
-                            homeForm = formOf(detail.summary.home.id),
-                            awayForm = formOf(detail.summary.away.id),
+                            homeForm = formOf(detail.summary.home.id, detail.summary.competitionId),
+                            awayForm = formOf(detail.summary.away.id, detail.summary.competitionId),
                         )
                     }
                 }
@@ -345,9 +348,14 @@ class MatchDetailViewModel(
     }
 
     /** Null when the app has no finished match for that team: the panel then stays away. */
-    private suspend fun formOf(teamId: String): TeamFormSnapshot? {
+    private suspend fun formOf(teamId: String, competitionId: String): TeamFormSnapshot? {
         val results = container.matchRepository.recentResults(teamId, limit = 10)
-        return if (results.isEmpty()) null else TeamFormSnapshot.of(results)
+        if (results.isEmpty()) return null
+        val ranks = container.matchRepository.standingRanks(competitionId, listOf(teamId))
+        return TeamFormSnapshot.of(results).copy(
+            standingRank = ranks[teamId]?.first,
+            standingOf = ranks[teamId]?.second,
+        )
     }
 
     fun onScreenVisible() {

@@ -207,6 +207,10 @@ class AutoSyncCoordinator(
                     settingsRepository.setLastSync(clock.nowEpochMs())
                 }
                 runCatching { predictionRepository.resolveFinishedPredictions() }
+                // Tables are a once-a-day extra: after the fixtures, never before them.
+                runCatching {
+                    syncRepository.refreshStandings(providerId ?: "", settings.followedCompetitionKeys.toList())
+                }
                 val run = SyncRun(
                     added = report.fixturesReceived,
                     warnings = report.errors,
@@ -229,6 +233,9 @@ class AutoSyncCoordinator(
                 is Outcome.Failure -> fail(result.error, now)
                 is Outcome.Success -> {
                     runCatching { predictionRepository.resolveFinishedPredictions() }
+                    runCatching {
+                        syncRepository.refreshStandings(id, settings.followedCompetitionKeys.toList())
+                    }
                     val run = SyncRun(
                         added = result.value.fixtures,
                         warnings = result.value.errors,

@@ -12,6 +12,7 @@ import com.footballai.app.data.local.entity.LineupPlayerEntity
 import com.footballai.app.data.local.entity.MatchEventEntity
 import com.footballai.app.data.local.entity.MatchStatisticsEntity
 import com.footballai.app.data.local.entity.StandingEntity
+import com.footballai.app.data.local.entity.SyncMetaEntity
 import com.footballai.app.data.local.entity.TeamEntity
 import com.footballai.app.data.local.mapper.Ids
 import com.footballai.app.data.local.mapper.parseStatus
@@ -471,6 +472,40 @@ class SyncRepository(
         return Outcome.Success(summary.copy(errors = errors))
     }
 
+    /**
+     * Tops up the league tables the active source publishes, at most once a day each.
+     *
+     * Only competitions the user follows are asked for: one document per league, per day,
+     * is a light client. The marker lives in sync_meta so a refresh a minute later does
+     * not re-download a table that cannot have changed.
+     */
+    suspend fun refreshStandings(
+        providerId: String,
+        competitionKeys: List<String>,
+        maxAgeMs: Long = STANDINGS_MAX_AGE_MS,
+    ): Int {
+        val provider = registry.provider(providerId) ?: return 0
+        if (!provider.info.capabilities.standings) return 0
+        val now = clock.nowEpochMs()
+        var written = 0
+        // The list holds provider keys, not ids: the id is built here so a follower of
+        // "ger.1" and a stored competition are the same row.
+        for (key in competitionKeys.map { it.trim() }.filter { it.isNotEmpty() }.distinct()) {
+            val competitionId = Ids.competition(providerId, key)
+            val marker = STANDINGS_MARKER + competitionId
+            val last = db.syncMetaDao().entity(marker)?.updatedAt ?: 0L
+            if (now - last < maxAgeMs) continue
+            val season = db.competitionDao().byId(competitionId)?.season
+                ?: java.time.Instant.ofEpochMilli(now).atZone(java.time.ZoneId.systemDefault()).year
+            val result = syncStandings(providerId, key, season)
+            if (result is Outcome.Success) {
+                db.syncMetaDao().put(SyncMetaEntity(marker, "ok", now))
+                written += result.value
+            }
+        }
+        return written
+    }
+
     suspend fun syncStandings(providerId: String, competitionKey: String, season: Int): Outcome<Int> {
         val provider = registry.provider(providerId)
             ?: return Outcome.Failure(AppError(ErrorCode.NOT_FOUND, detail = "Unknown provider $providerId"))
@@ -824,6 +859,9 @@ class SyncRepository(
     }
 
     companion object {
+        /** A table changes at most after a round of matches, so a day is generous. */
+        private const val STANDINGS_MAX_AGE_MS = 24L * 60L * 60L * 1000L
+        private const val STANDINGS_MARKER = "standings"
         private const val DETAILS_TTL_MS = 90_000L
         private const val HISTORY_LOOKBACK_DAYS = 420L
 

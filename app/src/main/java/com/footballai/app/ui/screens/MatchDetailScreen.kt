@@ -1269,6 +1269,11 @@ private fun TeamFormCard(
                 home = home?.let { Formatters.integer(it.cleanSheets, languageTag) },
                 away = away?.let { Formatters.integer(it.cleanSheets, languageTag) },
             )
+            FormRow(
+                label = stringResource(R.string.form_row_table),
+                home = home?.let { tablePosition(it, languageTag) },
+                away = away?.let { tablePosition(it, languageTag) },
+            )
             Spacer(Modifier.height(6.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -1299,6 +1304,17 @@ private fun TeamFormCard(
 
 private fun recordOf(wins: Int, draws: Int, losses: Int, languageTag: String): String =
     listOf(wins, draws, losses).joinToString("·") { Formatters.integer(it, languageTag) }
+
+@Composable
+private fun tablePosition(form: TeamFormSnapshot, languageTag: String): String {
+    val rank = form.standingRank ?: return "—"
+    val of = form.standingOf ?: return "—"
+    return localizedString(
+        R.string.form_table_rank,
+        Formatters.integer(rank, languageTag),
+        Formatters.integer(of, languageTag),
+    )
+}
 
 private fun averageGoals(form: TeamFormSnapshot, languageTag: String): String =
     if (form.played == 0) "—" else Formatters.decimal(form.goalsFor.toDouble() / form.played, languageTag, 1)

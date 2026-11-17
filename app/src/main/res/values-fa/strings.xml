@@ -250,6 +250,8 @@
     <string name="form_row_average">میانگین گل در هر بازی</string>
     <string name="form_row_venue">خانه · بیرون</string>
     <string name="form_row_clean_sheets">بازی بدون گل خورده</string>
+    <string name="form_row_table">جایگاه در جدول</string>
+    <string name="form_table_rank">%1$s از %2$s</string>
     <string name="form_row_trend">روند</string>
     <string name="form_panel_note">از %1$s بازی موجود در برنامه، نه همهٔ فصل.</string>
     <string name="form_win">برد</string>
