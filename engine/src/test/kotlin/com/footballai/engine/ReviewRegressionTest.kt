@@ -66,6 +66,10 @@ class ReviewRegressionTest {
         assertTrue(report.market!!.count < report.model.count)
         assertEquals(report.market!!.count, report.modelOnMarketSubset!!.count)
         assertEquals(report.modelOnMarketSubset!!.brier < report.market!!.brier, report.beatsMarket)
+        // The arm that claims to cover every match really does, and the paired arm really
+        // is the priced subset; both used to carry the priced subset.
+        assertEquals(report.model.count, report.unaligned!!.count)
+        assertEquals(report.market!!.count, report.unalignedOnMarketSubset!!.count)
     }
 
     @Test fun `zero refit interval is rejected rather than looping forever`() {

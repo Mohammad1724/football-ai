@@ -330,9 +330,16 @@ class Backtester(private val config: BacktestConfig = BacktestConfig()) {
         }
         val pairedModel = samples.filter { it.marketHome != null && it.marketDraw != null && it.marketAway != null }
             .map { OutcomeSample(it.homeWin, it.draw, it.awayWin, it.actual) }
-        // The same matches again, with the market alignment removed, so the effect of
-        // leaning on the prices is measured rather than assumed.
-        val unaligned = samples.filter { it.marketHome != null }
+        // The same forecasts with the market alignment removed, in the two shapes the
+        // report advertises: over every evaluated match, and restricted to the ones that
+        // had prices. Both arms used to be the priced subset, so the field documented as
+        // "every match" silently differed from the headline only by its sample, and the
+        // effect of leaning on the prices could not be read off the report at all.
+        val unalignedAll = samples.map {
+            OutcomeSample(it.unalignedHome, it.unalignedDraw, it.unalignedAway, it.actual)
+        }
+        val unalignedPaired = samples
+            .filter { it.marketHome != null && it.marketDraw != null && it.marketAway != null }
             .map { OutcomeSample(it.unalignedHome, it.unalignedDraw, it.unalignedAway, it.actual) }
         val overSamples = samples.filter { !it.over25.isNaN() }
             .map { BinarySample(it.over25, it.actualOver25) }
@@ -356,8 +363,8 @@ class Backtester(private val config: BacktestConfig = BacktestConfig()) {
             baseRate = Metrics.baseRateBrier(outcomeSamples),
             market = if (marketSamples.isEmpty()) null else Metrics.summary(marketSamples),
             modelOnMarketSubset = if (pairedModel.isEmpty()) null else Metrics.summary(pairedModel),
-            unaligned = if (unaligned.isEmpty()) null else Metrics.summary(unaligned),
-            unalignedOnMarketSubset = if (unaligned.isEmpty()) null else Metrics.summary(unaligned),
+            unaligned = if (unalignedAll.isEmpty()) null else Metrics.summary(unalignedAll),
+            unalignedOnMarketSubset = if (unalignedPaired.isEmpty()) null else Metrics.summary(unalignedPaired),
             over25 = Metrics.binarySummary(overSamples),
             btts = Metrics.binarySummary(bttsSamples),
             calibration = calibration,
