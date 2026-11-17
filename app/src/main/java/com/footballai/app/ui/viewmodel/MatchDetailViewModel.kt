@@ -52,7 +52,57 @@ data class MatchDetailUiState(
     val favouritePlayers: Set<String> = emptySet(),
     /** The same list as comparable keys, so a lineup row knows its own star. */
     val favouritePlayerKeys: Set<String> = emptySet(),
+    /** Both teams' recent results, for the compact form panel. */
+    val homeForm: TeamFormSnapshot? = null,
+    val awayForm: TeamFormSnapshot? = null,
 )
+
+/** What a reader wants to know about a team before trusting a percentage. */
+data class TeamFormSnapshot(
+    val played: Int,
+    val wins: Int,
+    val draws: Int,
+    val losses: Int,
+    val goalsFor: Int,
+    val goalsAgainst: Int,
+    val homeWins: Int,
+    val homeDraws: Int,
+    val homeLosses: Int,
+    val awayWins: Int,
+    val awayDraws: Int,
+    val awayLosses: Int,
+    val cleanSheets: Int,
+    /** Newest first, for the trend dots. */
+    val sequence: List<com.footballai.app.domain.model.ResultOutcome>,
+) {
+    companion object {
+        /** Small, arithmetic, and out of the UI: counts only what the rows actually say. */
+        fun of(results: List<com.footballai.app.domain.model.TeamResult>): TeamFormSnapshot {
+            val wins = results.count { it.outcome == com.footballai.app.domain.model.ResultOutcome.WIN }
+            val draws = results.count { it.outcome == com.footballai.app.domain.model.ResultOutcome.DRAW }
+            val losses = results.count { it.outcome == com.footballai.app.domain.model.ResultOutcome.LOSS }
+            val atHome = results.filter { it.wasHome }
+            val away = results.filterNot { it.wasHome }
+            return TeamFormSnapshot(
+                played = results.size,
+                wins = wins,
+                draws = draws,
+                losses = losses,
+                goalsFor = results.sumOf { it.goalsFor },
+                goalsAgainst = results.sumOf { it.goalsAgainst },
+                homeWins = atHome.count { it.outcome == com.footballai.app.domain.model.ResultOutcome.WIN },
+                homeDraws = atHome.count { it.outcome == com.footballai.app.domain.model.ResultOutcome.DRAW },
+                homeLosses = atHome.count { it.outcome == com.footballai.app.domain.model.ResultOutcome.LOSS },
+                awayWins = away.count { it.outcome == com.footballai.app.domain.model.ResultOutcome.WIN },
+                awayDraws = away.count { it.outcome == com.footballai.app.domain.model.ResultOutcome.DRAW },
+                awayLosses = away.count { it.outcome == com.footballai.app.domain.model.ResultOutcome.LOSS },
+                cleanSheets = results.count { it.goalsAgainst == 0 },
+                sequence = results.sortedByDescending { it.kickoffEpochMs }
+                    .map { it.outcome },
+            )
+        }
+    }
+}
 
 class MatchDetailViewModel(
     private val container: AppContainer,
@@ -101,6 +151,12 @@ class MatchDetailViewModel(
                         awayTeamId = detail.summary.away.id,
                     )
                     _state.update { it.copy(headToHead = headToHead) }
+                    _state.update {
+                        it.copy(
+                            homeForm = formOf(detail.summary.home.id),
+                            awayForm = formOf(detail.summary.away.id),
+                        )
+                    }
                 }
                 if (refreshFromNetwork) {
                     val entity = container.matchRepository.matchEntity(matchId)
@@ -130,6 +186,14 @@ class MatchDetailViewModel(
                 _state.update { it.copy(isRefreshing = true) }
                 val refreshed = if (syncFresh()) container.matchRepository.matchDetail(matchId) else null
                 _state.update { it.copy(detail = refreshed ?: it.detail, isRefreshing = false) }
+                (refreshed ?: _state.value.detail)?.let { detail ->
+                    _state.update {
+                        it.copy(
+                            homeForm = formOf(detail.summary.home.id),
+                            awayForm = formOf(detail.summary.away.id),
+                        )
+                    }
+                }
                 predict()
                 maybeStartTracking()
             }
@@ -278,6 +342,12 @@ class MatchDetailViewModel(
                 else -> Unit
             }
         }
+    }
+
+    /** Null when the app has no finished match for that team: the panel then stays away. */
+    private suspend fun formOf(teamId: String): TeamFormSnapshot? {
+        val results = container.matchRepository.recentResults(teamId, limit = 10)
+        return if (results.isEmpty()) null else TeamFormSnapshot.of(results)
     }
 
     fun onScreenVisible() {

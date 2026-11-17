@@ -88,16 +88,14 @@ class MatchRepository(
     suspend fun headToHead(matchId: String, homeTeamId: String, awayTeamId: String, limit: Int = 6): List<MatchSummary> =
         decorate(db.matchDao().headToHead(matchId, homeTeamId, awayTeamId, limit))
 
-    suspend fun teamProfile(teamId: String): TeamProfile? {
-        val team = db.teamDao().byId(teamId) ?: return null
-        val recent = db.matchDao().recentForTeam(teamId, 10)
-        val summaries = decorate(recent)
-        val now = clock.nowEpochMs()
-        val competitionId = recent.firstOrNull()?.competitionId.orEmpty()
-        val source = team.providerId
-        val competition = if (competitionId.isNotEmpty()) db.competitionDao().byId(competitionId) else null
-
-        val results = summaries.filter { it.status.isFinished }.map { summary ->
+    /**
+     * A team's own results, from its point of view.
+     *
+     * Only finished matches: a fixture that has not been played is not evidence, and a
+     * form panel that counted it would show a result that does not exist yet.
+     */
+    private fun finishedResults(summaries: List<MatchSummary>, teamId: String): List<TeamResult> =
+        summaries.filter { it.status.isFinished }.map { summary ->
             val wasHome = summary.home.id == teamId
             val goalsFor = (if (wasHome) summary.homeGoals else summary.awayGoals) ?: 0
             val goalsAgainst = (if (wasHome) summary.awayGoals else summary.homeGoals) ?: 0
@@ -116,6 +114,31 @@ class MatchRepository(
                 competitionId = summary.competitionId,
             )
         }
+
+    /**
+     * The last [limit] finished matches for a team, newest first.
+     *
+     * The fixture query returns whatever is nearest, played or not, so a wider window is
+     * read and then filtered: asking for ten rows and getting seven played ones would
+     * silently shrink the panel.
+     */
+    suspend fun recentResults(teamId: String, limit: Int = 10): List<TeamResult> {
+        val rows = db.matchDao().recentForTeam(teamId, limit * 3)
+        return finishedResults(decorate(rows), teamId)
+            .sortedByDescending { it.kickoffEpochMs }
+            .take(limit)
+    }
+
+    suspend fun teamProfile(teamId: String): TeamProfile? {
+        val team = db.teamDao().byId(teamId) ?: return null
+        val recent = db.matchDao().recentForTeam(teamId, 10)
+        val summaries = decorate(recent)
+        val now = clock.nowEpochMs()
+        val competitionId = recent.firstOrNull()?.competitionId.orEmpty()
+        val source = team.providerId
+        val competition = if (competitionId.isNotEmpty()) db.competitionDao().byId(competitionId) else null
+
+        val results = finishedResults(summaries, teamId)
 
         val form = TeamFormSummary(
             wins = results.count { it.outcome == ResultOutcome.WIN },

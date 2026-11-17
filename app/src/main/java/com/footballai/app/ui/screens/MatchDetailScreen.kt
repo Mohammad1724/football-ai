@@ -22,6 +22,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -60,6 +61,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.Lifecycle
@@ -108,6 +111,8 @@ import com.footballai.app.ui.missingDataLabel
 import com.footballai.app.ui.matchStatusLabel
 import com.footballai.app.ui.qualityNoteLabel
 import com.footballai.app.ui.theme.FootballAiThemeExtra
+import com.footballai.app.domain.model.ResultOutcome
+import com.footballai.app.ui.viewmodel.TeamFormSnapshot
 import com.footballai.app.ui.viewmodel.MatchDetailViewModel
 import kotlin.math.roundToInt
 
@@ -288,6 +293,8 @@ fun MatchDetailScreen(
                     ) {
                         AnalysisTab(
                             header = matchHeader,
+                            homeForm = state.homeForm,
+                            awayForm = state.awayForm,
                             prediction = state.prediction,
                             isPredicting = state.isPredicting,
                             error = state.lastError?.let { errorLabel(it) },
@@ -517,6 +524,8 @@ private enum class PredictionGlossary { EXPECTED_GOALS, DATA_COVERAGE }
 @Composable
 private fun AnalysisTab(
     header: @Composable () -> Unit,
+    homeForm: TeamFormSnapshot?,
+    awayForm: TeamFormSnapshot?,
     prediction: PredictionView?,
     isPredicting: Boolean,
     error: String?,
@@ -637,6 +646,16 @@ private fun AnalysisTab(
                 prediction = prediction,
                 homeTeamName = homeName,
                 awayTeamName = awayName,
+                languageTag = languageTag,
+            )
+        }
+
+        item {
+            TeamFormCard(
+                home = homeForm,
+                away = awayForm,
+                homeName = homeName,
+                awayName = awayName,
                 languageTag = languageTag,
             )
         }
@@ -1163,6 +1182,179 @@ private fun EvidenceSection(prediction: PredictionView, languageTag: String) {
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+    }
+}
+
+/**
+ * The last ten results of both teams, side by side, as numbers.
+ *
+ * The block above it says "the home attack is stronger than usual"; this says how much
+ * and how often. It reads only from matches already stored, so it costs no request, and
+ * it disappears rather than showing a row of dashes when a team has nothing played.
+ */
+@Composable
+private fun TeamFormCard(
+    home: TeamFormSnapshot?,
+    away: TeamFormSnapshot?,
+    homeName: String,
+    awayName: String,
+    languageTag: String,
+) {
+    if (home == null && away == null) return
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 6.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+    ) {
+        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp)) {
+            Text(
+                text = stringResource(R.string.form_panel_title),
+                style = MaterialTheme.typography.titleSmall,
+            )
+            Spacer(Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Spacer(Modifier.weight(1.25f))
+                Text(
+                    text = homeName,
+                    style = MaterialTheme.typography.labelMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(
+                    text = awayName,
+                    style = MaterialTheme.typography.labelMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            Spacer(Modifier.height(6.dp))
+            FormRow(
+                label = stringResource(R.string.form_row_record),
+                home = home?.let { recordOf(it.wins, it.draws, it.losses, languageTag) },
+                away = away?.let { recordOf(it.wins, it.draws, it.losses, languageTag) },
+            )
+            FormRow(
+                label = stringResource(R.string.form_row_goals),
+                home = home?.let { "${Formatters.integer(it.goalsFor, languageTag)} / ${Formatters.integer(it.goalsAgainst, languageTag)}" },
+                away = away?.let { "${Formatters.integer(it.goalsFor, languageTag)} / ${Formatters.integer(it.goalsAgainst, languageTag)}" },
+            )
+            FormRow(
+                label = stringResource(R.string.form_row_average),
+                home = home?.let { averageGoals(it, languageTag) },
+                away = away?.let { averageGoals(it, languageTag) },
+            )
+            FormRow(
+                label = stringResource(R.string.form_row_venue),
+                home = home?.let {
+                    recordOf(it.homeWins, it.homeDraws, it.homeLosses, languageTag) + " / " +
+                        recordOf(it.awayWins, it.awayDraws, it.awayLosses, languageTag)
+                },
+                away = away?.let {
+                    recordOf(it.homeWins, it.homeDraws, it.homeLosses, languageTag) + " / " +
+                        recordOf(it.awayWins, it.awayDraws, it.awayLosses, languageTag)
+                },
+                small = true,
+            )
+            FormRow(
+                label = stringResource(R.string.form_row_clean_sheets),
+                home = home?.let { Formatters.integer(it.cleanSheets, languageTag) },
+                away = away?.let { Formatters.integer(it.cleanSheets, languageTag) },
+            )
+            Spacer(Modifier.height(6.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = stringResource(R.string.form_row_trend),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1.25f),
+                )
+                TrendDots(home?.sequence.orEmpty(), Modifier.weight(1f))
+                TrendDots(away?.sequence.orEmpty(), Modifier.weight(1f))
+            }
+            val played = listOfNotNull(home?.played, away?.played).maxOrNull()
+            if (played != null && (home == null || away == null || home.played < 10 || away.played < 10)) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    // Honesty about the sample: ten rows are only "the last ten" if ten exist.
+                    text = localizedString(R.string.form_panel_note, played),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+private fun recordOf(wins: Int, draws: Int, losses: Int, languageTag: String): String =
+    listOf(wins, draws, losses).joinToString("·") { Formatters.integer(it, languageTag) }
+
+private fun averageGoals(form: TeamFormSnapshot, languageTag: String): String =
+    if (form.played == 0) "—" else Formatters.decimal(form.goalsFor.toDouble() / form.played, languageTag, 1)
+
+@Composable
+private fun FormRow(label: String, home: String?, away: String?, small: Boolean = false) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1.25f),
+        )
+        listOf(home, away).forEach { value ->
+            Text(
+                text = value ?: "—",
+                style = if (small) MaterialTheme.typography.labelMedium else MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
+}
+
+/** One dot per result, newest on the left of its column: a shape instead of three words. */
+@Composable
+private fun TrendDots(outcomes: List<ResultOutcome>, modifier: Modifier = Modifier) {
+    val colors = FootballAiThemeExtra.colors
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (outcomes.isEmpty()) {
+            Text("—", style = MaterialTheme.typography.labelMedium)
+            return@Row
+        }
+        outcomes.take(10).forEach { outcome ->
+            Box(
+                modifier = Modifier
+                    .padding(horizontal = 1.dp)
+                    .size(7.dp)
+                    .clip(CircleShape)
+                    .background(
+                        when (outcome) {
+                            ResultOutcome.WIN -> colors.positive
+                            ResultOutcome.DRAW -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
+                            ResultOutcome.LOSS -> colors.danger
+                        },
+                    ),
+            )
+        }
     }
 }
 

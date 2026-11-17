@@ -244,6 +244,14 @@
     <string name="section_explanation">Other reasons</string>
     <string name="section_explanation_subtitle">What went into the calculation</string>
     <string name="section_form">Form</string>
+    <string name="form_panel_title">Last 10 matches</string>
+    <string name="form_row_record">Won · drawn · lost</string>
+    <string name="form_row_goals">Scored / conceded</string>
+    <string name="form_row_average">Goals per match</string>
+    <string name="form_row_venue">Home · away</string>
+    <string name="form_row_clean_sheets">Clean sheets</string>
+    <string name="form_row_trend">Trend</string>
+    <string name="form_panel_note">From the %1$s matches stored in the app, not the whole season.</string>
     <string name="form_win">Win</string>
     <string name="form_draw">Draw</string>
     <string name="form_loss">Loss</string>
