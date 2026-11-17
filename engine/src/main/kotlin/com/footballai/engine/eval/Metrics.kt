@@ -196,6 +196,45 @@ object Metrics {
     }
 
     /**
+     * One-vs-rest expected calibration error over all three outcomes, pooled by count.
+     *
+     * The reliability chart is drawn from the home-win column alone, which is one of three
+     * outcomes. Reporting that column's error as *the* calibration error put a different
+     * quantity on screen from the one the calibrator uses to accept or reject a correction
+     * (which pools all three). Where the two numbers were close this was harmless; where
+     * they were not, the screen was explaining the model with one measure and grading it
+     * with another.
+     */
+    fun expectedCalibrationErrorMultiClass(samples: List<OutcomeSample>, bins: Int = 10): Double {
+        if (samples.isEmpty() || bins <= 0) return Double.NaN
+        var pooled = 0.0
+        var observations = 0
+        for (outcome in MatchOutcome.entries) {
+            val counts = IntArray(bins)
+            val sumPredicted = DoubleArray(bins)
+            val sumActual = DoubleArray(bins)
+            for (sample in samples) {
+                val s = sample.normalised()
+                val p = when (outcome) {
+                    MatchOutcome.HOME_WIN -> s.homeWin
+                    MatchOutcome.DRAW -> s.draw
+                    MatchOutcome.AWAY_WIN -> s.awayWin
+                }.coerceIn(0.0, 1.0)
+                val index = (p * bins).toInt().coerceIn(0, bins - 1)
+                counts[index]++
+                sumPredicted[index] += p
+                sumActual[index] += if (sample.actual == outcome) 1.0 else 0.0
+            }
+            for (i in 0 until bins) {
+                if (counts[i] == 0) continue
+                pooled += counts[i] * abs(sumPredicted[i] / counts[i] - sumActual[i] / counts[i])
+                observations += counts[i]
+            }
+        }
+        return if (observations == 0) Double.NaN else pooled / observations
+    }
+
+    /**
      * Reference Brier score obtained by always predicting the observed base rates of
      * the sample. A model that cannot beat this reference is not adding information.
      */

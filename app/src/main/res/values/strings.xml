@@ -41,7 +41,7 @@
     <string name="backtest_period">%1$s → %2$s · %3$s matches evaluated</string>
     <string name="badge_data_rich">Rich data</string>
     <string name="badge_odds">Odds</string>
-    <string name="calibration_hint">Points near the diagonal mean the probabilities match observed frequencies. Expected calibration error: %1$s</string>
+    <string name="calibration_hint">The chart shows the home-win column: points on the diagonal mean the probability matched what happened. Across all three outcomes the calibration error is %1$s.</string>
     <string name="clear_data_warning">This deletes every stored match, prediction and historical result on this device. API keys are kept. Background sync will be turned off; enable it again in Settings when needed.</string>
     <string name="competition_matches">%1$s matches</string>
     <string name="disclaimer_body">It is built only from past results. It does not know team news, injuries or the conditions on the day.</string>

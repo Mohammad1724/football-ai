@@ -41,7 +41,7 @@
     <string name="backtest_period">%1$s → %2$s · %3$s بازی ارزیابی شد</string>
     <string name="badge_data_rich">داده کامل</string>
     <string name="badge_odds">ضریب</string>
-    <string name="calibration_hint">نقطه‌های نزدیک به قطر یعنی احتمال‌ها با فراوانی مشاهده‌شده هم‌خوان‌اند. خطای کالیبراسیون مورد انتظار: %1$s</string>
+    <string name="calibration_hint">نمودار ستون برد تیم میزبان را نشان می‌دهد: نقطه‌های روی خط یعنی احتمال با آنچه رخ داد جور بوده. خطای کالیبراسیون در هر سه حالت %1$s است.</string>
     <string name="clear_data_warning">همه بازی‌ها، پیش‌بینی‌ها و نتایج تاریخی این دستگاه پاک می‌شود. کلیدهای API حفظ می‌شوند. همگام‌سازی پس‌زمینه خاموش می‌شود؛ در صورت نیاز دوباره آن را در تنظیمات فعال کنید.</string>
     <string name="competition_matches">%1$s بازی</string>
     <string name="disclaimer_body">فقط از نتیجهٔ بازی‌های گذشته ساخته شده؛ خبر تیم، مصدومیت و شرایط روز بازی را نمی‌داند.</string>

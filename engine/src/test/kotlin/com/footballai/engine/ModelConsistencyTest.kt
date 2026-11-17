@@ -4,11 +4,15 @@ import com.footballai.engine.calibration.CalibrationMethod
 import com.footballai.engine.calibration.CalibrationModel
 import com.footballai.engine.confidence.ConfidenceAssessor
 import com.footballai.engine.confidence.ConfidenceInput
+import com.footballai.engine.eval.BinarySample
+import com.footballai.engine.eval.Metrics
+import com.footballai.engine.eval.OutcomeSample
 import com.footballai.engine.markets.MarketCalculator
 import com.footballai.engine.model.DataQuality
 import com.footballai.engine.model.DataQualityLevel
 import com.footballai.engine.model.LeagueBaseline
 import com.footballai.engine.model.PreMatchInput
+import com.footballai.engine.model.MatchOutcome
 import com.footballai.engine.model.QualityNoteCode
 import com.footballai.engine.model.TeamStrength
 import com.footballai.engine.poisson.ScoreMatrix
@@ -165,5 +169,30 @@ class ModelConsistencyTest {
         assertFalse(codes.contains(QualityNoteCode.CALIBRATION_UNAVAILABLE))
         assertFalse(codes.contains(QualityNoteCode.MODEL_NOT_CALIBRATED), "a calibrated forecast must not deny it")
         assertNotNull(result.calibration)
+    }
+
+    /**
+     * The screen shows a home-win reliability chart and one calibration-error figure.
+     * That figure used to be the chart's own column; the calibrator, meanwhile, accepts or
+     * rejects a correction on an error pooled over all three outcomes. Two measures under
+     * one label is how a screen ends up explaining the model with one number and grading it
+     * with another.
+     */
+    @Test
+    fun `the reported calibration error covers all three outcomes`() {
+        val samples = listOf(
+            OutcomeSample(0.9, 0.05, 0.05, MatchOutcome.HOME_WIN),
+            OutcomeSample(0.9, 0.05, 0.05, MatchOutcome.AWAY_WIN),
+        )
+        val homeColumn = Metrics.expectedCalibrationError(
+            Metrics.calibration(samples.map { BinarySample(it.homeWin, it.actual == MatchOutcome.HOME_WIN) }, 10),
+        )
+        val pooled = Metrics.expectedCalibrationErrorMultiClass(samples, 10)
+
+        // Home column: two forecasts at 0.9, one home win happened, error 0.4.
+        assertEquals(0.4, homeColumn, 1e-9)
+        // Pooled over three outcomes: (0.8 + 0.1 + 0.9) / 6 observations = 0.3.
+        assertEquals(0.3, pooled, 1e-9)
+        assertTrue(abs(homeColumn - pooled) > 1e-6, "the two measures are not interchangeable")
     }
 }

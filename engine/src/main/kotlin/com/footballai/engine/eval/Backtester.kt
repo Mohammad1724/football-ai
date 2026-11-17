@@ -94,7 +94,9 @@ data class BacktestReport(
     val unalignedOnMarketSubset: MetricSummary? = null,
     val over25: MetricSummary,
     val btts: MetricSummary,
+    /** Home-win reliability curve, for the chart. */
     val calibration: List<CalibrationBin>,
+    /** Expected calibration error over all three outcomes: the same measure the calibrator uses. */
     val expectedCalibrationError: Double,
     val byCompetition: Map<String, MetricSummary>,
     /**
@@ -368,7 +370,10 @@ class Backtester(private val config: BacktestConfig = BacktestConfig()) {
             over25 = Metrics.binarySummary(overSamples),
             btts = Metrics.binarySummary(bttsSamples),
             calibration = calibration,
-            expectedCalibrationError = Metrics.expectedCalibrationError(calibration),
+            // The chart stays a home-win reliability curve; the error that goes on the same
+            // screen is the pooled three-outcome one, so it agrees with the number the
+            // calibrator decides on.
+            expectedCalibrationError = Metrics.expectedCalibrationErrorMultiClass(outcomeSamples, config.binCount),
             byCompetition = byCompetition,
             byCompetitionBaseRate = byCompetitionBaseRate,
             byQualityLevel = byQuality,
