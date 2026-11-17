@@ -36,13 +36,16 @@ class CalibrationRepository(
     private val cache = HashMap<CacheKey, Cached>()
     private val mutex = Mutex()
 
-    /** Maximum number of resolved forecasts used; older ones are outside the window. */
+    /** The newest resolved forecasts; older ones are outside the window. */
     private val sampleLimit = 3000
 
     suspend fun modelFor(competitionClass: String, modelVersion: String): CalibrationModel = mutex.withLock {
         val samples = withContext(Dispatchers.IO) {
             db.predictionDao()
                 .resolvedForClass(modelVersion, competitionClass, sampleLimit)
+                // The query returns the newest match first; a calibration is fitted in
+                // playing order, with the most recent slice withheld.
+                .asReversed()
                 .mapNotNull { it.toCalibrationSample() }
         }
         val key = CacheKey(competitionClass, modelVersion)

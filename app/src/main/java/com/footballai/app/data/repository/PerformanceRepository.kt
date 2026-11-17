@@ -239,7 +239,8 @@ class PerformanceRepository(
         version: String = PredictionRepository.MODEL_VERSION,
     ): CalibrationStudyResult = withContext(Dispatchers.Default) {
         val samples = withContext(Dispatchers.IO) {
-            db.predictionDao().resolvedForClass(version, competitionClass, 3000)
+            // Newest first from the query, oldest first for the expanding window below.
+            db.predictionDao().resolvedForClass(version, competitionClass, 3000).asReversed()
         }.mapNotNull { entity ->
             val home = entity.actualHomeGoals ?: return@mapNotNull null
             val away = entity.actualAwayGoals ?: return@mapNotNull null

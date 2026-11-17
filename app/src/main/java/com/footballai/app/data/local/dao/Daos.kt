@@ -367,10 +367,21 @@ interface PredictionDao {
     suspend fun resolved(limit: Int): List<PredictionEntity>
 
     /**
-     * Chronologically ordered, one pre-match forecast per match, for the competition
-     * class and model version. This is the only sample a calibration may be fitted on:
-     * duplicate snapshots of one match, live forecasts and other model versions would
-     * all bias the fit.
+     * Resolved pre-match forecasts for the competition class and model version, newest
+     * match first. One forecast per match: duplicate snapshots of one match, live
+     * forecasts and other model versions would all bias a fit.
+     *
+     * Two details matter more than they look.
+     *
+     * The window is the newest [limit] rows *by match time*, not the oldest: with
+     * `ASC ... LIMIT` the sample was the first few thousand forecasts ever resolved, so
+     * once that many existed no new result could ever enter the calibration.
+     *
+     * The sort key is the match clock, not the moment the forecast was written. A
+     * forecast written ten days before kickoff used to sort ahead of a match played last
+     * night; a caller that treats this list as a chronology — the calibrator withholds
+     * the most recent slice — was therefore training on matches played after the ones it
+     * judged itself on. Callers reverse this list to read it in playing order.
      */
     @Query(
         "SELECT p.* FROM predictions p " +
@@ -382,7 +393,7 @@ interface PredictionDao {
             "AND p.id = (SELECT p2.id FROM predictions p2 WHERE p2.matchId = p.matchId AND p2.kind = 'PRE_MATCH' " +
             "AND p2.modelVersion = :version AND p2.createdAtEpochMs < m.kickoffEpochMs " +
             "ORDER BY p2.createdAtEpochMs ASC, p2.id ASC LIMIT 1) " +
-            "ORDER BY p.createdAtEpochMs ASC LIMIT :limit",
+            "ORDER BY m.kickoffEpochMs DESC, p.createdAtEpochMs DESC LIMIT :limit",
     )
     suspend fun resolvedForClass(version: String, competitionClass: String, limit: Int): List<PredictionEntity>
 
