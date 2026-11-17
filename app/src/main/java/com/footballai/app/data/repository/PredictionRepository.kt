@@ -712,7 +712,25 @@ class PredictionRepository(
     }
 
     companion object {
-        const val MODEL_VERSION = "football-ai/engine-1.5.0"
+        /**
+         * Identifies the *behaviour* that produced a forecast, not the build that shipped it.
+         *
+         * This string is half of two keys. It selects the immutable first pre-match snapshot
+         * of a match, and it selects the sample a calibration is fitted on. Both are only
+         * correct while the string changes whenever the engine's numbers do: otherwise a
+         * forecast made by the previous behaviour is served forever under the current
+         * version, and forecasts from two different models are fitted into one calibration
+         * as though they came from the same one.
+         *
+         * Bump it in the same commit as any change to a probability, a market, a horizon or
+         * an evidence rule. A bump is not free — every stored forecast is regenerated and
+         * the calibration starts over — which is exactly why it must not be skipped.
+         *
+         * 1.6.0: live horizon includes stoppage time; half-time markets are derived from the
+         * matrix that produced the full-time numbers; a national competition's history is
+         * the archive rather than one team's record.
+         */
+        const val MODEL_VERSION = "football-ai/engine-1.6.0"
 
         /**
          * How far back a scorer's goals still count when judging today's lineup. Long
