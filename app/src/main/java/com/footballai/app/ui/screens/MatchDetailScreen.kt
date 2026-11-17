@@ -85,6 +85,7 @@ import com.footballai.app.ui.LocalLanguageTag
 import com.footballai.app.ui.localizedString
 import com.footballai.app.domain.catalog.NameLocalization
 import com.footballai.app.domain.model.TeamRef
+import com.footballai.app.domain.model.TeamResult
 import com.footballai.app.ui.components.SoftBackButton
 import com.footballai.app.ui.components.CompetitionNameText
 import com.footballai.app.ui.components.ConfidenceChip
@@ -112,6 +113,9 @@ import com.footballai.app.ui.matchStatusLabel
 import com.footballai.app.ui.qualityNoteLabel
 import com.footballai.app.ui.theme.FootballAiThemeExtra
 import com.footballai.app.domain.model.ResultOutcome
+import com.footballai.app.ui.viewmodel.RecentTenSnapshot
+import com.footballai.app.ui.viewmodel.RecentTenSummary
+import com.footballai.app.ui.viewmodel.RecentTenTeam
 import com.footballai.app.ui.viewmodel.TeamFormSnapshot
 import com.footballai.app.ui.viewmodel.MatchDetailViewModel
 import kotlin.math.roundToInt
@@ -128,6 +132,7 @@ private const val TAB_LIVE = "live"
 private const val TAB_STATISTICS = "statistics"
 private const val TAB_HEAD_TO_HEAD = "head_to_head"
 private const val TAB_LINEUPS = "lineups"
+private const val TAB_RECENT_TEN = "recent_ten"
 
 @OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
@@ -174,11 +179,16 @@ fun MatchDetailScreen(
     // behind a real-looking tab reads as a broken app, not as an honest one.
     val hasStatistics = detail != null && detail.statistics.isNotEmpty()
     val hasHeadToHead = state.headToHead.isNotEmpty()
+    // The ten-match tab is the detail behind the form card, so it appears only when there
+    // is a history to detail: three finished matches is the floor below which the page
+    // would be a heading over two rows.
+    val recentTen = state.recentTen?.takeIf { it.isWorthATab }
     val tabKeys = buildList {
         add(TAB_ANALYSIS)
         if (hasLiveTabNow) add(TAB_LIVE)
         if (hasStatistics) add(TAB_STATISTICS)
         if (hasHeadToHead) add(TAB_HEAD_TO_HEAD)
+        if (recentTen != null) add(TAB_RECENT_TEN)
         if (hasLineupTab) add(TAB_LINEUPS)
     }
     val tabs = tabKeys.map { key ->
@@ -187,6 +197,7 @@ fun MatchDetailScreen(
                 TAB_LIVE -> R.string.tab_live
                 TAB_STATISTICS -> R.string.tab_statistics
                 TAB_HEAD_TO_HEAD -> R.string.tab_head_to_head
+                TAB_RECENT_TEN -> R.string.tab_recent_ten
                 TAB_LINEUPS -> R.string.tab_lineups
                 else -> R.string.tab_analysis
             },
@@ -352,6 +363,19 @@ fun MatchDetailScreen(
                         matches = state.headToHead,
                         languageTag = languageTag,
                     )
+
+                    TAB_RECENT_TEN -> {
+                        // The key is only in the row when the snapshot exists, so this is a
+                        // guard for a tab that vanished between two frames, not a branch.
+                        if (recentTen != null) {
+                            RecentTenTab(
+                                header = matchHeader,
+                                snapshot = recentTen,
+                                languageTag = languageTag,
+                                onTeamClick = onTeamClick,
+                            )
+                        }
+                    }
 
                     TAB_LINEUPS -> LineupsTab(
                         header = matchHeader,
@@ -1669,6 +1693,323 @@ private fun HeadToHeadTab(
         item { Spacer(Modifier.height(24.dp)) }
     }
 }
+
+/**
+ * «۱۰ بازی اخیر»: the detail behind the form card.
+ *
+ * The analysis tab answers one question — what is likely to happen in this match — and the
+ * form card there is a summary. This page is the browsing half: every finished match of
+ * both teams, newest first, with the numbers the card has no room for. Nothing is fetched
+ * for it: the rows come from the same read the card uses, one query for fixtures and one
+ * for the archive.
+ *
+ * Two honesty rules are structural rather than decorative: a team with fewer than ten
+ * matches says how many it has instead of letting the heading claim ten, and the tab is
+ * not offered at all below [RecentTenSnapshot.MIN_ROWS].
+ */
+@Composable
+private fun RecentTenTab(
+    header: @Composable () -> Unit,
+    snapshot: RecentTenSnapshot,
+    languageTag: String,
+    onTeamClick: (String) -> Unit,
+) {
+    LazyColumn(modifier = Modifier.fillMaxSize()) {
+        item { header() }
+        item {
+            Text(
+                text = stringResource(R.string.recent_ten_intro),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+            )
+        }
+        for (team in listOf(snapshot.home, snapshot.away)) {
+            item(key = "recent-header-${team.team.id}") {
+                RecentTenTeamHeader(team = team, languageTag = languageTag, onTeamClick = onTeamClick)
+            }
+            if (team.results.isNotEmpty()) {
+                item(key = "recent-summary-${team.team.id}") {
+                    RecentTenSummaryCard(
+                        summary = RecentTenSummary.of(team.results),
+                        played = team.results.size,
+                        languageTag = languageTag,
+                    )
+                }
+            }
+            items(team.results, key = { result -> "${team.team.id}-${result.matchId}" }) { result ->
+                RecentTenResultCard(
+                    result = result,
+                    competitionNames = team.competitionNames,
+                    languageTag = languageTag,
+                )
+            }
+            item(key = "recent-gap-${team.team.id}") { Spacer(Modifier.height(14.dp)) }
+        }
+        item { Spacer(Modifier.height(24.dp)) }
+    }
+}
+
+/** Which team, how many matches, and a tap through to the team page. */
+@Composable
+private fun RecentTenTeamHeader(
+    team: RecentTenTeam,
+    languageTag: String,
+    onTeamClick: (String) -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onTeamClick(team.team.id) }
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        TeamBadge(team.team, size = 34)
+        Spacer(Modifier.width(10.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            TeamNameLines(
+                team = team.team,
+                languageTag = languageTag,
+                primaryStyle = MaterialTheme.typography.titleSmall,
+            )
+            if (team.results.size < RecentTenSnapshot.WINDOW) {
+                // "Ten" is a promise. When the source only knows seven, the page says seven.
+                Text(
+                    text = localizedString(
+                        R.string.form_panel_note,
+                        Formatters.integer(team.results.size, languageTag),
+                    ),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        Text(
+            text = localizedString(
+                R.string.form_of_total,
+                Formatters.integer(team.results.size, languageTag),
+                Formatters.integer(RecentTenSnapshot.WINDOW, languageTag),
+            ),
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Medium,
+        )
+    }
+}
+
+/**
+ * The counts the compact card has no room for.
+ *
+ * Each ratio is shown against the sample it was counted over — "۴ از ۹" — so a number can
+ * always be checked against the rows underneath instead of being taken on trust.
+ */
+@Composable
+private fun RecentTenSummaryCard(
+    summary: RecentTenSummary,
+    played: Int,
+    languageTag: String,
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            RecentTenStat(
+                label = stringResource(R.string.recent_ten_points_per_game),
+                value = Formatters.decimal(summary.pointsPerGame, languageTag, 2),
+            )
+            RecentTenStat(
+                label = stringResource(R.string.recent_ten_clean_sheets),
+                value = ofTotal(summary.cleanSheets, played, languageTag),
+            )
+            RecentTenStat(
+                label = stringResource(R.string.recent_ten_failed_to_score),
+                value = ofTotal(summary.failedToScore, played, languageTag),
+            )
+            RecentTenStat(
+                label = stringResource(R.string.recent_ten_over_two_five),
+                value = ofTotal(summary.overTwoAndHalf, played, languageTag),
+            )
+            RecentTenStat(
+                label = stringResource(R.string.recent_ten_both_scored),
+                value = ofTotal(summary.bothScored, played, languageTag),
+            )
+            if (summary.homePlayed > 0) {
+                RecentTenStat(
+                    label = stringResource(R.string.form_row_home_wins),
+                    value = ofTotal(summary.homeWins, summary.homePlayed, languageTag),
+                )
+            }
+            if (summary.awayPlayed > 0) {
+                RecentTenStat(
+                    label = stringResource(R.string.recent_ten_away_wins),
+                    value = ofTotal(summary.awayWins, summary.awayPlayed, languageTag),
+                )
+            }
+            summary.streak?.let { streak ->
+                RecentTenStat(
+                    label = stringResource(R.string.recent_ten_streak),
+                    value = localizedString(
+                        R.string.recent_ten_streak_value,
+                        Formatters.integer(streak.length, languageTag),
+                        resultWord(streak.outcome),
+                    ),
+                )
+            }
+            summary.bestWin?.let { best ->
+                val score = Formatters.scoreOrNull(best.goalsFor, best.goalsAgainst, languageTag)
+                if (score != null) {
+                    RecentTenStat(
+                        label = stringResource(R.string.recent_ten_best_win),
+                        value = localizedString(
+                            R.string.recent_ten_best_win_value,
+                            score,
+                            NameLocalization.displayName(
+                                best.opponent.name,
+                                languageTag,
+                                best.opponent.shortName,
+                            ),
+                        ),
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** One label and one value, on a line the eye can follow across rows. */
+@Composable
+private fun RecentTenStat(label: String, value: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 3.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f),
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Medium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+/** One finished match: who, where, when, the score, and how it ended. */
+@Composable
+private fun RecentTenResultCard(
+    result: TeamResult,
+    competitionNames: Map<String, String>,
+    languageTag: String,
+) {
+    val league = competitionNames[result.competitionId]?.let { name ->
+        NameLocalization.competitionNamePair(name, result.competitionId, languageTag).first
+    }
+    val meta = listOfNotNull(
+        league,
+        Formatters.dateOnlyShort(result.kickoffEpochMs, languageTag),
+        stringResource(
+            if (result.wasHome) R.string.recent_ten_home_tag else R.string.recent_ten_away_tag,
+        ),
+    ).joinToString(" · ")
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 3.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                TeamBadge(result.opponent, size = 22)
+                Spacer(Modifier.width(8.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    TeamNameLines(
+                        team = result.opponent,
+                        languageTag = languageTag,
+                        primaryStyle = MaterialTheme.typography.bodyMedium,
+                    )
+                    Text(
+                        text = meta,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = Formatters.scoreOrNull(result.goalsFor, result.goalsAgainst, languageTag) ?: "—",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                )
+                Spacer(Modifier.width(8.dp))
+                RecentTenResultChip(result.outcome)
+            }
+            val halfTimeFor = result.halfTimeGoalsFor
+            val halfTimeAgainst = result.halfTimeGoalsAgainst
+            if (halfTimeFor != null && halfTimeAgainst != null) {
+                val halfTime = Formatters.scoreOrNull(halfTimeFor, halfTimeAgainst, languageTag)
+                if (halfTime != null) {
+                    Spacer(Modifier.height(3.dp))
+                    Text(
+                        text = localizedString(R.string.recent_ten_half_time, halfTime),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = 30.dp),
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** Win, draw or loss as a word with a colour: the row never has to be read twice. */
+@Composable
+private fun RecentTenResultChip(outcome: ResultOutcome) {
+    val colors = FootballAiThemeExtra.colors
+    val background = when (outcome) {
+        ResultOutcome.WIN -> colors.positive.copy(alpha = 0.16f)
+        ResultOutcome.DRAW -> colors.drawSeries.copy(alpha = 0.20f)
+        ResultOutcome.LOSS -> colors.danger.copy(alpha = 0.16f)
+    }
+    val content = when (outcome) {
+        ResultOutcome.WIN -> colors.positive
+        ResultOutcome.DRAW -> MaterialTheme.colorScheme.onSurfaceVariant
+        ResultOutcome.LOSS -> colors.danger
+    }
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(6.dp))
+            .background(background)
+            .padding(horizontal = 8.dp, vertical = 2.dp),
+    ) {
+        Text(
+            text = resultWord(outcome),
+            style = MaterialTheme.typography.labelSmall,
+            color = content,
+            fontWeight = FontWeight.Medium,
+        )
+    }
+}
+
+@Composable
+private fun resultWord(outcome: ResultOutcome): String = stringResource(
+    when (outcome) {
+        ResultOutcome.WIN -> R.string.form_win
+        ResultOutcome.DRAW -> R.string.form_draw
+        ResultOutcome.LOSS -> R.string.form_loss
+    },
+)
 
 /**
  * The one action that can make a national-team forecast possible.

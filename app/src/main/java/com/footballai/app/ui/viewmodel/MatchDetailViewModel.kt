@@ -55,6 +55,8 @@ data class MatchDetailUiState(
     /** Both teams' recent results, for the compact form panel. */
     val homeForm: TeamFormSnapshot? = null,
     val awayForm: TeamFormSnapshot? = null,
+    /** The rows behind the «۱۰ بازی اخیر» tab; null when neither team has a history. */
+    val recentTen: RecentTenSnapshot? = null,
 )
 
 /** What a reader wants to know about a team before trusting a percentage. */
@@ -175,12 +177,7 @@ class MatchDetailViewModel(
                         away = detail.summary.away,
                     )
                     _state.update { it.copy(headToHead = headToHead) }
-                    _state.update {
-                        it.copy(
-                            homeForm = formOf(detail.summary.home, detail.summary.competitionId),
-                            awayForm = formOf(detail.summary.away, detail.summary.competitionId),
-                        )
-                    }
+                    refreshHistory(detail)
                 }
                 if (refreshFromNetwork) {
                     val entity = container.matchRepository.matchEntity(matchId)
@@ -211,14 +208,7 @@ class MatchDetailViewModel(
                 _state.update { it.copy(isRefreshing = true) }
                 val refreshed = if (syncFresh()) container.matchRepository.matchDetail(matchId) else null
                 _state.update { it.copy(detail = refreshed ?: it.detail, isRefreshing = false) }
-                (refreshed ?: _state.value.detail)?.let { detail ->
-                    _state.update {
-                        it.copy(
-                            homeForm = formOf(detail.summary.home, detail.summary.competitionId),
-                            awayForm = formOf(detail.summary.away, detail.summary.competitionId),
-                        )
-                    }
-                }
+                (refreshed ?: _state.value.detail)?.let { detail -> refreshHistory(detail) }
                 predict()
                 maybeStartTracking()
                 // A table that was not on the device a minute ago may be there now, and a
@@ -400,18 +390,59 @@ class MatchDetailViewModel(
             )
         }.getOrDefault(0)
         if (written <= 0) return
+        refreshHistory(detail)
+    }
+
+    /**
+     * Reads both teams' recent results once and fills the two panels that use them.
+     *
+     * The form card and the ten-match tab describe the same list, so it is read once per
+     * screen instead of twice per panel: a result list is a query against fixtures plus a
+     * query against the archive, and asking for it four times to draw two panels was work
+     * the user could feel on a slow phone.
+     */
+    private suspend fun refreshHistory(detail: MatchDetail) {
         val competitionId = detail.summary.competitionId
+        val homeResults = container.matchRepository.recentResults(
+            detail.summary.home,
+            limit = RecentTenSnapshot.WINDOW,
+        )
+        val awayResults = container.matchRepository.recentResults(
+            detail.summary.away,
+            limit = RecentTenSnapshot.WINDOW,
+        )
+        val names = (homeResults + awayResults)
+            .map { it.competitionId }
+            .distinct()
+            .mapNotNull { id ->
+                container.matchRepository.competitionEntity(id)?.name?.let { name -> id to name }
+            }
+            .toMap()
         _state.update {
             it.copy(
-                homeForm = formOf(detail.summary.home, competitionId),
-                awayForm = formOf(detail.summary.away, competitionId),
+                homeForm = formOf(detail.summary.home, competitionId, homeResults),
+                awayForm = formOf(detail.summary.away, competitionId, awayResults),
+                recentTen = if (homeResults.isEmpty() && awayResults.isEmpty()) {
+                    null
+                } else {
+                    RecentTenSnapshot.of(
+                        home = detail.summary.home,
+                        away = detail.summary.away,
+                        homeResults = homeResults,
+                        awayResults = awayResults,
+                        competitionNames = names,
+                    )
+                },
             )
         }
     }
 
     /** Null when the app has no finished match for that team: the panel then stays away. */
-    private suspend fun formOf(team: com.footballai.app.domain.model.TeamRef, competitionId: String): TeamFormSnapshot? {
-        val results = container.matchRepository.recentResults(team, limit = 10)
+    private suspend fun formOf(
+        team: com.footballai.app.domain.model.TeamRef,
+        competitionId: String,
+        results: List<com.footballai.app.domain.model.TeamResult>,
+    ): TeamFormSnapshot? {
         if (results.isEmpty()) return null
         val ranks = container.matchRepository.standingRanks(competitionId, listOf(team.id))
         return TeamFormSnapshot.of(results).copy(
