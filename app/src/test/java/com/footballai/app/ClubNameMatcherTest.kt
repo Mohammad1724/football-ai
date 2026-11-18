@@ -17,6 +17,15 @@ import kotlin.test.assertTrue
 class ClubNameMatcherTest {
 
     @Test
+    fun `an abbreviation written with dots is the same word`() {
+        assertTrue(ClubNameMatcher.matches("NEC Nijmegen", "N.E.C. Nijmegen"))
+        assertTrue(ClubNameMatcher.matches("CF Monterrey", "C.F. Monterrey"))
+        // A second side is a different team even when the feed does not say "II".
+        assertFalse(ClubNameMatcher.matches("Jong Ajax", "Ajax"))
+        assertFalse(ClubNameMatcher.matches("Jong PSV", "PSV"))
+    }
+
+    @Test
     fun `legal form and founding year are not part of a club's name`() {
         assertTrue(ClubNameMatcher.matches("KAA Gent", "Gent"))
         assertTrue(ClubNameMatcher.matches("Cercle Brugge KSV", "Cercle Brugge"))

@@ -60,16 +60,38 @@ internal object ClubNameMatcher {
 
     /** A team that is a second side, an age group or a women's team is a different team. */
     private val RESERVE_MARKERS = setOf(
-        "ii", "iii", "b", "u17", "u19", "u20", "u21", "u23", "women", "ladies", "reserves", "youth",
+        "ii", "iii", "b", "jong", "young", "u17", "u18", "u19", "u20", "u21", "u23",
+        "women", "ladies", "reserves", "reserve", "youth", "academy",
     )
 
     private fun words(name: String): List<String> =
         TeamNames.normalizeNameKey(name).split(' ').filter { it.isNotEmpty() }
 
-    /** The words of a name that actually identify a club, in the order published. */
-    fun core(name: String): List<String> = words(name)
-        .filter { it !in LEGAL_FORMS }
-        .distinct()
+    /**
+     * The words of a name that actually identify a club, in the order published.
+     *
+     * Punctuation inside an abbreviation is not a word boundary: the feed writes
+     * `N.E.C. Nijmegen` and the source writes `NEC Nijmegen`, so a run of one-letter words
+     * is one word.
+     */
+    fun core(name: String): List<String> {
+        val kept = words(name).filter { it !in LEGAL_FORMS }
+        val merged = mutableListOf<String>()
+        val run = StringBuilder()
+        for (word in kept) {
+            if (word.length == 1) {
+                run.append(word)
+                continue
+            }
+            if (run.isNotEmpty()) {
+                merged.add(run.toString())
+                run.clear()
+            }
+            merged.add(word)
+        }
+        if (run.isNotEmpty()) merged.add(run.toString())
+        return merged.distinct()
+    }
 
     /**
      * True when one name carries a reserve/age/women marker the other does not — the one

@@ -1,8 +1,9 @@
 """Ask ESPN what it actually publishes, from a machine that can reach it.
 
-This workspace cannot open espn.com, so the club-name tables the app relies on are
-maintained from the output of this script: it runs on a GitHub runner, prints a compact
-report, and (when `ISSUE_NUMBER` is set) posts the same report as an issue comment.
+The development workspace cannot open espn.com, so the club-name table and the league
+slugs in `LeagueCrestIndex` are maintained from this script's output: run it on any machine
+with internet access, or in a throwaway workflow. When `ISSUE_NUMBER` is set it also posts
+the report as an issue comment, which is how it was read back into the workspace.
 
 Two questions it answers, both of which decide whether a badge can be found at all:
   * for a league slug, which club names does ESPN publish, and does each one carry a logo?

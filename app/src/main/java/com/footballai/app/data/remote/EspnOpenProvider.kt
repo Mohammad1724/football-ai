@@ -292,10 +292,11 @@ class EspnOpenProvider(
         // same name. Never take the first ambiguous result just because it ranks higher.
         val items = decoded.items.filter { it.sport == null || it.sport.equals("soccer", ignoreCase = true) }
         val exact = items.filter { item -> namesOf(item).any { it == wanted } }.distinctBy { it.id }
+        val pool = inSameLeague(items, leagueSlug)
         val match = when {
             exact.size == 1 -> exact.single()
             exact.size > 1 -> pickAmongExact(exact, leagueSlug) ?: return null
-            else -> uniqueByCoreName(items, wanted) ?: return null
+            else -> uniqueByCoreName(pool, wanted) ?: return null
         }
         return match.logos
             .firstOrNull { logo -> logo.rel.any { it.equals("default", ignoreCase = true) } }
@@ -333,6 +334,20 @@ class EspnOpenProvider(
      * the answer carries: the league the row belongs to, or a published default crest. Two
      * rows that both look right are still not a decision, and then nothing is stored.
      */
+    /**
+     * The rows that belong to the club's own competition.
+     *
+     * A search for `Ajax` answers with `Ajax Amsterdam` in `ned.1`, the women's team of the
+     * same name in `ned.w.1` and `Jong Ajax` in `ned.2`. The competition the club plays in
+     * says which of those three the app means; when nothing matches, every row is kept and
+     * the rules have to settle it alone.
+     */
+    private fun inSameLeague(items: List<EspnSearchItem>, leagueSlug: String?): List<EspnSearchItem> {
+        if (leagueSlug == null) return items
+        val same = items.filter { it.defaultLeagueSlug.equals(leagueSlug, ignoreCase = true) }
+        return same.ifEmpty { items }
+    }
+
     private fun pickAmongExact(candidates: List<EspnSearchItem>, leagueSlug: String?): EspnSearchItem? {
         if (leagueSlug != null) {
             val inLeague = candidates.filter {
