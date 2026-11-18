@@ -49,6 +49,16 @@ class SportsDbCrestsTest {
         assertNull(client.parse("garbage", "Colwyn Bay", "MEN"))
     }
 
+    @Test fun `a record without a gender is a men's record and nothing else`() {
+        val url = "https://r2.thesportsdb.com/images/media/team/badge/a.png"
+        // TheSportsDB leaves strGender out on older records; the fixture itself says men.
+        val unclassified = """{"teams":[{"strTeam":"Saarbrücken","strSport":"Soccer","strBadge":"$url"}]}"""
+        assertEquals(url, client.parse(unclassified, "1. FC Saarbrücken", "MEN"))
+        assertNull(client.parse(unclassified, "1. FC Saarbrücken", "WOMEN"))
+        // An explicit gender still has to match.
+        assertNull(client.parse(unclassified.replace("\"strSport\":\"Soccer\"", "\"strSport\":\"Soccer\",\"strGender\":\"Female\""), "Saarbrücken", "MEN"))
+    }
+
     @Test fun `duplicate exact results are not selected`() {
         val entry = """{"strTeam":"Colwyn Bay","strSport":"Soccer","strGender":"Male","strBadge":"https://r2.thesportsdb.com/a.png"}"""
         assertNull(client.parse("{\"teams\":[$entry,$entry]}", "Colwyn Bay", "MEN"))

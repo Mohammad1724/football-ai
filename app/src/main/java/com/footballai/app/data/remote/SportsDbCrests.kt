@@ -68,7 +68,13 @@ class SportsDbCrests(private val client: ApiClient) {
         if (wanted.isBlank()) return null
         val related = response.teams.orEmpty().filter { team ->
             team.strSport.equals("Soccer", ignoreCase = true) &&
-                team.strGender.equals(expectedGender, ignoreCase = true) &&
+                // The source leaves the gender empty on a number of older records — every
+                // German third tier club the phone still draws as initials is one of them.
+                // Silence is not a contradiction: the fixture already says this is a men's
+                // match, so an empty field is accepted there. An explicit "Female" never is,
+                // and a women's query never takes an unclassified row.
+                (team.strGender.equals(expectedGender, ignoreCase = true) ||
+                    (team.strGender.isNullOrBlank() && expectedGender == "Male")) &&
                 // A row that names a reserve side is that side, even when another spelling
                 // in the same row looks like the first team.
                 namesOf(team).none { published -> ClubNameMatcher.addsReserveMarker(published, name) } &&
