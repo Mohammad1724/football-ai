@@ -779,10 +779,11 @@ class SyncRepository(
                 // the daily fixtures both arrive without crests, and overwriting the address
                 // a previous sync (or the crest backfill) had stored is what made a badge
                 // appear and then vanish the next time the screen was opened.
+                val previousCrest = previous?.crestUrl
                 teams[id] = if (
-                    withKind.crestUrl.isNullOrBlank() && !previous?.crestUrl.isNullOrBlank()
+                    withKind.crestUrl.isNullOrBlank() && !previousCrest.isNullOrBlank()
                 ) {
-                    withKind.copy(crestUrl = previous.crestUrl)
+                    withKind.copy(crestUrl = previousCrest)
                 } else {
                     withKind
                 }
