@@ -17,6 +17,19 @@ permissions:
   issues: write
 
 jobs:
+  # TEMPORARY: the development workspace cannot reach thesportsdb.com; the probe runs here
+  # and posts its report to an open issue instead. Remove with scripts/roster_probe.py.
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ask TheSportsDB about the remaining lanes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          ISSUE_NUMBER: "46"
+        run: python3 scripts/roster_probe.py
+
   test-and-build:
     name: Test and build signed APKs
     runs-on: ubuntu-latest
