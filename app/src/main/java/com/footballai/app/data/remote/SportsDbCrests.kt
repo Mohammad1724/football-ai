@@ -14,6 +14,19 @@ import kotlinx.serialization.json.jsonObject
 
 /** Artwork-only fallback. 123 is TheSportsDB's documented shared free API key. */
 class SportsDbCrests(private val client: ApiClient) {
+    companion object {
+        /**
+         * The free key's published rate, and this app's own daily ceiling.
+         *
+         * The ceiling was 1000, which the sweep reached in an afternoon: a batch of 45 clubs
+         * costs about ninety requests, so three batches per sync used the day up by evening
+         * and every later sync stopped at its first lookup. The provider publishes no daily
+         * limit for its shared key, so the ceiling is ours to set and 2000 still leaves the
+         * app well under an hour of continuous requests a day.
+         */
+        val POLICY = QuotaPolicy(requestsPerMinute = 20, requestsPerDay = 2000)
+    }
+
     private val json = Json { ignoreUnknownKeys = true }
     private val lock = Mutex()
     private var lastRequestNanos: Long? = null
@@ -27,7 +40,7 @@ class SportsDbCrests(private val client: ApiClient) {
         }
         lastRequestNanos = System.nanoTime()
         when (val response = client.get(
-            "sportsdb-crest", QuotaPolicy(requestsPerMinute = 20, requestsPerDay = 1000),
+            "sportsdb-crest", POLICY,
             "https://www.thesportsdb.com/api/v1/json/123/searchteams.php",
             query = mapOf("t" to name),
         )) {

@@ -631,6 +631,18 @@ class SyncRepository(
         return com.footballai.app.data.remote.RosterLookup(null, matched = false)
     }
 
+    /**
+     * Why the last sweep stopped where it did.
+     *
+     * A sweep that ends short leaves no trace on the phone: the diagnostic could only say
+     * that a club was never asked, not whether the queue was slow or a source had refused
+     * every request since noon. This keeps the last failure and its time.
+     */
+    private suspend fun recordCrestFailure(providerId: String, error: AppError) {
+        val detail = "$providerId ${error.code}" + (error.httpStatus?.let { " (HTTP $it)" } ?: "")
+        db.syncMetaDao().put(SyncMetaEntity(CREST_LAST_ERROR_MARKER, detail, clock.nowEpochMs()))
+    }
+
     private data class CrestBatch(val filled: Int, val attempted: Int, val failed: Boolean = false)
 
     private suspend fun crestBackfillBatch(
@@ -691,7 +703,10 @@ class SyncRepository(
                 when (val result = provider.crestForTeamName(query, slugs.firstOrNull())) {
                     is Outcome.Success -> url = result.value
                     // In particular, do not consume the rest of the batch on quota errors.
-                    is Outcome.Failure -> return@withLock CrestBatch(filled, attempted, failed = true)
+                    is Outcome.Failure -> {
+                        recordCrestFailure(EspnOpenProvider.PROVIDER_ID, result.error)
+                        return@withLock CrestBatch(filled, attempted, failed = true)
+                    }
                 }
                 if (url != null) break
             }
@@ -715,7 +730,10 @@ class SyncRepository(
                         .distinct()) {
                         when (val result = sportsDbCrests.find(query, gender)) {
                             is Outcome.Success -> url = result.value
-                            is Outcome.Failure -> return@withLock CrestBatch(filled, attempted, failed = true)
+                            is Outcome.Failure -> {
+                                recordCrestFailure("sportsdb-crest", result.error)
+                                return@withLock CrestBatch(filled, attempted, failed = true)
+                            }
                         }
                         if (url != null) break
                     }
@@ -1101,6 +1119,9 @@ class SyncRepository(
          * front quarter.
          */
         private const val SPORTSDB_ATTEMPTS_PER_BATCH = 45
+
+        /** Where the last sweep stopped, and when; read by the crest diagnostic. */
+        internal const val CREST_LAST_ERROR_MARKER = "crest-last-error"
 
         /** Batches a single sync works through; each one is bounded by the source's rate. */
         private const val CREST_BATCHES_PER_SYNC = 3

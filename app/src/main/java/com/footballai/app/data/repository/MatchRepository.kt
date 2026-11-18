@@ -29,6 +29,7 @@ class MatchRepository(
     private val db: FootballDatabase,
     private val clock: TimeProvider,
     private val ratingsRepository: RatingsRepository,
+    private val quotaGuard: com.footballai.app.data.remote.QuotaGuard? = null,
 ) {
 
     fun observeLive(): Flow<List<MatchSummary>> = db.matchDao().observeLive().map { decorate(it) }
@@ -371,8 +372,22 @@ class MatchRepository(
         val prefix = com.footballai.app.data.local.CrestAttempts.prefix()
         val waiting = db.teamDao().waitingForCrestAttempt(prefix)
         val asked = db.teamDao().askedWithoutCrest(prefix)
+        // The queue number says nothing about why it is not moving: a source whose daily
+        // budget is spent refuses every lookup until midnight, and that has to be visible.
+        val quota = quotaGuard?.let { guard ->
+            val state = guard.state(
+                "sportsdb-crest", com.footballai.app.data.remote.SportsDbCrests.POLICY,
+            )
+            " · quota sportsdb-crest ${state.usedToday}/${state.dailyLimit}"
+        }.orEmpty()
+        val lastError = db.syncMetaDao()
+            .entity(SyncRepository.CREST_LAST_ERROR_MARKER)?.let { row ->
+                val age = ((now - row.updatedAt) / TimeConstants.HOUR_MS).coerceAtLeast(0)
+                " · last error ${row.value} ${age}h ago"
+            }.orEmpty()
         return "teams: $withCrest of $total with a crest · $sampleText" +
             "\nqueue: $waiting waiting · $asked asked and still without a crest" +
+            quota + lastError +
             (if (bySource.isEmpty()) "" else "\nby source: $bySource") +
             (if (missing.isEmpty()) "" else "\nwithout a crest: " + missing.joinToString(" · ")) +
             (if (why.isEmpty()) "" else

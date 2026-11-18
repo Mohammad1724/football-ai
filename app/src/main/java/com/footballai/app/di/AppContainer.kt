@@ -101,7 +101,8 @@ class AppContainer(context: Context) {
         EngineConfig(eloBlendWeight = PredictionRepository.ELO_BLEND_WEIGHT),
     )
 
-    val matchRepository: MatchRepository = MatchRepository(database, clock, ratingsRepository)
+    val matchRepository: MatchRepository =
+        MatchRepository(database, clock, ratingsRepository, quotaGuard)
 
     /**
      * The only history this app owns for national teams. No fixture provider publishes
