@@ -49,14 +49,6 @@ jobs:
           set -o pipefail
           gradle :app:testDebugUnitTest --stacktrace 2>&1 | tee -a build-output.txt
 
-      - name: Report failing tests
-        if: failure()
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REPO: ${{ github.repository }}
-          ISSUE_NUMBER: "53"
-        run: python3 scripts/ci_test_report.py
-
       - name: Assemble signed APKs
         run: |
           set -o pipefail
