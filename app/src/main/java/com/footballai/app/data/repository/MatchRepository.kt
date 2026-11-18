@@ -357,14 +357,15 @@ class MatchRepository(
         // was asked and answered nothing cools down for a week; "never tried" means the sweep
         // has not reached it, which is a different problem and a different fix.
         val wanted = lanes.firstOrNull()?.second?.take(3).orEmpty()
-        val why = wanted.joinToString(" · ") { team ->
+        // `map` is inline and may read the database; `joinToString`'s transform may not.
+        val why = wanted.map { team ->
             val gender = db.teamDao().fixtureGenders(team.id).singleOrNull() ?: "?"
             val last = db.syncMetaDao()
                 .entity(com.footballai.app.data.local.CrestAttempts.key(team.id))?.updatedAt
             val age = last?.let { written -> ((now - written) / TimeConstants.DAY_MS).coerceAtLeast(0) }
-            "${team.name} (" + listOf(team.kind, gender, age?.let { "asked ${it}d ago" } ?: "never asked")
-                .joinToString(", ") + ")"
-        }
+            val tried = if (age == null) "never asked" else "asked ${age}d ago"
+            "${team.name} (" + listOf(team.kind, gender, tried).joinToString(", ") + ")"
+        }.joinToString(" · ")
         return "teams: $withCrest of $total with a crest · $sampleText" +
             (if (bySource.isEmpty()) "" else "\nby source: $bySource") +
             (if (missing.isEmpty()) "" else "\nwithout a crest: " + missing.joinToString(" · ")) +
