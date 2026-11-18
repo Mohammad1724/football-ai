@@ -316,6 +316,7 @@ fun MatchesScreen(
                                 state = state,
                                 languageTag = languageTag,
                                 onMatchClick = onMatchClick,
+                                onCompetitionClick = onCompetitionClick,
                                 onScrolled = { scrolled -> filtersCollapsed = scrolled },
                             )
                         }
@@ -780,6 +781,7 @@ private fun GroupedMatchList(
     state: MatchesUiState,
     languageTag: String,
     onMatchClick: (String) -> Unit,
+    onCompetitionClick: (String) -> Unit = {},
     onScrolled: (Boolean) -> Unit = {},
 ) {
     val listState = rememberLazyListState()

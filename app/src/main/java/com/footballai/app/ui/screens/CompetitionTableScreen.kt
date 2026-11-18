@@ -51,6 +51,7 @@ import com.footballai.app.ui.viewmodel.TableRow
  * columns a table is read by — and the ranking number is drawn the way the language reads,
  * so it stays on the right in Persian.
  */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun CompetitionTableScreen(
     competitionId: String,
