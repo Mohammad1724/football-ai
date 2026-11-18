@@ -49,6 +49,13 @@
     <string name="empty_backtest_message">Import free historical results first; the backtest needs at least 60 matches per competition.</string>
     <string name="empty_backtest_title">No history to evaluate</string>
     <string name="empty_competition_message">Run a fixture sync for this competition.</string>
+    <string name="action_open_table">Show table</string>
+    <string name="empty_table_title">No table stored</string>
+    <string name="empty_table_message">Sync fixtures for this competition and its table arrives with them.</string>
+    <string name="table_played">P</string>
+    <string name="table_goal_difference">GD</string>
+    <string name="table_points">Pts</string>
+    <string name="table_team">Team</string>
     <string name="empty_competition_title">No fixtures stored</string>
     <string name="empty_h2h_message">Both teams need stored finished matches to show H2H.</string>
     <string name="empty_h2h_title">No head-to-head history</string>

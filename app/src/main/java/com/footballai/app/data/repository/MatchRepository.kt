@@ -251,6 +251,29 @@ class MatchRepository(
      * Empty when the source has published no table for the season: the screen then says
      * nothing rather than showing a position it cannot support.
      */
+    /** A stored league table: its season and its rows, newest table when the season moved. */
+    data class LeagueTable(val season: Int, val rows: List<com.footballai.app.data.local.entity.StandingEntity>)
+
+    /**
+     * The table a competition actually has stored.
+     *
+     * The season on the competition row is what the fixture sync last wrote and the table may
+     * have been stored under another one, so the newest table is used when the exact season
+     * has no rows — the same rule [standingRanks] follows, for the same reason.
+     */
+    suspend fun leagueTable(competitionId: String): LeagueTable? {
+        if (competitionId.isBlank()) return null
+        val stored = db.competitionDao().byId(competitionId)?.season
+            ?.let { season -> db.standingDao().byCompetition(competitionId, season) }
+            .orEmpty()
+        val rows = stored.ifEmpty {
+            val newest = db.standingDao().latestSeason(competitionId) ?: return null
+            db.standingDao().byCompetition(competitionId, newest)
+        }
+        if (rows.isEmpty()) return null
+        return LeagueTable(season = rows.first().season, rows = rows.sortedBy { it.rank })
+    }
+
     suspend fun standingRanks(competitionId: String, teamIds: List<String>): Map<String, Pair<Int, Int>> {
         if (competitionId.isBlank() || teamIds.isEmpty()) return emptyMap()
         // The season on the competition row is what the fixture sync last wrote, and the

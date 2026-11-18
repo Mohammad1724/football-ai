@@ -36,6 +36,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Refresh
@@ -127,7 +128,10 @@ import kotlin.math.abs
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MatchesScreen(onMatchClick: (String) -> Unit) {
+fun MatchesScreen(
+    onMatchClick: (String) -> Unit,
+    onCompetitionClick: (String) -> Unit = {},
+) {
     val container = LocalAppContainer.current
     val viewModel: MatchesViewModel = viewModel(
         factory = viewModelFactory { initializer { MatchesViewModel(container) } },
@@ -865,6 +869,7 @@ private fun GroupedMatchList(
                     country = competition?.country,
                     matchCount = group.size,
                     languageTag = languageTag,
+                    onClick = { onCompetitionClick(competId) },
                 )
             }
             item(key = "matches-$competId") {
@@ -885,6 +890,7 @@ private fun CompetitionHeaderBar(
     country: String?,
     matchCount: Int,
     languageTag: String,
+    onClick: () -> Unit = {},
 ) {
     val colors = FootballAiThemeExtra.colors
     // Opaque page behind the pinned bar, otherwise the rows scroll visibly under it.
@@ -899,6 +905,7 @@ private fun CompetitionHeaderBar(
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(Radii.small))
                 .background(colors.cardStrong)
+                .clickable(onClick = onClick)
                 .padding(horizontal = Spacing.md, vertical = Spacing.sm),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -939,6 +946,15 @@ private fun CompetitionHeaderBar(
                 ),
                 style = MaterialTheme.typography.labelSmall,
                 color = colors.iconMuted,
+            )
+            Spacer(Modifier.width(Spacing.xs))
+            // The bar is the way into the tournament's table. The chevron says so; without
+            // it the header reads as a label and nobody taps a label.
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                contentDescription = stringResource(R.string.action_open_table),
+                tint = colors.iconMuted,
+                modifier = Modifier.size(18.dp),
             )
         }
     }

@@ -53,6 +53,7 @@ import com.footballai.app.ui.LocalAppContainer
 import com.footballai.app.ui.components.LoadingState
 import com.footballai.app.ui.screens.CompetitionOrderScreen
 import com.footballai.app.ui.screens.CompetitionScreen
+import com.footballai.app.ui.screens.CompetitionTableScreen
 import com.footballai.app.ui.screens.DataSourcesScreen
 import com.footballai.app.ui.screens.MatchDetailScreen
 import com.footballai.app.ui.screens.MatchesScreen
@@ -72,10 +73,12 @@ object Routes {
     const val MATCH_DETAIL = "match/{matchId}"
     const val TEAM = "team/{teamId}"
     const val COMPETITION = "competition/{competitionId}"
+    const val COMPETITION_TABLE = "competition-table/{competitionId}"
 
     fun matchDetail(matchId: String) = "match/$matchId"
     fun team(teamId: String) = "team/$teamId"
     fun competition(competitionId: String) = "competition/$competitionId"
+    fun competitionTable(competitionId: String) = "competition-table/$competitionId"
 }
 
 private data class BottomDestination(
@@ -236,7 +239,10 @@ private fun MainNavigation() {
             },
         ) {
             composable(Routes.MATCHES) {
-                MatchesScreen(onMatchClick = { navController.navigate(Routes.matchDetail(it)) })
+                MatchesScreen(
+                    onMatchClick = { navController.navigate(Routes.matchDetail(it)) },
+                    onCompetitionClick = { navController.navigate(Routes.competitionTable(it)) },
+                )
             }
             composable(Routes.PREDICTIONS) {
                 PredictionsScreen(onMatchClick = { navController.navigate(Routes.matchDetail(it)) })
@@ -274,6 +280,16 @@ private fun MainNavigation() {
                 TeamScreen(
                     teamId = entry.arguments?.getString("teamId").orEmpty(),
                     onBack = { navController.popBackStack() },
+                )
+            }
+            composable(
+                route = Routes.COMPETITION_TABLE,
+                arguments = listOf(navArgument("competitionId") { type = NavType.StringType }),
+            ) { entry ->
+                CompetitionTableScreen(
+                    competitionId = entry.arguments?.getString("competitionId").orEmpty(),
+                    onBack = { navController.popBackStack() },
+                    onTeamClick = { navController.navigate(Routes.team(it)) },
                 )
             }
             composable(
