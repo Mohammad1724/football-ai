@@ -50,6 +50,24 @@ moves; nothing here is aspirational wording — each item is a real, current lim
 12. **No betting edge is claimed anywhere.** The engine appends `NO_MARKET_EDGE_CLAIMED`
     and the UI never frames a probability difference against odds as value.
 
+## Club identity
+
+* **A club is identified by its published name.** The current season comes from
+  open-matchday and the archive from football-data.co.uk, and the two name the same club
+  differently (`FC Bayern München` vs `Bayern Munich`). `TeamAliases` maps 189 such
+  pairs that are backed by evidence (same date, same score in both publishers). It is a
+  generated table: a club that changed its name after the table was built, or was
+  promoted from a division this table does not cover, keeps its honest "no history"
+  state until `scripts/build_team_aliases.py` is run again. Nothing is matched fuzzily.
+* **History does not cross divisions.** A promoted club's results from the lower division
+  are stored under that division and are not read when the club plays in the top flight:
+  the rating book is built per competition. Elo is replayed across competitions as a
+  whole, but the fitted attack/defence terms are not shared.
+* **32 of the 61 supported leagues have no archive of previous seasons** (Poland,
+  Romania, Russia, the Czech league, Croatia, Belgium's lower tiers and others). For
+  those, the model sees the current season only. That is a limit of the free sources,
+  and the prediction carries the corresponding quality level.
+
 ## Database schema
 
 The specification listed 14 entities. Eleven are implemented. The three that are folded

@@ -3,6 +3,8 @@ package com.footballai.app.data.repository
 import com.footballai.app.core.TimeProvider
 import com.footballai.app.data.local.FootballDatabase
 import com.footballai.app.data.local.entity.HistoricalMatchEntity
+import com.footballai.app.data.remote.TeamAliases
+import com.footballai.app.data.remote.TeamIds
 import com.footballai.app.domain.catalog.NationalTeamKeys
 import com.footballai.engine.model.LambdaAdjustment
 import com.footballai.engine.model.LeagueBaseline
@@ -52,13 +54,40 @@ class RatingsRepository(
 
     private suspend fun history(source: String, competitionId: String, asOf: Long): List<HistoricalMatchEntity> {
         val native = db.historicalDao().forCompetition(source, competitionId, asOf)
-        if (source != "football-data-org") return native
-        val code = HistoryBridge.leagues[competitionId.substringAfterLast(':')] ?: return native
+        if (source != "football-data-org") return native.canonicalIdentities(competitionId)
+        val code = HistoryBridge.leagues[competitionId.substringAfterLast(':')] ?: return native.canonicalIdentities(competitionId)
         val csv = db.historicalDao().forCompetition("football-data-co-uk", "football-data-co-uk:league:$code", asOf)
         val mapped = HistoryBridge.map(csv, db.teamDao().forCompetition(competitionId))
         // Use one complete source, never double-count the same results across providers.
-        return if (mapped.size > native.size) mapped else native
+        val chosen = if (mapped.size > native.size) mapped else native
+        return chosen.canonicalIdentities(competitionId)
     }
+
+    /**
+     * Rewrites archive ids onto the id the live feed gives the same club.
+     *
+     * The archive (football-data.co.uk) and the live feed (open-matchday) publish the
+     * same club under different names, so the stored rows carry two ids for one team
+     * and the rating book — which joins on the id — used to ignore the archive
+     * completely for those clubs. [TeamAliases] holds the pairs that are backed by
+     * evidence (same date, same score in both publishers); a club that is not in the
+     * table keeps its own id, exactly as before.
+     *
+     * A row's id is *not* recomputed here: it stays the primary key of the stored row.
+     * Only the two participating ids are rewritten, so nothing in the database moves.
+     */
+    private fun List<HistoricalMatchEntity>.canonicalIdentities(
+        competitionId: String,
+    ): List<HistoricalMatchEntity> = map { row ->
+        val home = canonicalTeamId(competitionId, row.homeTeamId)
+        val away = canonicalTeamId(competitionId, row.awayTeamId)
+        if (home == row.homeTeamId && away == row.awayTeamId) row
+        else row.copy(homeTeamId = home, awayTeamId = away)
+    }
+
+    /** `provider:team:<key>` with the key replaced by the live key, when one is known. */
+    internal fun canonicalTeamId(competitionId: String, teamId: String): String =
+        TeamIds.canonical(TeamIds.leagueOf(competitionId), teamId)
 
     suspend fun book(source: String, competitionId: String, asOfEpochMs: Long = clock.nowEpochMs()): RatingBook? =
         mutex.withLock {
@@ -85,7 +114,16 @@ class RatingsRepository(
     ): Pair<TeamStrength, TeamStrength> = withContext(Dispatchers.Default) {
         val book = book(source, competitionId, asOfEpochMs)
             ?: return@withContext Pair(TeamStrength.neutral(homeTeamId), TeamStrength.neutral(awayTeamId))
-        book.strengths(competitionId, homeTeamId, awayTeamId, asOfEpochMs)
+        // The fixture's own id is looked up under the live naming; the history rows were
+        // rewritten the same way, so both ends of the join agree.
+        val (home, away) = book.strengths(
+            competitionId,
+            canonicalTeamId(competitionId, homeTeamId),
+            canonicalTeamId(competitionId, awayTeamId),
+            asOfEpochMs,
+        )
+        // The caller's ids are returned unchanged: they identify the fixture, not the rating.
+        Pair(home.copy(teamId = homeTeamId), away.copy(teamId = awayTeamId))
     }
 
     /**
@@ -172,7 +210,10 @@ class RatingsRepository(
         asOfEpochMs: Long,
     ): List<LambdaAdjustment> = withContext(Dispatchers.Default) {
         book(source, competitionId, asOfEpochMs)?.adjustments(
-            competitionId, homeTeamId, awayTeamId, asOfEpochMs,
+            competitionId,
+            canonicalTeamId(competitionId, homeTeamId),
+            canonicalTeamId(competitionId, awayTeamId),
+            asOfEpochMs,
         ).orEmpty()
     }
 
@@ -185,7 +226,11 @@ class RatingsRepository(
         withContext(Dispatchers.Default) { book(source, competitionId, asOfEpochMs)?.fit(competitionId, asOfEpochMs) }
 
     suspend fun eloRating(source: String, competitionId: String, teamId: String, asOfEpochMs: Long): Double =
-        withContext(Dispatchers.Default) { book(source, competitionId, asOfEpochMs)?.eloRating(teamId, asOfEpochMs) ?: TeamStrength.AVERAGE_ELO }
+        withContext(Dispatchers.Default) {
+            book(source, competitionId, asOfEpochMs)
+                ?.eloRating(canonicalTeamId(competitionId, teamId), asOfEpochMs)
+                ?: TeamStrength.AVERAGE_ELO
+        }
 
     suspend fun matchCount(source: String, competitionId: String): Int =
         history(source, competitionId, clock.nowEpochMs()).size

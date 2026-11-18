@@ -20,6 +20,10 @@ secrets.properties
 *.keystore
 keystore.properties
 
+# Python bytecode (scripts/)
+__pycache__/
+*.pyc
+
 # Generated artifacts
 *.apk
 *.aab

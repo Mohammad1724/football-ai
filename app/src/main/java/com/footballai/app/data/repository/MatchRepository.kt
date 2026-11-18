@@ -10,6 +10,7 @@ import com.footballai.app.data.local.mapper.toDetail
 import com.footballai.app.data.local.mapper.toDomain
 import com.footballai.app.data.local.mapper.toRef
 import com.footballai.app.data.local.mapper.toSummary
+import com.footballai.app.data.remote.TeamAliases
 import com.footballai.app.domain.model.Competition
 import com.footballai.app.domain.model.MatchDetail
 import com.footballai.app.domain.model.MatchStatus
@@ -132,7 +133,18 @@ class MatchRepository(
 
     private fun aliasIds(team: TeamRef): List<String> = buildList {
         add(team.id)
-        if (team.isNational) add(com.footballai.app.domain.catalog.NationalTeamKeys.teamId(team.name))
+        if (team.isNational) {
+            add(com.footballai.app.domain.catalog.NationalTeamKeys.teamId(team.name))
+        } else {
+            // The archive stored this club under a different published name. Adding those
+            // ids means the form panel and the head-to-head list see the same results the
+            // rating book already sees; without them a Bundesliga club had no past at all.
+            val prefix = team.id.substringBeforeLast(':', missingDelimiterValue = "")
+            val key = team.id.substringAfterLast(':')
+            if (prefix.isNotEmpty() && key.isNotEmpty()) {
+                for (archived in TeamAliases.archivedKeys(key)) add("$prefix:$archived")
+            }
+        }
     }.distinct()
 
     private fun com.footballai.app.data.local.entity.HistoricalMatchEntity.toSummaryRow(): MatchSummary =
