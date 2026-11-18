@@ -17,18 +17,6 @@ permissions:
   issues: write
 
 jobs:
-  # TEMPORARY: the workspace cannot reach thesportsdb.com; the probe reports to an issue.
-  probe:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Ask TheSportsDB about the remaining lanes
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REPO: ${{ github.repository }}
-          ISSUE_NUMBER: "47"
-        run: python3 scripts/roster_probe.py
-
   test-and-build:
     name: Test and build signed APKs
     runs-on: ubuntu-latest
@@ -60,14 +48,6 @@ jobs:
         run: |
           set -o pipefail
           gradle :app:testDebugUnitTest --stacktrace 2>&1 | tee -a build-output.txt
-
-      - name: Report failing tests
-        if: failure()
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REPO: ${{ github.repository }}
-          ISSUE_NUMBER: "49"
-        run: python3 scripts/ci_test_report.py
 
       - name: Assemble signed APKs
         run: |
