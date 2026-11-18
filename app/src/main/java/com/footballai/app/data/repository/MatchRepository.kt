@@ -341,8 +341,21 @@ class MatchRepository(
         }
         val bySource = db.teamDao().crestCountsByProvider()
             .joinToString(" · ") { count -> "${count.providerId} ${count.withCrest}/${count.total}" }
+        // A count says how many are missing; a name says which club the report is about. The
+        // window matches what the fixture screens show, so the list is what the eye sees.
+        val now = clock.nowEpochMs()
+        val from = now - 2L * TimeConstants.DAY_MS
+        val to = now + 12L * TimeConstants.DAY_MS
+        val missing = db.teamDao().crestCompetitionsForDay(from, to).mapNotNull { competition ->
+            val teams = db.teamDao().crestlessTeamsForCompetitionDay(competition.id, from, to)
+            if (teams.isEmpty()) null else competition.providerKey to teams
+        }.sortedByDescending { it.second.size }.take(6)
+            .map { (key, teams) ->
+                "$key ${teams.size}: " + teams.take(3).joinToString(", ") { it.name }
+            }
         return "teams: $withCrest of $total with a crest · $sampleText" +
-            (if (bySource.isEmpty()) "" else "\nby source: $bySource")
+            (if (bySource.isEmpty()) "" else "\nby source: $bySource") +
+            (if (missing.isEmpty()) "" else "\nwithout a crest: " + missing.joinToString(" · "))
     }
 
     suspend fun matchEntity(matchId: String): MatchEntity? = db.matchDao().byId(matchId)

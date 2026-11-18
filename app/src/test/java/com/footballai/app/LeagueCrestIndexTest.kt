@@ -9,6 +9,7 @@ import com.footballai.app.data.remote.QuotaStore
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class LeagueCrestIndexTest {
     private val index = LeagueCrestIndex(ApiClient(QuotaGuard(object : QuotaStore {
@@ -45,6 +46,35 @@ class LeagueCrestIndexTest {
         assertNull(index.parse("{}", "esp.1"))
         val bad = payload.replace("https://a.espncdn.com", "https://example.org")
         assertNull(LeagueCrestIndex.match(index.parse(bad, "esp.1")!!, "Real Madrid"))
+    }
+
+    @Test fun `legal forms are not part of a club name`() {
+        // The pairs that kept Belgian, Portuguese and German clubs as two initials.
+        val teams = listOf(
+            LeagueCrestTeam("1", listOf("Gent"), "https://a.espncdn.com/g.png"),
+            LeagueCrestTeam("2", listOf("Cercle Brugge"), "https://a.espncdn.com/c.png"),
+            LeagueCrestTeam("3", listOf("Club Brugge"), "https://a.espncdn.com/b.png"),
+            LeagueCrestTeam("4", listOf("Anderlecht"), "https://a.espncdn.com/an.png"),
+        )
+        assertEquals("https://a.espncdn.com/g.png", LeagueCrestIndex.match(teams, "KAA Gent"))
+        assertEquals("https://a.espncdn.com/c.png", LeagueCrestIndex.match(teams, "Cercle Brugge KSV"))
+        assertEquals("https://a.espncdn.com/an.png", LeagueCrestIndex.match(teams, "RSC Anderlecht"))
+        // Brugge has two clubs; "Club" is a distinctive word, not a legal form.
+        assertEquals("https://a.espncdn.com/b.png", LeagueCrestIndex.match(teams, "Club Brugge"))
+        assertNull(LeagueCrestIndex.match(teams, "KV Kortrijk"))
+    }
+
+    @Test fun `every mapped league is a documented ESPN slug and no key is repeated`() {
+        val slugs = LeagueCrestIndex.LEAGUES.values
+        assertEquals(slugs.size, slugs.toSet().size)
+        slugs.forEach { slug -> assertTrue(Regex("[a-z]+\\.[0-9a-z._]+").matches(slug)) }
+        assertEquals("eng.1", LeagueCrestIndex.LEAGUES["E0"])
+        assertEquals("bel.1", LeagueCrestIndex.LEAGUES["B1"])
+        assertEquals("por.1", LeagueCrestIndex.LEAGUES["P1"])
+        assertEquals("jpn.1", LeagueCrestIndex.LEAGUES["JPN1"])
+        // A league with no documented ESPN competition stays out of the table.
+        assertNull(LeagueCrestIndex.LEAGUES["SC2"])
+        assertNull(LeagueCrestIndex.LEAGUES["FIN1"])
     }
 
     @Test fun `known alias works without making substring matches`() {

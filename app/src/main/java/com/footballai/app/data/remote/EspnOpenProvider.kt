@@ -60,13 +60,6 @@ class EspnOpenProvider(
         private const val STANDINGS_BASE_URL = "https://site.api.espn.com/apis/v2/sports/soccer"
         private const val SEARCH_BASE_URL = "https://site.api.espn.com/apis/common/v3/search"
 
-        /** Words that describe a club's legal form rather than which club it is. */
-        private val NAME_NOISE = setOf(
-            "fc", "afc", "ac", "cf", "sc", "as", "ss", "ssc", "us", "sv", "vfl", "vfb",
-            "tsg", "rc", "ogc", "aj", "club", "de", "futbol", "calcio", "1", "05", "04",
-            "98", "dsc",
-        )
-
         /**
          * Days fetched per competition per sync: yesterday, today and the next two.
          *
@@ -317,32 +310,19 @@ class EspnOpenProvider(
             .filter { it.isNotEmpty() }
 
     /**
-     * The same club under a longer published name: "Köln" against "1. FC Köln".
+     * The same club under a differently spelled published name: "Köln" against "1. FC Köln",
+     * or the reverse — "Gent" against "KAA Gent", "Cercle Brugge" against "Cercle Brugge KSV".
      *
-     * Only the tokens that name the club count — "fc", "ac", "cf" and friends describe a
-     * legal form, not an identity — and the answer is used only when exactly one candidate
-     * carries the whole core of the query. Two candidates that could both be meant is not a
-     * match, it is a guess.
+     * Only the words that name the club count, and [ClubNameMatcher] states the rules: a
+     * reserve, age or women's side is never the first team, a longer name is accepted only
+     * when both sides keep two distinctive words, and the answer is used only when exactly
+     * one candidate fits. Two candidates that could both be meant is a guess, not a match.
      */
-    private fun uniqueByCoreName(items: List<EspnSearchItem>, wanted: String): EspnSearchItem? {
-        val wantedCore = coreTokens(wanted)
-        if (wantedCore.isEmpty()) return null
-        val candidates = items.filter { item ->
-            val itemCore = namesOf(item).flatMap { name -> coreTokens(name) }.toSet()
-            wantedCore.all { token -> itemCore.contains(token) }
-        }
-        val candidate = candidates.singleOrNull() ?: return null
-        val reserveTokens = setOf("ii", "iii", "b", "u19", "u21", "u23", "women", "ladies")
-        val wantedMarkers = wanted.split(' ').filter { it in reserveTokens }.toSet()
-        // An omitted reserve/women marker must never turn a different team into a match.
-        if (namesOf(candidate).any { name ->
-                name.split(' ').any { it in reserveTokens && it !in wantedMarkers }
-            }) return null
-        return candidate
-    }
+    private fun uniqueByCoreName(items: List<EspnSearchItem>, wanted: String): EspnSearchItem? =
+        ClubNameMatcher.pick(items, ::rawNamesOf, listOf(wanted))
 
-    private fun coreTokens(value: String): List<String> =
-        value.split(' ').filter { token -> token.isNotEmpty() && token !in NAME_NOISE }
+    private fun rawNamesOf(item: EspnSearchItem): List<String> =
+        listOfNotNull(item.name, item.displayName, item.location)
 
     /** One request per day, bounded to [WINDOW_DAYS] days around today. */
     private fun windowDates(fromEpochMs: Long?, toEpochMs: Long?): List<LocalDate> {

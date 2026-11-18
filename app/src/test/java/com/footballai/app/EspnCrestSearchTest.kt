@@ -79,13 +79,31 @@ class EspnCrestSearchTest {
 
     @Test
     fun `two clubs that could both be meant is not a match`() {
+        // Both rows are the first team under two spellings: the answer does not say which
+        // one the app means, so it says nothing.
         val ambiguous = """
             {"items":[
-              {"id":"1","name":"Köln","logos":[{"href":"https://a.espncdn.com/i/teamlogos/soccer/500/1.png","rel":["default"]}]},
-              {"id":"2","name":"Köln II","logos":[{"href":"https://a.espncdn.com/i/teamlogos/soccer/500/2.png","rel":["default"]}]}
+              {"id":"1","name":"1. FC Köln","logos":[{"href":"https://a.espncdn.com/i/teamlogos/soccer/500/1.png","rel":["default"]}]},
+              {"id":"2","name":"Köln","logos":[{"href":"https://a.espncdn.com/i/teamlogos/soccer/500/2.png","rel":["default"]}]}
             ]}
         """.trimIndent()
         assertNull(provider.parseCrestSearch(ambiguous, "FC Köln"))
+    }
+
+    @Test
+    fun `a reserve side in the answer no longer hides the first team`() {
+        // A reserve team is excluded by rule, so it is not an ambiguity: exactly one club
+        // that can be meant is left, and that club's badge is the right one.
+        val withReserve = """
+            {"items":[
+              {"id":"2","name":"Köln II","logos":[{"href":"https://a.espncdn.com/i/teamlogos/soccer/500/2.png","rel":["default"]}]},
+              {"id":"124","name":"1. FC Köln","logos":[{"href":"https://a.espncdn.com/i/teamlogos/soccer/500/124.png","rel":["default"]}]}
+            ]}
+        """.trimIndent()
+        assertEquals(
+            "https://a.espncdn.com/i/teamlogos/soccer/500/124.png",
+            provider.parseCrestSearch(withReserve, "FC Köln"),
+        )
     }
 
     @Test

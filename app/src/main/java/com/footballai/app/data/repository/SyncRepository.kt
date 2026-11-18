@@ -641,7 +641,9 @@ class SyncRepository(
                 }
             }
             if (url != null) filled += db.teamDao().setCrestIfMissing(team.id, url)
-            db.syncMetaDao().put(SyncMetaEntity("crest-attempt-v4:" + team.id, "checked", clock.nowEpochMs()))
+            // Bumped to v5 with the club-name matcher: a club that failed under the old
+            // exact-name rule has to be asked once more, not left cooling down for a week.
+            db.syncMetaDao().put(SyncMetaEntity(CREST_ATTEMPT_PREFIX + team.id, "checked", clock.nowEpochMs()))
             attempted++
         }
         if (priorityEpochMs == null) {
@@ -1005,6 +1007,9 @@ class SyncRepository(
         private const val STANDINGS_MAX_AGE_MS = 24L * 60L * 60L * 1000L
         private const val CREST_BACKFILL_MARKER = "crest-backfill-v4"
         private const val CREST_RETRY_INTERVAL_MS = 7L * 24L * 60L * 60L * 1000L
+
+        /** Kept in step with the `crest-attempt-v5:` literal in [com.footballai.app.data.local.dao.TeamDao]. */
+        private const val CREST_ATTEMPT_PREFIX = "crest-attempt-v5:"
 
         /** Badges are repaired in batches, so the batch runs hourly until none are left. */
         private const val CREST_BACKFILL_INTERVAL_MS = 60L * 60L * 1000L

@@ -9,6 +9,9 @@ QUEUE = re.search(r'@Query\("""(\s*SELECT teams\.\* FROM teams.*?)"""\)\s*suspen
 DAY_LEAGUES = re.search(r'@Query\("""(\s*SELECT DISTINCT c\.\* FROM competitions c.*?)"""\)\s*suspend fun crestCompetitionsForDay', DAO, re.S).group(1)
 DAY_TEAMS = re.search(r'@Query\("""(\s*SELECT \* FROM teams WHERE providerId = \'football-data-co-uk\'.*?)"""\)\s*suspend fun crestlessTeamsForCompetitionDay', DAO, re.S).group(1)
 UPDATE = re.search(r'@Query\("(UPDATE teams SET crestUrl = :url.*?)"\)\s*suspend fun setCrestIfMissing', DAO).group(1)
+# The cooldown marker version lives in the SQL; read it instead of repeating it here, so a
+# rule change cannot leave these tests quietly exercising an older key.
+ATTEMPT = re.search(r"attempt\.key = '([^']+)'", DAO).group(1)
 
 
 class CrestQueueTests(unittest.TestCase):
@@ -54,7 +57,7 @@ class CrestQueueTests(unittest.TestCase):
         self.match('first', 'second', 1000)
         self.match('third', 'first', 1010)
         self.db.executemany('INSERT INTO sync_meta VALUES (?, ?)',
-                            [('crest-attempt-v4:first', 900), ('crest-attempt-v4:second', 900)])
+                            [(ATTEMPT + 'first', 900), (ATTEMPT + 'second', 900)])
         self.assertEqual(self.queue(limit=2), ['third'])
         self.assertEqual(self.queue(retry_before=900), ['first', 'second', 'third'])
 
@@ -79,7 +82,7 @@ class CrestQueueTests(unittest.TestCase):
         self.match('old', 'one', 500)
         self.db.execute("INSERT INTO matches VALUES ('female','one',1000,'women')")
         self.db.execute("INSERT INTO matches VALUES ('female','one',1000,'espn')")
-        self.db.execute("INSERT INTO sync_meta VALUES ('crest-attempt-v4:one', 999)")
+        self.db.execute("INSERT INTO sync_meta VALUES (?, 999)", (ATTEMPT + 'one',))
         leagues = self.db.execute(DAY_LEAGUES, dict(fromEpochMs=900, toEpochMs=1100)).fetchall()
         self.assertEqual([row[0] for row in leagues], ['league'])
         teams = self.db.execute(DAY_TEAMS, dict(competitionId='league', fromEpochMs=900, toEpochMs=1100)).fetchall()

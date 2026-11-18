@@ -54,33 +54,56 @@ class LeagueCrestIndex(private val client: ApiClient) {
 
     companion object {
         private const val CACHE_MS = 12L * 60L * 60L * 1000L
-        /** Explicit mappings only; leagues not listed here do not use cross-source matching. */
+        /**
+         * Explicit mappings only; a league that is not listed here never uses roster
+         * matching and falls back to the per-club search.
+         *
+         * A wrong slug cannot attach a wrong badge: the club still has to be found by name
+         * inside the roster that slug returns, and only when exactly one club fits. The
+         * slugs below are the ones documented by independent ESPN clients for those
+         * competitions; leagues with no documented slug (the Scottish third and fourth
+         * tiers, the non-league English divisions, the Finnish and Welsh top flights and
+         * the lower Polish, Slovak and Slovenian tiers) stay out of this table on purpose.
+         */
         val LEAGUES = mapOf(
             "E0" to "eng.1", "E1" to "eng.2", "E2" to "eng.3", "E3" to "eng.4",
             "D1" to "ger.1", "D2" to "ger.2", "SP1" to "esp.1", "SP2" to "esp.2",
             "I1" to "ita.1", "I2" to "ita.2", "F1" to "fra.1", "F2" to "fra.2",
             "N1" to "ned.1", "T1" to "tur.1", "AUT1" to "aut.1", "SC0" to "sco.1",
             "SC1" to "sco.2", "AUS1" to "aus.1", "USA1" to "usa.1", "NOR1" to "nor.1",
+            // Added once the club matcher could read "KAA Gent" as "Gent": before that the
+            // roster was fetched but almost nothing in these leagues was recognisable.
+            "N2" to "ned.2", "B1" to "bel.1", "P1" to "por.1", "G1" to "gre.1",
+            "SWZ1" to "sui.1", "DEN1" to "den.1", "SWE1" to "swe.1", "BRA1" to "bra.1",
+            "ARG1" to "arg.1", "MEX1" to "mex.1", "JPN1" to "jpn.1", "POL1" to "pol.1",
+            "CZE1" to "cze.1", "CRO1" to "cro.1", "ROU1" to "rou.1", "RUS1" to "rus.1",
+            "UKR1" to "ukr.1", "CHN1" to "chn.1",
         )
-        private val legalWords = setOf("fc", "cf", "sc", "afc", "1")
-        private fun key(name: String): String = TeamNames.normalizeNameKey(name)
-            .split(' ').filter { it.isNotBlank() && it !in legalWords }.joinToString(" ")
 
-        /** Exact normalized names or explicit catalog aliases, unique within this league.
-         * Reserve, age and gender suffixes are not discarded; one-letter initials do not
-         * constitute enough evidence to link unrelated clubs.
+        /**
+         * A club found inside the published roster of its own league.
+         *
+         * The names tried for our club are the live name, the catalog alias and the
+         * catalog's full name; each candidate is judged on both names ESPN publishes for
+         * it. [ClubNameMatcher] decides identity — legal forms and founding years are not
+         * part of a name, a reserve side never is the first team — and only a single
+         * candidate is accepted, so an ambiguous name keeps its initials.
          */
         fun match(teams: List<LeagueCrestTeam>, name: String, alias: String? = null): String? {
-            val inputs = listOfNotNull(name, alias, TeamNames.canonicalName(name)).map(::key)
-                .filter { it.length >= 3 }.toSet()
-            if (inputs.isEmpty()) return null
-            val candidates = teams.filter { team ->
-                team.names.any { published ->
-                    val choices = listOfNotNull(published, TeamNames.canonicalName(published)).map(::key)
-                    choices.any { it in inputs }
-                }
-            }.distinctBy { it.id }
-            return candidates.singleOrNull()?.crestUrl
+            val wanted = listOfNotNull(name, alias, TeamNames.canonicalName(name))
+                .filter { it.isNotBlank() }
+                .distinct()
+            if (wanted.isEmpty()) return null
+            val found = ClubNameMatcher.pick(
+                candidates = teams.distinctBy { it.id },
+                publishedNames = { team ->
+                    team.names.flatMap { published ->
+                        listOfNotNull(published, TeamNames.canonicalName(published))
+                    }
+                },
+                wanted = wanted,
+            )
+            return found?.crestUrl
         }
     }
 }
