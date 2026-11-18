@@ -28,7 +28,12 @@ def failure_lines() -> list[str]:
             klass = re.search(r'classname="([^"]*)"', case)
             message = re.search(r"<(?:failure|error)[^>]*message=\"([^\"]*)\"", body)
             head = re.sub(r"\s+", " ", (message.group(1) if message else ""))[:600]
-            lines.append(f"{klass.group(1) if klass else '?'}.{name.group(1) if name else '?'}\n  {head}")
+            # The stack trace names the failing line in the test source.
+            trace = [line.strip() for line in re.findall(r"at com\.footballai[^\n]*", body)][:6]
+            lines.append(
+                f"{klass.group(1) if klass else '?'}.{name.group(1) if name else '?'}\n  {head}\n  "
+                + "\n  ".join(trace)
+            )
     return lines
 
 
