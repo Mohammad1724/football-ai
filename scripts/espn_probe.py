@@ -101,9 +101,9 @@ def search(query: str) -> str:
 
 def main() -> int:
     lines = ["### ESPN rosters", ""]
-    lines += roster(slug) for slug in SLUGS
+    lines += [roster(slug) for slug in SLUGS]
     lines += ["", "### ESPN search", ""]
-    lines += search(name) for name in SEARCHES
+    lines += [search(name) for name in SEARCHES]
     report = "\n".join(lines)
     print(report)
 
