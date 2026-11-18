@@ -49,6 +49,20 @@ interface CompetitionDao {
     suspend fun count(): Int
 }
 
+/**
+ * Card totals over the stored match statistics.
+ *
+ * [matches] counts every match with a statistics row, [cardMatches] only those whose card
+ * columns were published — the average is taken over the latter, because a source that files
+ * shots but not cards must not be read as a league that never books anyone.
+ */
+data class LeagueStatisticsSummary(
+    val matches: Int,
+    val cardMatches: Int,
+    val yellowCards: Int?,
+    val redCards: Int?,
+)
+
 /** How many stored teams of one source carry a badge address. */
 data class TeamCrestCount(
     val providerId: String,
@@ -330,6 +344,40 @@ interface MatchDao {
 
     @Query("DELETE FROM matches WHERE kickoffEpochMs < :cutoffEpochMs AND status IN ('FINISHED', 'CANCELLED')")
     suspend fun pruneOldMatches(cutoffEpochMs: Long): Int
+
+    /**
+     * Finished matches of one competition, with a score, for the league's own statistics.
+     *
+     * A match without both goals is not a result and would skew every average, so it is not
+     * in the list at all.
+     */
+    @Query(
+        "SELECT * FROM matches WHERE competitionId = :competitionId " +
+            "AND status = 'FINISHED' " +
+            "AND homeGoals IS NOT NULL AND awayGoals IS NOT NULL " +
+            "AND (:season IS NULL OR season = :season) " +
+            "ORDER BY kickoffEpochMs ASC",
+    )
+    suspend fun finishedMatches(competitionId: String, season: Int?): List<MatchEntity>
+
+    /**
+     * What the stored per-match statistics add up to.
+     *
+     * Only matches whose card figures were actually downloaded are counted, and the caller is
+     * told how many those are: an average over four matches must not read as if it were the
+     * whole season.
+     */
+    @Query(
+        "SELECT COUNT(*) AS matches, " +
+            "SUM(CASE WHEN s.homeYellowCards IS NOT NULL OR s.awayYellowCards IS NOT NULL " +
+            "OR s.homeRedCards IS NOT NULL OR s.awayRedCards IS NOT NULL THEN 1 ELSE 0 END) AS cardMatches, " +
+            "SUM(COALESCE(s.homeYellowCards, 0) + COALESCE(s.awayYellowCards, 0)) AS yellowCards, " +
+            "SUM(COALESCE(s.homeRedCards, 0) + COALESCE(s.awayRedCards, 0)) AS redCards " +
+            "FROM match_statistics s JOIN matches m ON m.id = s.matchId " +
+            "WHERE m.competitionId = :competitionId AND m.status = 'FINISHED' " +
+            "AND (:season IS NULL OR m.season = :season)",
+    )
+    suspend fun statisticsSummary(competitionId: String, season: Int?): LeagueStatisticsSummary
 }
 
 @Dao

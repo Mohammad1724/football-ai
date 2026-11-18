@@ -3,6 +3,7 @@ package com.footballai.app.ui.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.footballai.app.di.AppContainer
+import com.footballai.app.domain.model.LeagueStats
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -32,6 +33,8 @@ data class TableRow(
 
 data class CompetitionTableState(
     val competitionName: String = "",
+    /** The league's own home/draw/away figures, when the app holds results for it. */
+    val leagueStats: LeagueStats? = null,
     val season: Int? = null,
     val rows: List<TableRow> = emptyList(),
     val isLoading: Boolean = true,
@@ -75,6 +78,8 @@ class CompetitionTableViewModel(
                     runCatching { container.syncRepository.refreshTableFor(competitionId) }
                 }
                 val shown = table ?: container.matchRepository.leagueTable(competitionId)
+                // Counted over the same season the table is drawn for, so the two agree.
+                val stats = container.matchRepository.leagueStats(competitionId, shown?.season)
                 _state.update { previous ->
                     previous.copy(
                         competitionName = competition?.name ?: previous.competitionName,
@@ -99,6 +104,7 @@ class CompetitionTableViewModel(
                         },
                         isLoading = false,
                         isEmpty = shown == null,
+                        leagueStats = stats,
                     )
                 }
             } catch (cancelled: CancellationException) {

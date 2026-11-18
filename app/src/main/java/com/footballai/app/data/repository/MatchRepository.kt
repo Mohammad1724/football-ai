@@ -246,11 +246,30 @@ class MatchRepository(
     }
 
     /**
-     * Where these teams stand in a competition table, with the size of that table.
+     * The league's own numbers, read from the results the app already holds.
      *
-     * Empty when the source has published no table for the season: the screen then says
-     * nothing rather than showing a position it cannot support.
+     * The table's season is used when there is a table, otherwise the season the fixture sync
+     * last wrote for this competition: counting across two seasons would silently add last
+     * year's results to this year's averages.
      */
+    suspend fun leagueStats(competitionId: String, season: Int? = null): com.footballai.app.domain.model.LeagueStats? {
+        val resolved = season ?: db.competitionDao().byId(competitionId)?.season
+        val finished = db.matchDao().finishedMatches(competitionId, resolved)
+        val scores = finished.mapNotNull { match ->
+            val home = match.homeGoals ?: return@mapNotNull null
+            val away = match.awayGoals ?: return@mapNotNull null
+            home to away
+        }
+        if (scores.isEmpty()) return null
+        val summary = db.matchDao().statisticsSummary(competitionId, resolved)
+        return com.footballai.app.domain.model.LeagueStats.fromResults(
+            scores = scores,
+            cardMatches = summary.cardMatches,
+            yellowCards = summary.yellowCards,
+            redCards = summary.redCards,
+        )
+    }
+
     /** A stored league table: its season and its rows, newest table when the season moved. */
     data class LeagueTable(val season: Int, val rows: List<com.footballai.app.data.local.entity.StandingEntity>)
 
@@ -274,6 +293,12 @@ class MatchRepository(
         return LeagueTable(season = rows.first().season, rows = rows.sortedBy { it.rank })
     }
 
+    /**
+     * Where these teams stand in a competition table, with the size of that table.
+     *
+     * Empty when the source has published no table for the season: the screen then says
+     * nothing rather than showing a position it cannot support.
+     */
     suspend fun standingRanks(competitionId: String, teamIds: List<String>): Map<String, Pair<Int, Int>> {
         if (competitionId.isBlank() || teamIds.isEmpty()) return emptyMap()
         // The season on the competition row is what the fixture sync last wrote, and the

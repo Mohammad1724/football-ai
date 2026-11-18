@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -30,6 +31,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.footballai.app.R
 import com.footballai.app.domain.catalog.NameLocalization
+import com.footballai.app.domain.model.LeagueStats
 import com.footballai.app.core.Formatters
 import com.footballai.app.domain.model.TeamRef
 import com.footballai.app.ui.LocalAppContainer
@@ -38,6 +40,7 @@ import com.footballai.app.ui.components.EmptyState
 import com.footballai.app.ui.components.LoadingState
 import com.footballai.app.ui.components.SoftBackButton
 import com.footballai.app.ui.components.SoftCard
+import com.footballai.app.ui.components.ProbabilityBar
 import com.footballai.app.ui.components.TeamBadge
 import com.footballai.app.ui.theme.FootballAiThemeExtra
 import com.footballai.app.ui.theme.Spacing
@@ -103,10 +106,6 @@ fun CompetitionTableScreen(
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
             when {
                 state.isLoading -> LoadingState()
-                state.rows.isEmpty() -> EmptyState(
-                    title = stringResource(R.string.empty_table_title),
-                    message = stringResource(R.string.empty_table_message),
-                )
                 else -> LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(
@@ -114,16 +113,115 @@ fun CompetitionTableScreen(
                         top = Spacing.sm, bottom = Spacing.xxl,
                     ),
                 ) {
-                    item(key = "table-header") { TableHeader() }
-                    items(state.rows, key = { it.teamId }) { row ->
-                        TableRowCard(
-                            row = row,
-                            onClick = { if (row.navigable) onTeamClick(row.teamId) },
-                        )
+                    // Drawn even when there is no table: these numbers come from the results
+                    // the app holds, so a league whose table the source never publishes still
+                    // gets its home/draw/away split instead of an apology.
+                    state.leagueStats?.let { stats ->
+                        item(key = "league-stats") { LeagueStatsCard(stats) }
+                    }
+                    if (state.rows.isEmpty()) {
+                        item(key = "table-empty") {
+                            EmptyState(
+                                title = stringResource(R.string.empty_table_title),
+                                message = stringResource(R.string.empty_table_message),
+                            )
+                        }
+                    } else {
+                        item(key = "table-header") { TableHeader() }
+                        items(state.rows, key = { it.teamId }) { row ->
+                            TableRowCard(
+                                row = row,
+                                onClick = { if (row.navigable) onTeamClick(row.teamId) },
+                            )
+                        }
                     }
                 }
             }
         }
+    }
+}
+
+/**
+ * The league's own results, read as numbers.
+ *
+ * Everything here is counted from matches the app already holds, so it works for leagues
+ * whose table the source does not publish. Card averages carry the size of the sample they
+ * were computed from, because per-match statistics are downloaded for a handful of matches,
+ * not for a season.
+ */
+@Composable
+private fun LeagueStatsCard(stats: LeagueStats) {
+    val languageTag = LocalLanguageTag.current
+    val colors = FootballAiThemeExtra.colors
+    SoftCard(modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.sm)) {
+        Column(modifier = Modifier.padding(Spacing.md)) {
+            Text(
+                text = stringResource(R.string.league_stats_title),
+                style = MaterialTheme.typography.titleSmall,
+            )
+            Text(
+                text = stringResource(
+                    R.string.league_stats_matches,
+                    Formatters.integer(stats.matches, languageTag),
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = colors.iconMuted,
+            )
+            Spacer(Modifier.height(Spacing.sm))
+            // The same bar the forecast uses, over the league's own results: home, draw, away.
+            ProbabilityBar(
+                homeWin = stats.homeWinShare,
+                draw = stats.drawShare,
+                awayWin = stats.awayWinShare,
+                languageTag = languageTag,
+                homeLabel = stringResource(R.string.league_stats_home_wins),
+                awayLabel = stringResource(R.string.league_stats_away_wins),
+            )
+            Spacer(Modifier.height(Spacing.sm))
+            InfoRow(
+                label = stringResource(R.string.league_stats_goals),
+                value = Formatters.decimal(stats.goalsPerMatch, languageTag, decimals = 1),
+            )
+            InfoRow(
+                label = stringResource(R.string.league_stats_goals_home),
+                value = Formatters.decimal(stats.goalsHomePerMatch, languageTag, decimals = 1),
+            )
+            InfoRow(
+                label = stringResource(R.string.league_stats_goals_away),
+                value = Formatters.decimal(stats.goalsAwayPerMatch, languageTag, decimals = 1),
+            )
+            // Only when a sample exists: an average over no matches is not a zero.
+            val yellow = stats.yellowCardsPerMatch
+            if (yellow != null) {
+                InfoRow(
+                    label = stringResource(
+                        R.string.league_stats_cards,
+                        Formatters.integer(stats.cardMatches, languageTag),
+                    ),
+                    value = stringResource(
+                        R.string.league_stats_cards_value,
+                        Formatters.decimal(yellow, languageTag, decimals = 1),
+                        Formatters.decimal(stats.redCardsPerMatch ?: 0.0, languageTag, decimals = 1),
+                    ),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun InfoRow(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = Spacing.xxs),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f),
+        )
+        Text(text = value, style = MaterialTheme.typography.labelLarge)
     }
 }
 

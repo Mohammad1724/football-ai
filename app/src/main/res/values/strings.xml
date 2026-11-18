@@ -58,6 +58,15 @@
     <string name="table_lost">L</string>
     <string name="table_goal_difference">GD</string>
     <string name="table_points">Pts</string>
+    <string name="league_stats_title">League numbers</string>
+    <string name="league_stats_matches">From %1$s finished matches</string>
+    <string name="league_stats_home_wins">Home wins</string>
+    <string name="league_stats_away_wins">Away wins</string>
+    <string name="league_stats_goals">Goals per match</string>
+    <string name="league_stats_goals_home">Goals per match, home side</string>
+    <string name="league_stats_goals_away">Goals per match, away side</string>
+    <string name="league_stats_cards">Cards per match (from %1$s matches)</string>
+    <string name="league_stats_cards_value">%1$s yellow · %2$s red</string>
     <string name="table_team">Team</string>
     <string name="empty_competition_title">No fixtures stored</string>
     <string name="empty_h2h_message">Both teams need stored finished matches to show H2H.</string>

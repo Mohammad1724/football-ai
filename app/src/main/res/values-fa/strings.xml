@@ -58,6 +58,15 @@
     <string name="table_lost">باخت</string>
     <string name="table_goal_difference">تفاضل</string>
     <string name="table_points">امتیاز</string>
+    <string name="league_stats_title">شاخص‌های لیگ</string>
+    <string name="league_stats_matches">بر پایهٔ %1$s بازی تمام‌شده</string>
+    <string name="league_stats_home_wins">برد میزبان</string>
+    <string name="league_stats_away_wins">برد مهمان</string>
+    <string name="league_stats_goals">گل در هر بازی</string>
+    <string name="league_stats_goals_home">گل هر بازی، میزبان</string>
+    <string name="league_stats_goals_away">گل هر بازی، مهمان</string>
+    <string name="league_stats_cards">کارت در هر بازی (از %1$s بازی)</string>
+    <string name="league_stats_cards_value">%1$s زرد · %2$s قرمز</string>
     <string name="table_team">تیم</string>
     <string name="empty_competition_title">بازی‌ای ذخیره نشده</string>
     <string name="empty_h2h_message">برای نمایش رویارویی، بازی‌های تمام‌شده هر دو تیم لازم است.</string>
