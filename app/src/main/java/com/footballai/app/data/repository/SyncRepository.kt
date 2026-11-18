@@ -26,6 +26,7 @@ import com.footballai.app.domain.catalog.CompetitionCatalog
 import com.footballai.app.domain.model.MatchStatus
 import com.footballai.app.domain.model.StatisticType
 import androidx.room.withTransaction
+import com.footballai.app.data.remote.CrestQueuePolicy
 import com.footballai.app.data.remote.EspnOpenProvider
 import com.footballai.app.data.remote.CsvFixtureIdentity
 import com.footballai.app.data.remote.FootballDataCoUkProvider
@@ -609,9 +610,13 @@ class SyncRepository(
         }
     }
 
-    /** Repair crestless clubs in fixtures, prioritising matches closest to today.
+    /**
+     * Repair crestless clubs in fixtures, prioritising matches closest to today.
+     *
      * A completed search without a match cools down per team so it cannot starve the queue.
-     * Network/quota errors stop the batch without marking the team as searched.
+     * A request that fails for its own reasons is tried once more and then skipped — the club
+     * keeps its place, unmarked, and the sweep carries on with the next one. Only a source
+     * that has actually closed (a rate limit, a spent quota, a refused key) ends the sweep.
      */
     suspend fun backfillCrests(
         providerId: String = EspnOpenProvider.PROVIDER_ID,
@@ -622,14 +627,18 @@ class SyncRepository(
         // The queue is only worked while the app is open, and the fallback source is rate
         // limited to about twenty lookups a minute, so one batch per sync left a hundred
         // clubs waiting for days. A sync now takes three batches — ten minutes of requests
-        // at the pace the source allows — and stops as soon as a batch comes back short.
+        // at the pace the source allows — and stops when a batch comes back short because
+        // the queue is short, not because the batch ran out of requests.
         var filled = 0
         repeat(CREST_BATCHES_PER_SYNC) { round ->
             val batch = crestBackfillBatch(
                 providerId, limit, force || round > 0, priorityEpochMs, null, null,
             )
             filled += batch.filled
-            if (batch.failed || batch.attempted < limit) return filled
+            // A short batch means the queue is short only when the request allowance was not
+            // what cut it short: a batch that spent its budget leaves clubs behind it, and the
+            // next round is exactly how they get served.
+            if (batch.failed || (batch.attempted < limit && !batch.budgetSpent)) return filled
         }
         return filled
     }
@@ -642,7 +651,7 @@ class SyncRepository(
                 EspnOpenProvider.PROVIDER_ID, 40, true,
                 fromEpochMs + (toEpochMs - fromEpochMs) / 2, fromEpochMs, toEpochMs,
             )
-            if (batch.failed || batch.attempted < 40) return
+            if (batch.failed || (batch.attempted < 40 && !batch.budgetSpent)) return
         }
     }
 
@@ -707,7 +716,20 @@ class SyncRepository(
         db.syncMetaDao().put(SyncMetaEntity(CREST_LAST_ERROR_MARKER, detail, clock.nowEpochMs()))
     }
 
-    private data class CrestBatch(val filled: Int, val attempted: Int, val failed: Boolean = false)
+    /**
+     * What one sweep of the crest queue did, and why it stopped.
+     *
+     * [attempted] alone cannot tell "the queue is short" from "the source's request budget for
+     * this batch ran out": in the second case there are still clubs waiting, and the caller
+     * stopping because `attempted < limit` leaves them waiting all day. That reason is kept
+     * apart in [budgetSpent] instead of being guessed from the count.
+     */
+    private data class CrestBatch(
+        val filled: Int,
+        val attempted: Int,
+        val failed: Boolean = false,
+        val budgetSpent: Boolean = false,
+    )
 
     private suspend fun crestBackfillBatch(
         providerId: String, limit: Int, force: Boolean, priorityEpochMs: Long?,
@@ -720,9 +742,11 @@ class SyncRepository(
         var filled = 0
         var attempted = 0
         var sportsDbAttempts = 0
+        var budgetSpent = false
         for (team in db.teamDao().crestlessInFixtures(
             priorityEpochMs ?: now, now - CREST_RETRY_INTERVAL_MS, limit, fromEpochMs, toEpochMs,
         )) {
+            var requestLost = false
             val competitionKeys = db.teamDao().fixtureCompetitionKeys(team.id)
             val slugs = competitionKeys
                 .mapNotNull { key -> com.footballai.app.data.remote.LeagueCrestIndex.LEAGUES[key] }
@@ -764,20 +788,33 @@ class SyncRepository(
                 .filter { it.isNotBlank() }.distinct()
             val searchWorthwhile = url == null && !roster.matched
             for (query in if (searchWorthwhile) espnQueries else emptyList()) {
-                when (val result = provider.crestForTeamName(query, slugs.firstOrNull())) {
+                when (val result = CrestQueuePolicy.attempt { provider.crestForTeamName(query, slugs.firstOrNull()) }) {
                     is Outcome.Success -> url = result.value
                     // In particular, do not consume the rest of the batch on quota errors.
                     is Outcome.Failure -> {
                         recordCrestFailure(EspnOpenProvider.PROVIDER_ID, result.error)
-                        return@withLock CrestBatch(filled, attempted, failed = true)
+                        if (CrestQueuePolicy.stopsBatch(result.error)) {
+                            return@withLock CrestBatch(filled, attempted, failed = true)
+                        }
+                        // One club's request was lost twice: it keeps its place in the queue
+                        // (nothing is marked as asked) and the sweep moves on to the next one.
+                        requestLost = true
+                        break
                     }
                 }
                 if (url != null) break
             }
+            // Nothing was learned about this club, so it is not counted as asked and not
+            // marked for cooldown; the clubs behind it in the queue are still served.
+            if (requestLost) continue
             // This source is rate limited to a few dozen lookups a minute, so a batch takes
             // a bounded slice and the rest of the queue continues on the next run — the team
             // keeps its place instead of being marked as tried.
-            if (url == null && sportsDbAttempts >= SPORTSDB_ATTEMPTS_PER_BATCH) break
+            if (url == null && sportsDbAttempts >= SPORTSDB_ATTEMPTS_PER_BATCH) {
+                // The batch ran out of the fallback source's allowance, not out of clubs.
+                budgetSpent = true
+                break
+            }
             // Only a verified name or published alias, with unambiguous gender.
             if (url == null) {
                 val gender = db.teamDao().fixtureGenders(team.id).singleOrNull()
@@ -792,17 +829,22 @@ class SyncRepository(
                         .joinToString(" ")
                     for (query in listOfNotNull(team.name, coreQuery.takeIf { it.isNotBlank() }, alias)
                         .distinct()) {
-                        when (val result = sportsDbCrests.find(query, gender)) {
+                        when (val result = CrestQueuePolicy.attempt { sportsDbCrests.find(query, gender) }) {
                             is Outcome.Success -> url = result.value
                             is Outcome.Failure -> {
                                 recordCrestFailure("sportsdb-crest", result.error)
-                                return@withLock CrestBatch(filled, attempted, failed = true)
+                                if (CrestQueuePolicy.stopsBatch(result.error)) {
+                                    return@withLock CrestBatch(filled, attempted, failed = true)
+                                }
+                                requestLost = true
+                                break
                             }
                         }
                         if (url != null) break
                     }
                 }
             }
+            if (requestLost) continue
             if (url != null) filled += db.teamDao().setCrestIfMissing(team.id, url)
             // Bumped to v7 with the fallback source's name rules: a club that was refused
             // because its published name was `Billericay Town` and the feed says `Billericay`
@@ -817,7 +859,7 @@ class SyncRepository(
         if (priorityEpochMs == null) {
             db.syncMetaDao().put(SyncMetaEntity(CREST_BACKFILL_MARKER, "ok", clock.nowEpochMs()))
         }
-        CrestBatch(filled, attempted)
+        CrestBatch(filled, attempted, budgetSpent = budgetSpent)
     }
 
     /**
