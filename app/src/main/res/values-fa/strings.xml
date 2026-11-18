@@ -570,6 +570,7 @@
     <string name="switching_source">در حال بارگذاری منبع جهانی…</string>
     <string name="source_label">منبع: %1$s</string>
     <string name="section_diagnostics">تشخیص خطا</string>
+    <string name="crest_check_running">در حال بررسی و ترمیم لوگوها؛ ممکن است چند دقیقه طول بکشد…</string>
     <string name="action_check_crest">بررسی نمایش لوگو</string>
     <string name="crash_report_title">اجرای قبلی به‌طور غیرمنتظره بسته شد</string>
     <string name="crash_report_body">این گزارش فنی را برنامه روی گوشی ذخیره کرده است. فقط محل کد در آن هست؛ هیچ داده شخصی، کلید یا سابقه‌ای در آن نیست. اگر صفحه‌ای مدام خطا می‌دهد، همین متن را بفرستید.</string>

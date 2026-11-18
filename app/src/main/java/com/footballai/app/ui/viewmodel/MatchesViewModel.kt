@@ -23,6 +23,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -125,6 +128,17 @@ class MatchesViewModel(private val container: AppContainer) : ViewModel() {
     private val searchQuery = MutableStateFlow("")
 
     init {
+        // Repair the date the reader actually opened rather than always the nearest
+        // match to today. Cancellation stops old date requests when swiping quickly.
+        viewModelScope.launch {
+            selection.map { it.dayOffset }.distinctUntilChanged().collectLatest { offset ->
+                delay(800)
+                if (container.networkMonitor.isOnlineNow()) {
+                    val (from, to) = localDayWindow(container.clock.nowEpochMs(), offset)
+                    container.syncRepository.backfillCrests(force = true, priorityEpochMs = from + (to - from) / 2)
+                }
+            }
+        }
         viewModelScope.launch {
             combine(
                 selection,

@@ -64,7 +64,7 @@ class EspnOpenProvider(
         private val NAME_NOISE = setOf(
             "fc", "afc", "ac", "cf", "sc", "as", "ss", "ssc", "us", "sv", "vfl", "vfb",
             "tsg", "rc", "ogc", "aj", "club", "de", "futbol", "calcio", "1", "05", "04",
-            "98", "ii",
+            "98", "dsc",
         )
 
         /**
@@ -295,11 +295,15 @@ class EspnOpenProvider(
         }.getOrNull() ?: return null
         val wanted = TeamNames.normalizeNameKey(query)
         if (wanted.isEmpty()) return null
-        // An exact published name is the best answer and needs no tie-breaking.
-        val exact = decoded.items.firstOrNull { item ->
-            namesOf(item).any { name -> name == wanted }
+        // Search covers other sports and may return men's and women's teams with the
+        // same name. Never take the first ambiguous result just because it ranks higher.
+        val items = decoded.items.filter { it.sport == null || it.sport.equals("soccer", ignoreCase = true) }
+        val exact = items.filter { item -> namesOf(item).any { it == wanted } }
+        val match = when {
+            exact.size == 1 -> exact.single()
+            exact.isNotEmpty() -> return null
+            else -> uniqueByCoreName(items, wanted) ?: return null
         }
-        val match = exact ?: uniqueByCoreName(decoded.items, wanted) ?: return null
         return match.logos
             .firstOrNull { logo -> logo.rel.any { it.equals("default", ignoreCase = true) } }
             ?.href
@@ -327,7 +331,14 @@ class EspnOpenProvider(
             val itemCore = namesOf(item).flatMap { name -> coreTokens(name) }.toSet()
             wantedCore.all { token -> itemCore.contains(token) }
         }
-        return candidates.singleOrNull()
+        val candidate = candidates.singleOrNull() ?: return null
+        val reserveTokens = setOf("ii", "iii", "b", "u19", "u21", "u23", "women", "ladies")
+        val wantedMarkers = wanted.split(' ').filter { it in reserveTokens }.toSet()
+        // An omitted reserve/women marker must never turn a different team into a match.
+        if (namesOf(candidate).any { name ->
+                name.split(' ').any { it in reserveTokens && it !in wantedMarkers }
+            }) return null
+        return candidate
     }
 
     private fun coreTokens(value: String): List<String> =

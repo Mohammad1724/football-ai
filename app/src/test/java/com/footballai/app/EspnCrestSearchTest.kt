@@ -97,4 +97,17 @@ class EspnCrestSearchTest {
     fun `a document that is not a search answer is not a match`() {
         assertNull(provider.parseCrestSearch("{\"items\":\"nope\"}", "Bayern Munich"))
     }
+    @Test
+    fun `ambiguous exact gender or reserve-only result is not guessed`() {
+        val two = """{"items":[{"id":"1","name":"Bayern Munich","sport":"soccer","logos":[{"href":"https://example.com/1.png"}]},{"id":"2","name":"Bayern Munich","sport":"soccer","logos":[{"href":"https://example.com/2.png"}]}]}"""
+        assertNull(provider.parseCrestSearch(two, "Bayern Munich"))
+        val reserve = """{"items":[{"id":"2","name":"Bayern Munich II","sport":"soccer","logos":[{"href":"https://example.com/2.png"}]}]}"""
+        assertNull(provider.parseCrestSearch(reserve, "FC Bayern Munich"))
+    }
+
+    @Test
+    fun `other sports never match a club`() {
+        val basketball = """{"items":[{"name":"Bayern Munich","sport":"basketball","logos":[{"href":"https://example.com/1.png"}]}]}"""
+        assertNull(provider.parseCrestSearch(basketball, "Bayern Munich"))
+    }
 }

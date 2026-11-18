@@ -18,6 +18,7 @@ data class EspnSearchResponse(
 @Serializable
 data class EspnSearchItem(
     val id: String? = null,
+    val sport: String? = null,
     val displayName: String? = null,
     val name: String? = null,
     val location: String? = null,

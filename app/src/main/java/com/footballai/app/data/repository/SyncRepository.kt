@@ -82,6 +82,7 @@ class SyncRepository(
     private val settingsRepository: SettingsRepository,
     private val ratingsRepository: RatingsRepository,
     private val clock: TimeProvider,
+    private val sportsDbCrests: com.footballai.app.data.remote.SportsDbCrests,
 ) {
 
     private val crestBackfillMutex = Mutex()
@@ -545,15 +546,16 @@ class SyncRepository(
      */
     suspend fun backfillCrests(
         providerId: String = EspnOpenProvider.PROVIDER_ID,
-        limit: Int = 200,
+        limit: Int = 30,
         force: Boolean = false,
+        priorityEpochMs: Long? = null,
     ): Int = crestBackfillMutex.withLock {
         val provider = registry.provider(providerId) as? EspnOpenProvider ?: return@withLock 0
         val now = clock.nowEpochMs()
         val last = db.syncMetaDao().entity(CREST_BACKFILL_MARKER)?.updatedAt
         if (!force && last != null && now - last < CREST_BACKFILL_INTERVAL_MS) return@withLock 0
         var filled = 0
-        for (team in db.teamDao().crestlessInFixtures(now, now - CREST_RETRY_INTERVAL_MS, limit)) {
+        for (team in db.teamDao().crestlessInFixtures(priorityEpochMs ?: now, now - CREST_RETRY_INTERVAL_MS, limit)) {
             val queries = listOfNotNull(
                 com.footballai.app.domain.catalog.TeamNames.canonicalName(team.name),
                 team.name,
@@ -567,10 +569,25 @@ class SyncRepository(
                 }
                 if (url != null) break
             }
+            // Only a verified exact name or published alias, with unambiguous gender.
+            if (url == null) {
+                val gender = db.teamDao().fixtureGenders(team.id).singleOrNull()
+                if (gender != null) {
+                    for (query in (listOf(team.name) + queries).distinct()) {
+                        when (val result = sportsDbCrests.find(query, gender)) {
+                            is Outcome.Success -> url = result.value
+                            is Outcome.Failure -> return@withLock filled
+                        }
+                        if (url != null) break
+                    }
+                }
+            }
             if (url != null) filled += db.teamDao().setCrestIfMissing(team.id, url)
-            db.syncMetaDao().put(SyncMetaEntity("crest-attempt-v2:" + team.id, "checked", clock.nowEpochMs()))
+            db.syncMetaDao().put(SyncMetaEntity("crest-attempt-v3:" + team.id, "checked", clock.nowEpochMs()))
         }
-        db.syncMetaDao().put(SyncMetaEntity(CREST_BACKFILL_MARKER, "ok", clock.nowEpochMs()))
+        if (priorityEpochMs == null) {
+            db.syncMetaDao().put(SyncMetaEntity(CREST_BACKFILL_MARKER, "ok", clock.nowEpochMs()))
+        }
         filled
     }
 
@@ -927,7 +944,7 @@ class SyncRepository(
     companion object {
         /** A table changes at most after a round of matches, so a day is generous. */
         private const val STANDINGS_MAX_AGE_MS = 24L * 60L * 60L * 1000L
-        private const val CREST_BACKFILL_MARKER = "crest-backfill-v2"
+        private const val CREST_BACKFILL_MARKER = "crest-backfill-v3"
         private const val CREST_RETRY_INTERVAL_MS = 7L * 24L * 60L * 60L * 1000L
 
         /** Badges are repaired in batches, so the batch runs hourly until none are left. */

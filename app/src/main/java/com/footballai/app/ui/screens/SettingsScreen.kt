@@ -334,16 +334,21 @@ fun SettingsScreen(onOpenDataSources: () -> Unit, onOpenCompetitionOrder: () -> 
                 val scope = rememberCoroutineScope()
                 var probe by remember { mutableStateOf<String?>(null) }
                 var checking by remember { mutableStateOf(false) }
+                val checkingText = stringResource(R.string.crest_check_running)
                 Column(modifier = Modifier.padding(horizontal = 8.dp)) {
                     TextButton(
                         enabled = !checking,
                         onClick = {
                             checking = true
+                            probe = checkingText
                             scope.launch {
                                 // The address answer first, then what the stored data
                                 // actually holds: the two together say whether the phone
                                 // cannot reach the picture or the picture has no address.
                                 val network = CrestImages.probe(CrestImages.probeAddress)
+                                val before = runCatching { container.matchRepository.crestDiagnostics() }
+                                    .getOrElse { error -> "teams: unreadable (${error::class.java.simpleName})" }
+                                probe = network + "\n" + before + "\n" + checkingText
                                 // One tap should also *repair* what it can: a club the
                                 // source never gave an address for is looked up by name,
                                 // and the badge appears without another sync.

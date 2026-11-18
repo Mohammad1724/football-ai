@@ -43,7 +43,7 @@ class CrestQueueTests(unittest.TestCase):
         self.match('first', 'second', 1000)
         self.match('third', 'first', 1010)
         self.db.executemany('INSERT INTO sync_meta VALUES (?, ?)',
-                            [('crest-attempt-v2:first', 900), ('crest-attempt-v2:second', 900)])
+                            [('crest-attempt-v3:first', 900), ('crest-attempt-v3:second', 900)])
         self.assertEqual(self.queue(limit=2), ['third'])
         self.assertEqual(self.queue(retry_before=900), ['first', 'second', 'third'])
 
