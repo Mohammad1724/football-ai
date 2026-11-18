@@ -109,7 +109,7 @@ internal object ClubNameMatcher {
      * a reserve spelling is still the first team, while a reserve row is never the first
      * team even when one of its spellings looks like it.
      */
-    private fun addsReserveMarker(published: String, wanted: String): Boolean {
+    fun addsReserveMarker(published: String, wanted: String): Boolean {
         val publishedMarkers = words(published).filter { it in RESERVE_MARKERS }.toSet()
         val wantedMarkers = words(wanted).filter { it in RESERVE_MARKERS }.toSet()
         return !wantedMarkers.containsAll(publishedMarkers)

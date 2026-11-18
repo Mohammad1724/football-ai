@@ -69,6 +69,9 @@ class SportsDbCrests(private val client: ApiClient) {
         val related = response.teams.orEmpty().filter { team ->
             team.strSport.equals("Soccer", ignoreCase = true) &&
                 team.strGender.equals(expectedGender, ignoreCase = true) &&
+                // A row that names a reserve side is that side, even when another spelling
+                // in the same row looks like the first team.
+                namesOf(team).none { published -> ClubNameMatcher.addsReserveMarker(published, name) } &&
                 namesOf(team).any { published -> ClubNameMatcher.matches(published, name) }
         }
         val chosen = related
