@@ -8,6 +8,7 @@ import com.footballai.app.data.remote.QuotaGuard
 import com.footballai.app.data.remote.QuotaStore
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -81,6 +82,21 @@ class LeagueCrestIndexTest {
         assertEquals("https://a.espncdn.com/hee.png", LeagueCrestIndex.match(eredivisie, "sc Heerenveen"))
         // A club that is not in the roster is not guessed from a neighbour.
         assertNull(LeagueCrestIndex.match(eredivisie, "Willem II"))
+    }
+
+    @Test fun `a club found in the roster without a badge is known, not unknown`() {
+        val roster = listOf(
+            LeagueCrestTeam("1", listOf("Barry Town"), null),
+            LeagueCrestTeam("2", listOf("TNS"), "https://a.espncdn.com/tns.png"),
+        )
+        val known = LeagueCrestIndex.lookup(roster, "Barry")
+        assertNull(known.crestUrl)
+        // Recognised: the source publishes this club and publishes no badge for it, so
+        // asking the same source again would only spend a request.
+        assertTrue(known.matched)
+        val unknown = LeagueCrestIndex.lookup(roster, "Haverfordwest")
+        assertFalse(unknown.matched)
+        assertEquals("https://a.espncdn.com/tns.png", LeagueCrestIndex.lookup(roster, "TNS").crestUrl)
     }
 
     @Test fun `every mapped league is a documented ESPN slug and no key is repeated`() {

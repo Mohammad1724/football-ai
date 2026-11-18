@@ -93,11 +93,23 @@ class LeagueCrestIndex(private val client: ApiClient) {
          * part of a name, a reserve side never is the first team — and only a single
          * candidate is accepted, so an ambiguous name keeps its initials.
          */
-        fun match(teams: List<LeagueCrestTeam>, name: String, alias: String? = null): String? {
+        fun match(teams: List<LeagueCrestTeam>, name: String, alias: String? = null): String? =
+            lookup(teams, name, alias).crestUrl
+
+        /**
+         * What the roster says about one club: its published badge, and whether the club was
+         * recognised at all.
+         *
+         * The difference matters to the caller: a club that is in the roster but carries no
+         * published badge cannot be found by searching the same source again, so the search
+         * can be skipped instead of spending the request budget on an answer that is already
+         * known to be empty.
+         */
+        fun lookup(teams: List<LeagueCrestTeam>, name: String, alias: String? = null): RosterLookup {
             val wanted = listOfNotNull(name, alias, TeamNames.canonicalName(name))
                 .filter { it.isNotBlank() }
                 .distinct()
-            if (wanted.isEmpty()) return null
+            if (wanted.isEmpty()) return RosterLookup(null, matched = false)
             val found = ClubNameMatcher.pick(
                 candidates = teams.distinctBy { it.id },
                 publishedNames = { team ->
@@ -106,13 +118,16 @@ class LeagueCrestIndex(private val client: ApiClient) {
                     }
                 },
                 wanted = wanted,
-            )
-            return found?.crestUrl
+            ) ?: return RosterLookup(null, matched = false)
+            return RosterLookup(found.crestUrl, matched = true)
         }
     }
 }
 
 data class LeagueCrestTeam(val id: String, val names: List<String>, val crestUrl: String?)
+
+/** A roster answer: the badge, and whether the club itself was recognised in that roster. */
+data class RosterLookup(val crestUrl: String?, val matched: Boolean)
 
 @Serializable private data class LeagueDocument(val sports: List<LeagueSport> = emptyList())
 @Serializable private data class LeagueSport(val leagues: List<LeagueData> = emptyList())

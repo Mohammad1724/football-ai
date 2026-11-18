@@ -47,20 +47,43 @@ class SportsDbCrests(private val client: ApiClient) {
     internal fun parse(payload: String, name: String, gender: String): String? =
         runCatching { match(json.decodeFromString(SportsDbResponse.serializer(), payload), name, gender) }.getOrNull()
 
+    /**
+     * The club this answer is about.
+     *
+     * The endpoint is a search: asking for `Billericay` answers `Billericay Town`, and the
+     * old rule — the published name has to be spelled exactly like the feed's — threw all of
+     * that away, which is why the lower English, German, Polish and Czech divisions stayed
+     * on initials even though this source carries their badges. Identity is decided by
+     * [ClubNameMatcher], the same rules the other crest source uses: legal forms and
+     * founding years are not a name, a reserve or women's side is a different team, and one
+     * word only matches the head of a longer name.
+     *
+     * `Colwyn` is still not `Colwyn Bay Wanderers`: a name is compared word by word, never as
+     * a substring, and when the answer holds several clubs that could be meant, the exact
+     * spelling wins and otherwise nothing is stored.
+     */
     private fun match(response: SportsDbResponse, name: String, gender: String): String? {
         val wanted = TeamNames.normalizeNameKey(name)
         val expectedGender = when (gender) { "MEN" -> "Male"; "WOMEN" -> "Female"; else -> return null }
         if (wanted.isBlank()) return null
-        val candidates = response.teams.orEmpty().filter { team ->
+        val related = response.teams.orEmpty().filter { team ->
             team.strSport.equals("Soccer", ignoreCase = true) &&
                 team.strGender.equals(expectedGender, ignoreCase = true) &&
-                (listOfNotNull(team.strTeam) + team.strTeamAlternate.orEmpty().split(','))
-                    .any { TeamNames.normalizeNameKey(it) == wanted }
+                namesOf(team).any { published -> ClubNameMatcher.matches(published, name) }
         }
-        // The public search can return partial results: never use fuzzy/substring matches.
-        val badge = candidates.singleOrNull()?.strBadge?.trim() ?: return null
+        val chosen = related
+            .filter { team -> namesOf(team).any { TeamNames.normalizeNameKey(it) == wanted } }
+            .singleOrNull()
+            ?: related.singleOrNull()
+            ?: return null
+        val badge = chosen.strBadge?.trim() ?: return null
         return badge.takeIf { it.startsWith("https://r2.thesportsdb.com/") || it.startsWith("https://www.thesportsdb.com/") }
     }
+
+    private fun namesOf(team: SportsDbTeam): List<String> =
+        (listOfNotNull(team.strTeam) + team.strTeamAlternate.orEmpty().split(','))
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
 }
 
 @Serializable

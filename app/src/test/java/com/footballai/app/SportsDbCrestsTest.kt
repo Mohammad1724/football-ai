@@ -24,8 +24,23 @@ class SportsDbCrestsTest {
         assertEquals(url, client.parse(colwyn, "Colwyn Bay Football Club", "MEN"))
     }
 
+    @Test fun `a search answer is the club only when one club can be meant`() {
+        val url = "https://r2.thesportsdb.com/images/media/team/badge/a.png"
+        // The endpoint is a search: "Billericay" answers "Billericay Town" and that is the
+        // club the feed means. A word is compared word by word, never as a substring.
+        val billericay = """{"teams":[{"strTeam":"Billericay Town","strSport":"Soccer","strGender":"Male","strBadge":"https://r2.thesportsdb.com/b.png"}]}"""
+        assertEquals("https://r2.thesportsdb.com/b.png", client.parse(billericay, "Billericay", "MEN"))
+        assertEquals(url, client.parse(colwyn, "Colwyn", "MEN"))
+        // Two different clubs that both start with the query are not a decision.
+        val twins = """{"teams":[
+            {"strTeam":"Billericay Town","strSport":"Soccer","strGender":"Male","strBadge":"https://r2.thesportsdb.com/b1.png"},
+            {"strTeam":"Billericay Wanderers","strSport":"Soccer","strGender":"Male","strBadge":"https://r2.thesportsdb.com/b2.png"}]}"""
+        assertNull(client.parse(twins, "Billericay", "MEN"))
+        // A club that merely contains the query's letters is still not the club.
+        assertNull(client.parse(colwyn, "Colwy", "MEN"))
+    }
+
     @Test fun `substring reserve other sports wrong gender and untrusted URLs are rejected`() {
-        assertNull(client.parse(colwyn, "Colwyn", "MEN"))
         assertNull(client.parse(colwyn, "Colwyn Bay", "WOMEN"))
         assertNull(client.parse(colwyn.replace("Soccer", "Rugby"), "Colwyn Bay", "MEN"))
         assertNull(client.parse(colwyn.replace("https://r2.thesportsdb.com", "https://other.example"), "Colwyn Bay", "MEN"))

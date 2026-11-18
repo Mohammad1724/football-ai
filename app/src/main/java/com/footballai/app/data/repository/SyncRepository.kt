@@ -602,13 +602,19 @@ class SyncRepository(
      * run, not one per club. Nothing is stored unless exactly one club in that roster can
      * be meant.
      */
-    private suspend fun crestFromRoster(name: String, slugs: List<String>, alias: String?): String? {
+    private suspend fun crestFromRoster(
+        name: String,
+        slugs: List<String>,
+        alias: String?,
+    ): com.footballai.app.data.remote.RosterLookup {
         for (slug in slugs) {
             val roster = (leagueCrestIndex.league(slug) as? Outcome.Success)?.value ?: continue
-            val url = com.footballai.app.data.remote.LeagueCrestIndex.match(roster, name, alias)
-            if (url != null) return url
+            val lookup = com.footballai.app.data.remote.LeagueCrestIndex.lookup(roster, name, alias)
+            // The club was found in its own league's roster; whatever that roster publishes
+            // for it is the final word from this source.
+            if (lookup.matched) return lookup
         }
-        return null
+        return com.footballai.app.data.remote.RosterLookup(null, matched = false)
     }
 
     private data class CrestBatch(val filled: Int, val attempted: Int, val failed: Boolean = false)
@@ -623,6 +629,7 @@ class SyncRepository(
         if (!force && last != null && now - last < CREST_BACKFILL_INTERVAL_MS) return@withLock CrestBatch(0, 0)
         var filled = 0
         var attempted = 0
+        var sportsDbAttempts = 0
         for (team in db.teamDao().crestlessInFixtures(
             priorityEpochMs ?: now, now - CREST_RETRY_INTERVAL_MS, limit, fromEpochMs, toEpochMs,
         )) {
@@ -637,7 +644,8 @@ class SyncRepository(
             // cached document can settle a whole league — and it does not care which
             // provider the fixture came from, which day is open, or how the gender was
             // classified. This is the first attempt for every club now, not a side path.
-            var url: String? = crestFromRoster(team.name, slugs, alias)
+            val roster = crestFromRoster(team.name, slugs, alias)
+            var url: String? = roster.crestUrl
             val queries = listOfNotNull(
                 alias,
                 com.footballai.app.domain.catalog.TeamNames.canonicalName(team.name),
@@ -653,7 +661,8 @@ class SyncRepository(
                 // Both search services treat slash-separated names as a single token.
                 team.name.replace('/', ' '),
             ).filter { it.isNotBlank() }.distinct()
-            for (query in if (url == null) queries else emptyList()) {
+            val searchWorthwhile = url == null && !roster.matched
+            for (query in if (searchWorthwhile) queries else emptyList()) {
                 when (val result = provider.crestForTeamName(query, slugs.firstOrNull())) {
                     is Outcome.Success -> url = result.value
                     // In particular, do not consume the rest of the batch on quota errors.
@@ -661,10 +670,15 @@ class SyncRepository(
                 }
                 if (url != null) break
             }
-            // Only a verified exact name or published alias, with unambiguous gender.
+            // This source is rate limited to a few dozen lookups a minute, so a batch takes
+            // a bounded slice and the rest of the queue continues on the next run — the team
+            // keeps its place instead of being marked as tried.
+            if (url == null && sportsDbAttempts >= SPORTSDB_ATTEMPTS_PER_BATCH) break
+            // Only a verified name or published alias, with unambiguous gender.
             if (url == null) {
                 val gender = db.teamDao().fixtureGenders(team.id).singleOrNull()
                 if (gender != null) {
+                    sportsDbAttempts++
                     for (query in (listOfNotNull(alias, team.name) + queries).distinct()) {
                         when (val result = sportsDbCrests.find(query, gender)) {
                             is Outcome.Success -> url = result.value
@@ -675,9 +689,9 @@ class SyncRepository(
                 }
             }
             if (url != null) filled += db.teamDao().setCrestIfMissing(team.id, url)
-            // Bumped to v6 with the duplicate-answer and roster-first rules: a club that
-            // failed under the previous rules is asked once more instead of cooling down
-            // for a week on an answer the app no longer gives.
+            // Bumped to v7 with the fallback source's name rules: a club that was refused
+            // because its published name was `Billericay Town` and the feed says `Billericay`
+            // is asked once more instead of cooling down for a week.
             db.syncMetaDao().put(SyncMetaEntity(CREST_ATTEMPT_PREFIX + team.id, "checked", clock.nowEpochMs()))
             attempted++
         }
@@ -1043,8 +1057,11 @@ class SyncRepository(
         private const val CREST_BACKFILL_MARKER = "crest-backfill-v4"
         private const val CREST_RETRY_INTERVAL_MS = 7L * 24L * 60L * 60L * 1000L
 
-        /** Kept in step with the `crest-attempt-v6:` literal in [com.footballai.app.data.local.dao.TeamDao]. */
-        private const val CREST_ATTEMPT_PREFIX = "crest-attempt-v6:"
+        /** TheSportsDB allows a few dozen lookups a minute; one batch takes a slice of them. */
+        private const val SPORTSDB_ATTEMPTS_PER_BATCH = 25
+
+        /** Kept in step with the `crest-attempt-v7:` literal in [com.footballai.app.data.local.dao.TeamDao]. */
+        private const val CREST_ATTEMPT_PREFIX = "crest-attempt-v7:"
 
         /** Badges are repaired in batches, so the batch runs hourly until none are left. */
         private const val CREST_BACKFILL_INTERVAL_MS = 60L * 60L * 1000L
