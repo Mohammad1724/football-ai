@@ -6,7 +6,7 @@ import json
 import os
 import urllib.request
 
-BASE = "https://site.api.espn.com/apis/site/v2/sports/soccer"
+BASE = "https://site.api.espn.com/apis/v2/sports/soccer"
 ISSUE = os.environ.get("ISSUE_NUMBER")
 LEAGUES = ["eng.1", "esp.1", "ita.1", "irn.1"]
 
