@@ -9,6 +9,7 @@ import com.footballai.app.domain.catalog.TeamNames
  */
 internal object CrestSearchAliases {
     private val names = mapOf(
+        ("D1" to "bayer 04 leverkusen") to "Bayer Leverkusen",
         ("WAL1" to "airbus") to "Airbus UK Broughton",
         ("WAL1" to "holywell") to "Holywell Town",
         ("WAL1" to "briton ferry") to "Briton Ferry Llansawel",

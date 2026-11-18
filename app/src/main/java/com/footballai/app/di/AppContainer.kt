@@ -134,6 +134,7 @@ class AppContainer(context: Context) {
         ratingsRepository = ratingsRepository,
         clock = clock,
         sportsDbCrests = com.footballai.app.data.remote.SportsDbCrests(apiClient),
+        leagueCrestIndex = com.footballai.app.data.remote.LeagueCrestIndex(apiClient),
     )
 
     val dailyAnalysisRepository = com.footballai.app.data.repository.DailyAnalysisRepository(

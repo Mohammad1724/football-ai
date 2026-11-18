@@ -6,6 +6,8 @@ from pathlib import Path
 
 DAO = (Path(__file__).resolve().parents[1] / 'app/src/main/java/com/footballai/app/data/local/dao/Daos.kt').read_text()
 QUEUE = re.search(r'@Query\("""(\s*SELECT teams\.\* FROM teams.*?)"""\)\s*suspend fun crestlessInFixtures', DAO, re.S).group(1)
+DAY_LEAGUES = re.search(r'@Query\("""(\s*SELECT DISTINCT c\.\* FROM competitions c.*?)"""\)\s*suspend fun crestCompetitionsForDay', DAO, re.S).group(1)
+DAY_TEAMS = re.search(r'@Query\("""(\s*SELECT \* FROM teams WHERE providerId = \'football-data-co-uk\'.*?)"""\)\s*suspend fun crestlessTeamsForCompetitionDay', DAO, re.S).group(1)
 UPDATE = re.search(r'@Query\("(UPDATE teams SET crestUrl = :url.*?)"\)\s*suspend fun setCrestIfMissing', DAO).group(1)
 
 
@@ -15,7 +17,8 @@ class CrestQueueTests(unittest.TestCase):
         self.db.executescript('''
             CREATE TABLE teams(id TEXT PRIMARY KEY, providerId TEXT, providerKey TEXT,
                 name TEXT, crestUrl TEXT, kind TEXT);
-            CREATE TABLE matches(homeTeamId TEXT, awayTeamId TEXT, kickoffEpochMs INTEGER);
+            CREATE TABLE matches(homeTeamId TEXT, awayTeamId TEXT, kickoffEpochMs INTEGER, competitionId TEXT);
+            CREATE TABLE competitions(id TEXT PRIMARY KEY, providerId TEXT, gender TEXT, name TEXT);
             CREATE TABLE sync_meta(key TEXT PRIMARY KEY, updatedAt INTEGER);
         ''')
 
@@ -24,7 +27,7 @@ class CrestQueueTests(unittest.TestCase):
                         (key, provider, provider_key or key, key, crest, kind))
 
     def match(self, home, away, kickoff):
-        self.db.execute('INSERT INTO matches VALUES (?,?,?)', (home, away, kickoff))
+        self.db.execute('INSERT INTO matches VALUES (?,?,?,?)', (home, away, kickoff, 'league'))
 
     def queue(self, now=1000, retry_before=500, limit=200, start=None, end=None):
         return [row[0] for row in self.db.execute(QUEUE, dict(now=now, retryBefore=retry_before, limit=limit, fromEpochMs=start, toEpochMs=end))]
@@ -63,6 +66,24 @@ class CrestQueueTests(unittest.TestCase):
         self.match('national', 'espn', 1000)
         self.match('espn-slug', 'has-logo', 1000)
         self.assertEqual(self.queue(), ['espn-slug'])
+
+    def test_bulk_repair_only_sees_mens_csv_day_teams_even_after_failed_lookup(self):
+        self.db.executemany('INSERT INTO competitions VALUES (?,?,?,?)', [
+            ('league', 'football-data-co-uk', 'MEN', 'A'),
+            ('women', 'football-data-co-uk', 'WOMEN', 'B'),
+            ('espn', 'espn-open', 'MEN', 'C'),
+        ])
+        for name in ('one', 'two', 'old', 'female'):
+            self.team(name, provider='football-data-co-uk')
+        self.match('one', 'two', 1000)
+        self.match('old', 'one', 500)
+        self.db.execute("INSERT INTO matches VALUES ('female','one',1000,'women')")
+        self.db.execute("INSERT INTO matches VALUES ('female','one',1000,'espn')")
+        self.db.execute("INSERT INTO sync_meta VALUES ('crest-attempt-v4:one', 999)")
+        leagues = self.db.execute(DAY_LEAGUES, dict(fromEpochMs=900, toEpochMs=1100)).fetchall()
+        self.assertEqual([row[0] for row in leagues], ['league'])
+        teams = self.db.execute(DAY_TEAMS, dict(competitionId='league', fromEpochMs=900, toEpochMs=1100)).fetchall()
+        self.assertEqual(set(row[0] for row in teams), {'one', 'two'})
 
     def test_repair_never_overwrites_newer_sync(self):
         self.team('club')

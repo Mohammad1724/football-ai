@@ -32,6 +32,10 @@ import com.footballai.app.data.remote.FootballDataCoUkProvider
 import com.footballai.engine.model.TeamKind
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -83,6 +87,7 @@ class SyncRepository(
     private val ratingsRepository: RatingsRepository,
     private val clock: TimeProvider,
     private val sportsDbCrests: com.footballai.app.data.remote.SportsDbCrests,
+    private val leagueCrestIndex: com.footballai.app.data.remote.LeagueCrestIndex,
 ) {
 
     private val crestBackfillMutex = Mutex()
@@ -553,6 +558,7 @@ class SyncRepository(
 
     /** Continue through multiple bounded batches for the selected day, not just the first 30. */
     suspend fun backfillCrestsForDay(fromEpochMs: Long, toEpochMs: Long) {
+        prefillLeagueCrests(fromEpochMs, toEpochMs)
         repeat(4) {
             val batch = crestBackfillBatch(
                 EspnOpenProvider.PROVIDER_ID, 30, true,
@@ -560,6 +566,31 @@ class SyncRepository(
             )
             if (batch.failed || batch.attempted < 30) return
         }
+    }
+
+    /** One league document can repair many clubs before the slower name-search queue. */
+    private suspend fun prefillLeagueCrests(fromEpochMs: Long, toEpochMs: Long) = coroutineScope {
+        val leagues = db.teamDao().crestCompetitionsForDay(fromEpochMs, toEpochMs)
+        val permits = Semaphore(3)
+        leagues.map { competition ->
+            async(Dispatchers.IO) {
+                permits.withPermit {
+                    val slug = com.footballai.app.data.remote.LeagueCrestIndex.LEAGUES[competition.providerKey]
+                        ?: return@withPermit
+                    val teams = db.teamDao().crestlessTeamsForCompetitionDay(competition.id, fromEpochMs, toEpochMs)
+                    if (teams.isEmpty()) return@withPermit
+                    val roster = (leagueCrestIndex.league(slug) as? Outcome.Success)?.value ?: return@withPermit
+                    for (team in teams) {
+                        if (db.teamDao().fixtureGenders(team.id).singleOrNull() != "MEN") continue
+                        val alias = com.footballai.app.data.remote.CrestSearchAliases.lookup(
+                            team.providerId, listOf(competition.providerKey), team.name,
+                        )
+                        val url = com.footballai.app.data.remote.LeagueCrestIndex.match(roster, team.name, alias)
+                        if (url != null) db.teamDao().setCrestIfMissing(team.id, url)
+                    }
+                }
+            }
+        }.awaitAll()
     }
 
     private data class CrestBatch(val filled: Int, val attempted: Int, val failed: Boolean = false)

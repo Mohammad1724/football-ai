@@ -131,10 +131,17 @@ class MatchesViewModel(private val container: AppContainer) : ViewModel() {
         // Repair the date the reader actually opened rather than always the nearest
         // match to today. Cancellation stops old date requests when swiping quickly.
         viewModelScope.launch {
-            selection.map { it.dayOffset }.distinctUntilChanged().collectLatest { offset ->
+            selection.map { it.dayOffset }.distinctUntilChanged().flatMapLatest { offset ->
+                val (from, to) = localDayWindow(container.clock.nowEpochMs(), offset)
+                container.matchRepository.observeBetween(from, to).map { matches ->
+                    // Identity-only signature: crest updates and live scores must not
+                    // cancel their own repair, but newly synced fixtures should restart it.
+                    Triple(from, to, matches.map { listOf(it.id, it.competitionId, it.home.id, it.away.id) }
+                        .sortedBy { it.joinToString("\u0000") })
+                }.distinctUntilChanged()
+            }.collectLatest { (from, to, fixtures) ->
                 delay(800)
-                if (container.networkMonitor.isOnlineNow()) {
-                    val (from, to) = localDayWindow(container.clock.nowEpochMs(), offset)
+                if (fixtures.isNotEmpty() && container.networkMonitor.isOnlineNow()) {
                     try {
                         container.syncRepository.backfillCrestsForDay(from, to)
                     } catch (cancelled: CancellationException) {

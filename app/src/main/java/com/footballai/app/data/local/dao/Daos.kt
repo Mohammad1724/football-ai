@@ -121,6 +121,29 @@ interface TeamDao {
     """)
     suspend fun fixtureCompetitionKeys(teamId: String): List<String>
 
+    /** Men's CSV leagues represented in this day, independent of search-attempt cooldown. */
+    @Query("""
+        SELECT DISTINCT c.* FROM competitions c JOIN matches m ON c.id = m.competitionId
+        WHERE c.providerId = 'football-data-co-uk' AND c.gender = 'MEN'
+          AND m.kickoffEpochMs >= :fromEpochMs AND m.kickoffEpochMs < :toEpochMs
+        ORDER BY c.name
+    """)
+    suspend fun crestCompetitionsForDay(fromEpochMs: Long, toEpochMs: Long): List<CompetitionEntity>
+
+    @Query("""
+        SELECT * FROM teams WHERE providerId = 'football-data-co-uk' AND kind = 'CLUB'
+          AND (crestUrl IS NULL OR TRIM(crestUrl) = '') AND id IN (
+            SELECT homeTeamId FROM matches WHERE competitionId = :competitionId
+              AND kickoffEpochMs >= :fromEpochMs AND kickoffEpochMs < :toEpochMs
+            UNION
+            SELECT awayTeamId FROM matches WHERE competitionId = :competitionId
+              AND kickoffEpochMs >= :fromEpochMs AND kickoffEpochMs < :toEpochMs
+          )
+    """)
+    suspend fun crestlessTeamsForCompetitionDay(
+        competitionId: String, fromEpochMs: Long, toEpochMs: Long,
+    ): List<TeamEntity>
+
     /** Do not overwrite a crest delivered by a concurrent fixture sync. */
     @Query("UPDATE teams SET crestUrl = :url WHERE id = :id AND (crestUrl IS NULL OR TRIM(crestUrl) = '')")
     suspend fun setCrestIfMissing(id: String, url: String): Int
