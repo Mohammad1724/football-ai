@@ -33,7 +33,7 @@ _last = [0.0]
 
 def get(path, **query):
     """One request, spaced below the free tier's 30/minute."""
-    wait = 2.1 - (time.time() - _last[0])
+    wait = 3.5 - (time.time() - _last[0])
     if wait > 0:
         time.sleep(wait)
     _last[0] = time.time()
@@ -131,33 +131,23 @@ def report_name():
 
 
 def report_leagues():
-    """Can a whole league be read in one request, and how many rows come back?"""
-    lines = ["", "== league documents =="]
-    leagues = {}
-    for country in COUNTRIES:
-        for endpoint in ("search_all_leagues.php", "lookup_all_leagues.php"):
-            payload = get(endpoint, c=country, s="Soccer")
-            found = payload.get("countries") or payload.get("leagues") or []
-            for league in found:
-                name = league.get("strLeague") or "?"
-                leagues[fold(name)] = (name, league.get("idLeague"), country, endpoint)
-    for key, (name, league_id, country, endpoint) in sorted(leagues.items()):
-        lines.append("%-14s %-55s id %-6s (%s)" % (country, name, league_id, endpoint))
+    """A league table is one request for a whole division; does it carry the badges?"""
+    lines = ["", "== league tables =="]
     wanted_all = [(lane, name) for lane, names in MISSING.items() for name in names]
-    candidates = [
-        ("POL2", "Polish I liga", "4661"), ("POL3", "Polish II liga", "5709"),
-        ("---", "Polish Ekstraklasa", "4422"), ("ENG6S", "English Isthmian League Premier Division", "4647"),
-        ("---", "English Isthmian League North Division", "5225"),
-        ("---", "Czech First League", "4351"), ("CZE1", "Czech National Football League", "4662"),
-        ("---", "Czech Moravian-Silesian Football League", "5877"),
+    # id -> (lane, name). Ids come from `search_all_leagues.php`; the German third tier and
+    # the English National League are not listable on this key, so they are not guessed.
+    leagues = [
+        ("D1", "German Bundesliga", "4331"),
+        ("POL2", "Polish I liga", "4661"),
+        ("POL3", "Polish II liga", "5709"),
+        ("POL1", "Polish Ekstraklasa", "4422"),
+        ("ENG6S", "English Isthmian League Premier Division", "4647"),
+        ("EC", "English Isthmian League North Division", "5225"),
     ]
-    for lane, name, league_id in candidates:
-        for endpoint, params in (
-            ("lookup_all_teams.php", {"id": league_id}),
-            ("search_all_teams.php", {"l": name}),
-        ):
-            payload = get(endpoint, **params)
-            rows = payload.get("teams") or []
+    for lane, name, league_id in leagues:
+        for season in ("2025-2026", "2024-2025"):
+            payload = get("lookuptable.php", l=league_id, s=season)
+            rows = payload.get("table") or []
             badges = [t for t in rows if (t.get("strBadge") or "").startswith("https://")]
             hits = []
             for wanted_lane, wanted in wanted_all:
@@ -166,15 +156,17 @@ def report_leagues():
                     hits.append("%s[%s]->%s" % (wanted, wanted_lane, ok[0].get("strTeam")))
                 elif len(ok) > 1:
                     hits.append("%s[%s]->AMBIGUOUS" % (wanted, wanted_lane))
-            lines.append("%-38s %-28s id %-5s: %2d rows, %2d badges | %s"
-                         % (name, endpoint.split("_")[0], league_id, len(rows), len(badges),
+            lines.append("[%s] %-42s id %-5s %s: %2d rows, %2d badges | %s"
+                         % (lane, name, league_id, season, len(rows), len(badges),
                             "; ".join(hits) or "-"))
+            if rows:
+                lines.append("     sample: " + ", ".join((t.get("strTeam") or "?") for t in rows[:8]))
     return lines
 
 
 def main():
     lines = ["### TheSportsDB probe", ""]
-    for path in (report_name, report_leagues):  # each takes no argument
+    for path in (report_leagues,):  # each takes no argument
         try:
             lines += path()
         except Exception as error:  # noqa: BLE001
