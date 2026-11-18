@@ -100,19 +100,10 @@ MISSING = {
     "CZE1": ["Brno", "FK Pardubice", "Hradec Kralove", "Bohemians 1905", "Slovacko"],
 }
 
-# Countries to ask for a league list, and the names worth inspecting.
-COUNTRIES = ["Germany", "England", "Poland", "Czech%20Republic".replace("%20", " ")]
-LANE_HINTS = {
-    "D3": ["3. liga", "3 liga", "regionalliga", "liga 3"],
-    "EC": ["national league", "conference"],
-    "ENG6S": ["national league south", "northern premier", "southern league", "isthmian"],
-    "POL2": ["ii liga", "2 liga", "i liga", "ekstraklasa"],
-    "POL3": ["iii liga", "3 liga", "ii liga"],
-    "CZE1": ["czech", "first league", "fortuna", "2. liga", "msfl"],
-}
+# Countries to ask for a league list.
+COUNTRIES = ["Germany", "England", "Poland", "Czech Republic", "Czechia"]
 
-
-def report_name(path):
+def report_name():
     lines = ["== per-name searches =="]
     for lane, names in MISSING.items():
         for name in names:
@@ -140,45 +131,42 @@ def report_name(path):
 
 
 def report_leagues():
+    """Every league this key can list, and whether its roster holds the missing clubs."""
     lines = ["", "== league rosters =="]
     seen = {}
     for country in COUNTRIES:
         payload = get("search_all_leagues.php", c=country, s="Soccer")
         leagues = payload.get("countries") or []
-        lines.append("%s: %d leagues" % (country, len(leagues)))
+        lines.append("%s: %s" % (country, ", ".join(l.get("strLeague") or "?" for l in leagues) or "nothing"))
         for league in leagues:
-            name = league.get("strLeague") or ""
-            key = fold(name)
-            seen[key] = (name, league.get("idLeague"), country)
-    interesting = []
+            seen[fold(league.get("strLeague") or "")] = (
+                league.get("strLeague") or "", league.get("idLeague"), country)
+    wanted_all = [(lane, name) for lane, names in MISSING.items() for name in names]
     for key, (name, league_id, country) in sorted(seen.items()):
-        for lane, hints in LANE_HINTS.items():
-            if any(h in key for h in hints):
-                interesting.append((lane, name, league_id, country))
-                break
-    for lane, name, league_id, country in interesting:
-        teams = get("search_all_teams.php", l=name).get("teams") or []
-        soccer = [t for t in teams if (t.get("strSport") or "").lower() == "soccer"]
-        badges = [t for t in soccer if (t.get("strBadge") or "").startswith("https://")]
-        hits = []
-        for wanted in MISSING.get(lane, []):
-            ok = [t for t in badges if compatible(t.get("strTeam") or "", wanted)]
-            if len(ok) == 1:
-                hits.append(wanted + " -> " + (ok[0].get("strTeam") or ""))
-            elif len(ok) > 1:
-                hits.append(wanted + " -> AMBIGUOUS(" + "/".join(t.get("strTeam") or "" for t in ok) + ")")
-        lines.append(
-            "[%s] %s (id %s, %s): %d teams, %d with badge; %s"
-            % (lane, name, league_id, country, len(soccer), len(badges), "; ".join(hits) or "no missing club found")
-        )
-        if soccer:
-            lines.append("    sample: " + ", ".join((t.get("strTeam") or "") for t in soccer[:6]))
+        roster = get("search_all_teams.php", l=name).get("teams") or []
+        table = (get("lookuptable.php", l=league_id, s="") or {}).get("table") or []
+        for label, rows in (("roster", roster), ("table", table)):
+            soccer = [t for t in rows if (t.get("strSport") or "soccer").lower() == "soccer"]
+            badges = [t for t in soccer if (t.get("strBadge") or "").startswith("https://")]
+            if not soccer:
+                continue
+            hits = []
+            for lane, wanted in wanted_all:
+                ok = [t for t in badges if compatible((t.get("strTeam") or t.get("strTeam2") or ""), wanted)]
+                if len(ok) == 1:
+                    hits.append("%s[%s] -> %s" % (wanted, lane, ok[0].get("strTeam") or ok[0].get("strTeam2")))
+                elif len(ok) > 1:
+                    hits.append("%s[%s] -> AMBIGUOUS" % (wanted, lane))
+            lines.append("[%s %s id %s] %s: %d rows, %d with badge"
+                         % (country, name, league_id, label, len(soccer), len(badges)))
+            if hits:
+                lines.append("    " + "; ".join(hits))
     return lines
 
 
 def main():
     lines = ["### TheSportsDB probe", ""]
-    for path in (report_name, report_leagues):
+    for path in (report_name, report_leagues):  # each takes no argument
         try:
             lines += path()
         except Exception as error:  # noqa: BLE001
