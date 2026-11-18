@@ -131,36 +131,44 @@ def report_name():
 
 
 def report_leagues():
-    """Every league this key can list, and whether its roster holds the missing clubs."""
-    lines = ["", "== league rosters =="]
-    seen = {}
+    """Can a whole league be read in one request, and how many rows come back?"""
+    lines = ["", "== league documents =="]
+    leagues = {}
     for country in COUNTRIES:
-        payload = get("search_all_leagues.php", c=country, s="Soccer")
-        leagues = payload.get("countries") or []
-        lines.append("%s: %s" % (country, ", ".join(l.get("strLeague") or "?" for l in leagues) or "nothing"))
-        for league in leagues:
-            seen[fold(league.get("strLeague") or "")] = (
-                league.get("strLeague") or "", league.get("idLeague"), country)
+        for endpoint in ("search_all_leagues.php", "lookup_all_leagues.php"):
+            payload = get(endpoint, c=country, s="Soccer")
+            found = payload.get("countries") or payload.get("leagues") or []
+            for league in found:
+                name = league.get("strLeague") or "?"
+                leagues[fold(name)] = (name, league.get("idLeague"), country, endpoint)
+    for key, (name, league_id, country, endpoint) in sorted(leagues.items()):
+        lines.append("%-14s %-55s id %-6s (%s)" % (country, name, league_id, endpoint))
     wanted_all = [(lane, name) for lane, names in MISSING.items() for name in names]
-    for key, (name, league_id, country) in sorted(seen.items()):
-        roster = get("search_all_teams.php", l=name).get("teams") or []
-        table = (get("lookuptable.php", l=league_id, s="") or {}).get("table") or []
-        for label, rows in (("roster", roster), ("table", table)):
-            soccer = [t for t in rows if (t.get("strSport") or "soccer").lower() == "soccer"]
-            badges = [t for t in soccer if (t.get("strBadge") or "").startswith("https://")]
-            if not soccer:
-                continue
+    candidates = [
+        ("POL2", "Polish I liga", "4661"), ("POL3", "Polish II liga", "5709"),
+        ("---", "Polish Ekstraklasa", "4422"), ("ENG6S", "English Isthmian League Premier Division", "4647"),
+        ("---", "English Isthmian League North Division", "5225"),
+        ("---", "Czech First League", "4351"), ("CZE1", "Czech National Football League", "4662"),
+        ("---", "Czech Moravian-Silesian Football League", "5877"),
+    ]
+    for lane, name, league_id in candidates:
+        for endpoint, params in (
+            ("lookup_all_teams.php", {"id": league_id}),
+            ("search_all_teams.php", {"l": name}),
+        ):
+            payload = get(endpoint, **params)
+            rows = payload.get("teams") or []
+            badges = [t for t in rows if (t.get("strBadge") or "").startswith("https://")]
             hits = []
-            for lane, wanted in wanted_all:
-                ok = [t for t in badges if compatible((t.get("strTeam") or t.get("strTeam2") or ""), wanted)]
+            for wanted_lane, wanted in wanted_all:
+                ok = [t for t in badges if compatible(t.get("strTeam") or "", wanted)]
                 if len(ok) == 1:
-                    hits.append("%s[%s] -> %s" % (wanted, lane, ok[0].get("strTeam") or ok[0].get("strTeam2")))
+                    hits.append("%s[%s]->%s" % (wanted, wanted_lane, ok[0].get("strTeam")))
                 elif len(ok) > 1:
-                    hits.append("%s[%s] -> AMBIGUOUS" % (wanted, lane))
-            lines.append("[%s %s id %s] %s: %d rows, %d with badge"
-                         % (country, name, league_id, label, len(soccer), len(badges)))
-            if hits:
-                lines.append("    " + "; ".join(hits))
+                    hits.append("%s[%s]->AMBIGUOUS" % (wanted, wanted_lane))
+            lines.append("%-38s %-28s id %-5s: %2d rows, %2d badges | %s"
+                         % (name, endpoint.split("_")[0], league_id, len(rows), len(badges),
+                            "; ".join(hits) or "-"))
     return lines
 
 
