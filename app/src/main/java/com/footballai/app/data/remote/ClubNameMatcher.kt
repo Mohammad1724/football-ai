@@ -103,6 +103,18 @@ internal object ClubNameMatcher {
         return firstMarkers != secondMarkers
     }
 
+    /**
+     * Whether this name claims to be a second side, an age group or a women's team that the
+     * name being looked up is not. One direction only: a first team's row that also carries
+     * a reserve spelling is still the first team, while a reserve row is never the first
+     * team even when one of its spellings looks like it.
+     */
+    private fun addsReserveMarker(published: String, wanted: String): Boolean {
+        val publishedMarkers = words(published).filter { it in RESERVE_MARKERS }.toSet()
+        val wantedMarkers = words(wanted).filter { it in RESERVE_MARKERS }.toSet()
+        return !wantedMarkers.containsAll(publishedMarkers)
+    }
+
     /** Whether two published names can only mean the same club. */
     fun matches(published: String, wanted: String): Boolean {
         if (published.isBlank() || wanted.isBlank()) return false
@@ -146,7 +158,13 @@ internal object ClubNameMatcher {
         if (candidates.isEmpty() || wanted.isEmpty()) return null
         val matched = candidates.filter { candidate ->
             val names = publishedNames(candidate).filter { it.isNotBlank() }
-            wanted.any { query -> names.any { published -> matches(published, query) } }
+            wanted.any { query ->
+                // If the source names this candidate as a second side, an age group or a
+                // women's team anywhere in the row, the row is that team — an alternate
+                // spelling that happens to look like the first team does not undo it.
+                names.none { published -> addsReserveMarker(published, query) } &&
+                    names.any { published -> matches(published, query) }
+            }
         }
         return matched.singleOrNull()
     }

@@ -120,6 +120,21 @@ class ClubNameMatcherTest {
     }
 
     @Test
+    fun `a row that names a reserve side is a reserve side`() {
+        val firstTeam = listOf("RSC Anderlecht", "Anderlecht")
+        // A reserve row whose alternate spelling is the first team's official name is still
+        // the reserve row, so the first team keeps its own badge.
+        val rows = listOf(listOf("Anderlecht B", "RSC Anderlecht"))
+        assertNull(ClubNameMatcher.pick(rows, { it }, listOf("Anderlecht")))
+        assertEquals(firstTeam, ClubNameMatcher.pick(listOf(firstTeam), { it }, listOf("Anderlecht")))
+        // Asking for the reserve side itself still finds it.
+        assertEquals(
+            listOf("Anderlecht B", "RSC Anderlecht"),
+            ClubNameMatcher.pick(rows, { it }, listOf("Anderlecht B")),
+        )
+    }
+
+    @Test
     fun `a provider that publishes two names is judged on both`() {
         assertEquals(
             "Anderlecht",
