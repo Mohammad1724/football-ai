@@ -271,18 +271,18 @@ class EspnOpenProvider(
      * a search for "Bayern Munich" also returns "Bayern Munich II", and putting a reserve
      * team's badge on the first team is worse than showing initials.
      */
-    suspend fun crestForTeamName(name: String): Outcome<String?> {
+    suspend fun crestForTeamName(name: String, leagueSlug: String? = null): Outcome<String?> {
         val query = name.trim()
         if (query.length < 3) return Outcome.Success(null)
         val url = "$SEARCH_BASE_URL?query=${java.net.URLEncoder.encode(query, "UTF-8")}" +
             "&limit=6&type=team"
         return when (val response = client.get(PROVIDER_ID, info.quota, url)) {
             is Outcome.Failure -> response
-            is Outcome.Success -> Outcome.Success(parseCrestSearch(response.value, query))
+            is Outcome.Success -> Outcome.Success(parseCrestSearch(response.value, query, leagueSlug))
         }
     }
 
-    internal fun parseCrestSearch(payload: String, query: String): String? {
+    internal fun parseCrestSearch(payload: String, query: String, leagueSlug: String? = null): String? {
         val decoded = runCatching {
             json.decodeFromString(EspnSearchResponse.serializer(), payload)
         }.getOrNull() ?: return null
@@ -291,10 +291,10 @@ class EspnOpenProvider(
         // Search covers other sports and may return men's and women's teams with the
         // same name. Never take the first ambiguous result just because it ranks higher.
         val items = decoded.items.filter { it.sport == null || it.sport.equals("soccer", ignoreCase = true) }
-        val exact = items.filter { item -> namesOf(item).any { it == wanted } }
+        val exact = items.filter { item -> namesOf(item).any { it == wanted } }.distinctBy { it.id }
         val match = when {
             exact.size == 1 -> exact.single()
-            exact.isNotEmpty() -> return null
+            exact.size > 1 -> pickAmongExact(exact, leagueSlug) ?: return null
             else -> uniqueByCoreName(items, wanted) ?: return null
         }
         return match.logos
@@ -323,6 +323,28 @@ class EspnOpenProvider(
 
     private fun rawNamesOf(item: EspnSearchItem): List<String> =
         listOfNotNull(item.name, item.displayName, item.location)
+
+    /**
+     * The same club, published more than once.
+     *
+     * "FC Groningen" comes back twice from the search — a current row with a crest and a
+     * leftover row without one — and refusing every such answer left the club with
+     * initials even though its badge was right there. A duplicate is settled by evidence
+     * the answer carries: the league the row belongs to, or a published default crest. Two
+     * rows that both look right are still not a decision, and then nothing is stored.
+     */
+    private fun pickAmongExact(candidates: List<EspnSearchItem>, leagueSlug: String?): EspnSearchItem? {
+        if (leagueSlug != null) {
+            val inLeague = candidates.filter {
+                it.defaultLeagueSlug.equals(leagueSlug, ignoreCase = true)
+            }
+            if (inLeague.size == 1) return inLeague.single()
+        }
+        val withCrest = candidates.filter { item ->
+            item.logos.any { logo -> logo.rel.any { rel -> rel.equals("default", true) } }
+        }
+        return withCrest.singleOrNull()
+    }
 
     /** One request per day, bounded to [WINDOW_DAYS] days around today. */
     private fun windowDates(fromEpochMs: Long?, toEpochMs: Long?): List<LocalDate> {

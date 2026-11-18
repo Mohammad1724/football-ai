@@ -28,15 +28,32 @@ class ClubNameMatcherTest {
     }
 
     @Test
-    fun `a single word matches only the head of a longer name`() {
+    fun `a single word matches the head of a longer name`() {
         // English, Dutch and German names put the club at the end.
         assertTrue(ClubNameMatcher.matches("Royal Antwerp FC", "Antwerp"))
         assertTrue(ClubNameMatcher.matches("KV Kortrijk", "Kortrijk"))
-        // Spanish and Portuguese names put the family first, so one word is not evidence.
+        assertTrue(ClubNameMatcher.matches("WSG Swarovski Tirol", "Tirol"))
+        // …or at the front, when the rest is the place: these are the published names the
+        // crest source actually uses for clubs the feed names with one word.
+        assertTrue(ClubNameMatcher.matches("Ajax Amsterdam", "Ajax"))
+        assertTrue(ClubNameMatcher.matches("PSV Eindhoven", "PSV"))
+        assertTrue(ClubNameMatcher.matches("Feyenoord Rotterdam", "Feyenoord"))
+        assertTrue(ClubNameMatcher.matches("LASK Linz", "LASK"))
+        assertTrue(ClubNameMatcher.matches("Excelsior", "Excelsior Rotterdam"))
+        assertTrue(ClubNameMatcher.matches("Academico de Viseu", "Academico"))
+    }
+
+    @Test
+    fun `a family word alone is not a club`() {
+        // Each of these heads more than one club, so it identifies none of them.
         assertFalse(ClubNameMatcher.matches("Real Madrid", "Real"))
         assertFalse(ClubNameMatcher.matches("Bayer Leverkusen", "Bayer"))
-        assertFalse(ClubNameMatcher.matches("Académico de Viseu", "Academico"))
+        assertFalse(ClubNameMatcher.matches("Sporting Kansas City", "Sporting"))
+        assertFalse(ClubNameMatcher.matches("Union St.-Gilloise", "Union"))
+        assertFalse(ClubNameMatcher.matches("Nacional Potosi", "Nacional"))
+        // A word the feed really publishes still matches its own club.
         assertFalse(ClubNameMatcher.matches("Eintracht Frankfurt", "Ein Frankfurt"))
+        assertFalse(ClubNameMatcher.matches("Manchester City", "Manchester United"))
     }
 
     @Test

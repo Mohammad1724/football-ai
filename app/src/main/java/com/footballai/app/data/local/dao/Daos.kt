@@ -95,7 +95,7 @@ interface TeamDao {
                   AND (:toEpochMs IS NULL OR kickoffEpochMs < :toEpochMs)
             ) GROUP BY teamId
         ) fixtures ON fixtures.teamId = teams.id
-        LEFT JOIN sync_meta attempt ON attempt.key = 'crest-attempt-v5:' || teams.id
+        LEFT JOIN sync_meta attempt ON attempt.key = 'crest-attempt-v6:' || teams.id
         WHERE (teams.crestUrl IS NULL OR TRIM(teams.crestUrl) = '')
           AND teams.kind = 'CLUB'
           AND NOT (teams.providerId = 'espn-open' AND TRIM(teams.providerKey) != ''

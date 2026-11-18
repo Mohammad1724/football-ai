@@ -107,6 +107,43 @@ class EspnCrestSearchTest {
     }
 
     @Test
+    fun `a club published twice is settled by its league or by the crest it carries`() {
+        // Measured on the source itself: "FC Groningen" answers with the club and with a
+        // leftover row of the same name, one carrying a crest. Refusing every duplicate is
+        // what left half of the Eredivisie on initials.
+        val duplicate = """
+            {"items":[
+              {"id":"145","name":"FC Groningen","defaultLeagueSlug":"ned.1",
+               "logos":[{"href":"https://a.espncdn.com/i/teamlogos/soccer/500/145.png","rel":["default"]}]},
+              {"id":"131429","name":"FC Groningen","logos":[]}
+            ]}
+        """.trimIndent()
+        assertEquals(
+            "https://a.espncdn.com/i/teamlogos/soccer/500/145.png",
+            provider.parseCrestSearch(duplicate, "FC Groningen", "ned.1"),
+        )
+    }
+
+    @Test
+    fun `two rows that both carry a crest are still not a decision`() {
+        val twins = """
+            {"items":[
+              {"id":"1","name":"Telstar","logos":[{"href":"https://a.espncdn.com/i/teamlogos/soccer/500/1.png","rel":["default"]}]},
+              {"id":"2","name":"Telstar","logos":[{"href":"https://a.espncdn.com/i/teamlogos/soccer/500/2.png","rel":["default"]}]}
+            ]}
+        """.trimIndent()
+        // Both rows look equally right, so the search decides nothing…
+        assertNull(provider.parseCrestSearch(twins, "Telstar"))
+        // …and the league they belong to is what settles it.
+        val hinted = twins.replace("\"id\":\"1\",", "\"id\":\"1\",\"defaultLeagueSlug\":\"ned.1\",")
+            .replace("\"id\":\"2\",", "\"id\":\"2\",\"defaultLeagueSlug\":\"ned.2\",")
+        assertEquals(
+            "https://a.espncdn.com/i/teamlogos/soccer/500/1.png",
+            provider.parseCrestSearch(hinted, "Telstar", "ned.1"),
+        )
+    }
+
+    @Test
     fun `an unconfirmed name gets no address rather than the nearest club`() {
         assertNull(provider.parseCrestSearch(payload, "Ein Frankfurt"))
     }

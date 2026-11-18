@@ -92,11 +92,13 @@ def search(query: str) -> str:
     answers = []
     for item in (document.get("items") or [])[:6]:
         logos = item.get("logos") or []
+        league = item.get("defaultLeagueSlug") or item.get("defaultLeague") or "-"
         answers.append(
             f"{item.get('name')}({item.get('id')},{item.get('sport')},"
-            f"{'logo' if logos else 'no-logo'})"
+            f"{'logo' if logos else 'no-logo'},{league})"
         )
-    return f"{query} -> " + (", ".join(answers) if answers else "nothing")
+    fields = sorted({key for item in (document.get("items") or [])[:1] for key in item})
+    return f"{query} -> " + (", ".join(answers) if answers else "nothing") + f"  [fields: {','.join(fields)}]"
 
 
 def main() -> int:

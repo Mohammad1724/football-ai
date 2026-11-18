@@ -17,11 +17,11 @@ import com.footballai.app.domain.catalog.TeamNames
  *     `Bayern Munich II` is not `Bayern Munich`, in either direction, ever.
  *  2. Equality after folding case, accents, punctuation and the legal-form words (`fc`,
  *     `ksv`, `cd`, `1`, `04`, …) is accepted — those words describe a company, not a club.
- *  3. One name may carry one distinctive word where the other carries a single one, but
- *     only when it is that name's **last** distinctive word: `Antwerp` matches `Royal
- *     Antwerp FC`, while `Real` does not match `Real Madrid`. The head of an English,
- *     Dutch, German or Scandinavian club name is its last word; Spanish, Portuguese and
- *     Italian names put the family first, so a single word there stays unlinked.
+ *  3. A single distinctive word matches a longer name when it is that name's **last**
+ *     word (`Antwerp` / `Royal Antwerp FC`), or its first word when the longer name is
+ *     exactly two words (`Ajax` / `Ajax Amsterdam`, `LASK` / `LASK Linz`). Words that head
+ *     more than one club — `Real`, `Bayer`, `Sporting`, `Union`, `City` — are not evidence
+ *     and never match on their own, which is why `Real` does not take `Real Madrid`'s badge.
  *  4. Two longer names are accepted when one contains the other's words.
  *  5. The caller must still find exactly one candidate. Two clubs that both fit mean the
  *     question was ambiguous, and an ambiguous name keeps its initials instead of taking a
@@ -46,6 +46,16 @@ internal object ClubNameMatcher {
         "cfr", "bsc", "dsc", "fsv", "vfr", "ssv", "tsv",
         // Founding years that some publishers keep and others drop.
         "1", "04", "05", "07", "09", "96", "98", "1899", "1900", "1904", "1907",
+    )
+
+    /**
+     * Words that head more than one club, so on their own they identify nobody: `Real`
+     * (Madrid, Sociedad, Betis), `Bayer` (Leverkusen, Uerdingen), `Sporting` (Lisbon,
+     * Kansas City), `Union` (Berlin, Saint-Gilloise), `City`, `Club`, `Nacional`, `Inter`.
+     */
+    private val FAMILY_WORDS = setOf(
+        "real", "bayer", "sporting", "union", "city", "club", "atletico", "athletic",
+        "nacional", "national", "inter", "deportivo", "racing", "dinamo", "dynamo",
     )
 
     /** A team that is a second side, an age group or a women's team is a different team. */
@@ -81,15 +91,21 @@ internal object ClubNameMatcher {
         if (publishedCore.isEmpty() || wantedCore.isEmpty()) return false
         // "CD Nacional" / "Nacional", "KAA Gent" / "Gent": the same words once the form is gone.
         if (publishedCore.toSet() == wantedCore.toSet()) return true
-        // A single distinctive word can still name the club when it is the head of the
-        // longer name: "Antwerp" is "Royal Antwerp FC", but "Real" is not "Real Madrid".
+        // A single distinctive word still names the club when it is the head of the longer
+        // name ("Antwerp" is "Royal Antwerp FC", "Ajax" is "Ajax Amsterdam"), unless the
+        // word heads several clubs ("Real" is not "Real Madrid").
         if (publishedCore.size == 1 || wantedCore.size == 1) {
             val (single, longer) = if (publishedCore.size == 1) {
                 publishedCore.single() to wantedCore
             } else {
                 wantedCore.single() to publishedCore
             }
-            return single == longer.last()
+            if (single in FAMILY_WORDS) return false
+            // The tail of a name is its head noun in every league that matters here.
+            if (single == longer.last()) return true
+            // The first word is only evidence when the longer name is club + place, as in
+            // "Ajax Amsterdam"; "Real Madrid Betis" style names stay unmatched.
+            return longer.size == 2 && single == longer.first()
         }
         return publishedCore.toSet().containsAll(wantedCore) || wantedCore.containsAll(publishedCore)
     }

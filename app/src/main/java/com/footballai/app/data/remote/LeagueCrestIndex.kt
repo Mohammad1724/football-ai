@@ -60,10 +60,9 @@ class LeagueCrestIndex(private val client: ApiClient) {
          *
          * A wrong slug cannot attach a wrong badge: the club still has to be found by name
          * inside the roster that slug returns, and only when exactly one club fits. The
-         * slugs below are the ones documented by independent ESPN clients for those
-         * competitions; leagues with no documented slug (the Scottish third and fourth
-         * tiers, the non-league English divisions, the Finnish and Welsh top flights and
-         * the lower Polish, Slovak and Slovenian tiers) stay out of this table on purpose.
+         * slugs below were each confirmed by asking the endpoint for that competition and
+         * reading back the roster; a league whose endpoint answers 404 or an empty document
+         * stays out, and its clubs are found by search only.
          */
         val LEAGUES = mapOf(
             "E0" to "eng.1", "E1" to "eng.2", "E2" to "eng.3", "E3" to "eng.4",
@@ -75,9 +74,14 @@ class LeagueCrestIndex(private val client: ApiClient) {
             // roster was fetched but almost nothing in these leagues was recognisable.
             "N2" to "ned.2", "B1" to "bel.1", "P1" to "por.1", "G1" to "gre.1",
             "SWZ1" to "sui.1", "DEN1" to "den.1", "SWE1" to "swe.1", "BRA1" to "bra.1",
-            "ARG1" to "arg.1", "MEX1" to "mex.1", "JPN1" to "jpn.1", "POL1" to "pol.1",
-            "CZE1" to "cze.1", "CRO1" to "cro.1", "ROU1" to "rou.1", "RUS1" to "rus.1",
-            "UKR1" to "ukr.1", "CHN1" to "chn.1",
+            "ARG1" to "arg.1", "MEX1" to "mex.1", "JPN1" to "jpn.1", "ROU1" to "rou.1",
+            "RUS1" to "rus.1", "CHN1" to "chn.1",
+            // Verified by asking the endpoint directly: it answers for these and not for
+            // the Ukrainian, Polish, Czech and Croatian first tiers (`ukr.1`, `pol.1`,
+            // `cze.1`, `cro.1` return 404 or an empty document), so those four keys stay
+            // out of the table and rely on the search path.
+            "SC2" to "sco.3", "SC3" to "sco.4", "EC" to "eng.5", "WAL1" to "wal.1",
+            "CYP1" to "cyp.1", "BRA2" to "bra.2", "ARG2" to "arg.2", "MEX2" to "mex.2",
         )
 
         /**

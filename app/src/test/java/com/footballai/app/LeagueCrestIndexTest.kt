@@ -64,6 +64,25 @@ class LeagueCrestIndexTest {
         assertNull(LeagueCrestIndex.match(teams, "KV Kortrijk"))
     }
 
+    @Test fun `the roster of a club's own league names it the way the source spells it`() {
+        // Names taken from the live roster document, against names the feed publishes.
+        val eredivisie = listOf(
+            LeagueCrestTeam("139", listOf("Ajax Amsterdam"), "https://a.espncdn.com/ajax.png"),
+            LeagueCrestTeam("148", listOf("PSV Eindhoven"), "https://a.espncdn.com/psv.png"),
+            LeagueCrestTeam("142", listOf("Feyenoord Rotterdam"), "https://a.espncdn.com/fey.png"),
+            LeagueCrestTeam("2566", listOf("Excelsior"), "https://a.espncdn.com/exc.png"),
+            LeagueCrestTeam("146", listOf("Heerenveen"), "https://a.espncdn.com/hee.png"),
+            LeagueCrestTeam("3735", listOf("Telstar"), "https://a.espncdn.com/tel.png"),
+        )
+        assertEquals("https://a.espncdn.com/ajax.png", LeagueCrestIndex.match(eredivisie, "Ajax"))
+        assertEquals("https://a.espncdn.com/psv.png", LeagueCrestIndex.match(eredivisie, "PSV"))
+        assertEquals("https://a.espncdn.com/fey.png", LeagueCrestIndex.match(eredivisie, "Feyenoord"))
+        assertEquals("https://a.espncdn.com/exc.png", LeagueCrestIndex.match(eredivisie, "Excelsior Rotterdam"))
+        assertEquals("https://a.espncdn.com/hee.png", LeagueCrestIndex.match(eredivisie, "sc Heerenveen"))
+        // A club that is not in the roster is not guessed from a neighbour.
+        assertNull(LeagueCrestIndex.match(eredivisie, "Willem II"))
+    }
+
     @Test fun `every mapped league is a documented ESPN slug and no key is repeated`() {
         val slugs = LeagueCrestIndex.LEAGUES.values
         assertEquals(slugs.size, slugs.toSet().size)
@@ -72,8 +91,13 @@ class LeagueCrestIndexTest {
         assertEquals("bel.1", LeagueCrestIndex.LEAGUES["B1"])
         assertEquals("por.1", LeagueCrestIndex.LEAGUES["P1"])
         assertEquals("jpn.1", LeagueCrestIndex.LEAGUES["JPN1"])
-        // A league with no documented ESPN competition stays out of the table.
-        assertNull(LeagueCrestIndex.LEAGUES["SC2"])
+        // Verified against the endpoint: these answer, and the four that 404 stay out.
+        assertEquals("sco.3", LeagueCrestIndex.LEAGUES["SC2"])
+        assertEquals("sco.4", LeagueCrestIndex.LEAGUES["SC3"])
+        assertEquals("eng.5", LeagueCrestIndex.LEAGUES["EC"])
+        assertEquals("wal.1", LeagueCrestIndex.LEAGUES["WAL1"])
+        assertNull(LeagueCrestIndex.LEAGUES["UKR1"])
+        assertNull(LeagueCrestIndex.LEAGUES["CZE1"])
         assertNull(LeagueCrestIndex.LEAGUES["FIN1"])
     }
 
