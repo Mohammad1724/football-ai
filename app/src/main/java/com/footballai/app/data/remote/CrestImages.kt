@@ -38,8 +38,11 @@ object CrestImages {
 
     private val client: OkHttpClient by lazy {
         OkHttpClient.Builder()
-            .connectTimeout(8, TimeUnit.SECONDS)
-            .readTimeout(12, TimeUnit.SECONDS)
+            // A crest is a few kilobytes, but on a slow mobile link a few kilobytes can
+            // take longer than a desktop timeout. The timeouts are generous so a slow
+            // connection still gets its badge instead of a monogram.
+            .connectTimeout(15, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
             .followRedirects(true)
             .build()
     }
@@ -51,10 +54,13 @@ object CrestImages {
      *
      * Android's [LruCache] cannot hold a null value, so failures get their own small set:
      * without it a missing crest is requested again on every scroll, which is exactly the
-     * kind of silent waste that makes a list feel heavy.
+     * kind of silent waste that makes a list feel heavy. The set is deliberately smaller
+     * than the success cache: a failure is often a slow network rather than a wrong
+     * address, and a small set forgets old failures sooner so the badge is retried.
      */
     private val failed = LinkedHashSet<String>()
     private val failedLock = Any()
+    private val failedLimit = 16
 
     /** A repair may have fixed an address, so the "do not ask again" set is dropped. */
     fun forgetFailures() = synchronized(failedLock) { failed.clear() }
@@ -62,7 +68,7 @@ object CrestImages {
     private fun isKnownBad(url: String): Boolean = synchronized(failedLock) { url in failed }
 
     private fun rememberBad(url: String) = synchronized(failedLock) {
-        if (failed.size >= CACHE_ENTRIES) failed.remove(failed.first())
+        if (failed.size >= failedLimit) failed.remove(failed.first())
         failed.add(url)
     }
 

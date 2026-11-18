@@ -551,13 +551,13 @@ class SyncRepository(
      */
     suspend fun backfillCrests(
         providerId: String = EspnOpenProvider.PROVIDER_ID,
-        limit: Int = 40,
+        limit: Int = 200,
         force: Boolean = false,
     ): Int {
         val provider = registry.provider(providerId) as? EspnOpenProvider ?: return 0
         val now = clock.nowEpochMs()
         val last = db.syncMetaDao().entity(CREST_BACKFILL_MARKER)?.updatedAt ?: 0L
-        if (!force && now - last < STANDINGS_MAX_AGE_MS) return 0
+        if (!force && now - last < CREST_BACKFILL_INTERVAL_MS) return 0
         var filled = 0
         for (team in db.teamDao().crestlessInFixtures(limit)) {
             // The archive's abbreviation first, written out in full ("Ein Frankfurt" ->
@@ -780,12 +780,26 @@ class SyncRepository(
                 // a previous sync (or the crest backfill) had stored is what made a badge
                 // appear and then vanish the next time the screen was opened.
                 val previousCrest = previous?.crestUrl
-                teams[id] = if (
+                val withCrest = if (
                     withKind.crestUrl.isNullOrBlank() && !previousCrest.isNullOrBlank()
                 ) {
                     withKind.copy(crestUrl = previousCrest)
                 } else {
                     withKind
+                }
+                // An ESPN club whose payload carried no logo still has a published address:
+                // the source's own crest folder, one per numeric club id. Storing it now
+                // means the team never waits for the backfill, and the backfill's queue
+                // stays for the archive clubs that have no such address.
+                teams[id] = if (withCrest.crestUrl.isNullOrBlank()) {
+                    val fallback = com.footballai.app.domain.catalog.CrestUrls.forClub(
+                        providerId,
+                        withCrest.providerKey,
+                        runCatching { TeamKind.valueOf(withCrest.kind) }.getOrDefault(TeamKind.CLUB),
+                    )
+                    if (fallback != null) withCrest.copy(crestUrl = fallback) else withCrest
+                } else {
+                    withCrest
                 }
             }
         }
@@ -921,6 +935,9 @@ class SyncRepository(
         /** A table changes at most after a round of matches, so a day is generous. */
         private const val STANDINGS_MAX_AGE_MS = 24L * 60L * 60L * 1000L
         private const val CREST_BACKFILL_MARKER = "crest-backfill-v1"
+
+        /** Badges are repaired in batches, so the batch runs hourly until none are left. */
+        private const val CREST_BACKFILL_INTERVAL_MS = 60L * 60L * 1000L
         private const val STANDINGS_MARKER = "standings"
         private const val DETAILS_TTL_MS = 90_000L
         private const val HISTORY_LOOKBACK_DAYS = 420L
