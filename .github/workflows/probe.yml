@@ -1,0 +1,16 @@
+# TEMPORARY: the development workspace cannot reach thesportsdb.com, so this throwaway job
+# runs the probe from a machine that can and posts the report to an issue.
+name: probe
+on:
+  workflow_dispatch: {}
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run the probe
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          ISSUE_NUMBER: "46"
+        run: python3 scripts/roster_probe.py
