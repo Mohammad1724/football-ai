@@ -554,7 +554,21 @@ class SyncRepository(
         limit: Int = 60,
         force: Boolean = false,
         priorityEpochMs: Long? = null,
-    ): Int = crestBackfillBatch(providerId, limit, force, priorityEpochMs, null, null).filled
+    ): Int {
+        // The queue is only worked while the app is open, and the fallback source is rate
+        // limited to about twenty lookups a minute, so one batch per sync left a hundred
+        // clubs waiting for days. A sync now takes three batches — ten minutes of requests
+        // at the pace the source allows — and stops as soon as a batch comes back short.
+        var filled = 0
+        repeat(CREST_BATCHES_PER_SYNC) { round ->
+            val batch = crestBackfillBatch(
+                providerId, limit, force || round > 0, priorityEpochMs, null, null,
+            )
+            filled += batch.filled
+            if (batch.failed || batch.attempted < limit) return filled
+        }
+        return filled
+    }
 
     /** Continue through multiple bounded batches for the selected day, not just the first 30. */
     suspend fun backfillCrestsForDay(fromEpochMs: Long, toEpochMs: Long) {
@@ -697,7 +711,7 @@ class SyncRepository(
                     // request, so the rest of the list is not tried here.
                     val coreQuery = com.footballai.app.data.remote.ClubNameMatcher.core(team.name)
                         .joinToString(" ")
-                    for (query in listOfNotNull(alias, team.name, coreQuery.takeIf { it.isNotBlank() })
+                    for (query in listOfNotNull(team.name, coreQuery.takeIf { it.isNotBlank() }, alias)
                         .distinct()) {
                         when (val result = sportsDbCrests.find(query, gender)) {
                             is Outcome.Success -> url = result.value
@@ -1087,6 +1101,9 @@ class SyncRepository(
          * front quarter.
          */
         private const val SPORTSDB_ATTEMPTS_PER_BATCH = 45
+
+        /** Batches a single sync works through; each one is bounded by the source's rate. */
+        private const val CREST_BATCHES_PER_SYNC = 3
 
         /** Badges are repaired in batches, so the batch runs hourly until none are left. */
         private const val CREST_BACKFILL_INTERVAL_MS = 60L * 60L * 1000L

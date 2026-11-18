@@ -366,7 +366,13 @@ class MatchRepository(
             val tried = if (age == null) "never asked" else "asked ${age}d ago"
             "${team.name} (" + listOf(team.kind, gender, tried).joinToString(", ") + ")"
         }.joinToString(" · ")
+        // How much of the queue is left, so a report that says "never asked" is not a dead
+        // end: the sweep only runs while the app is open, and this is its remaining work.
+        val prefix = com.footballai.app.data.local.CrestAttempts.prefix()
+        val waiting = db.teamDao().waitingForCrestAttempt(prefix)
+        val asked = db.teamDao().askedWithoutCrest(prefix)
         return "teams: $withCrest of $total with a crest · $sampleText" +
+            "\nqueue: $waiting waiting · $asked asked and still without a crest" +
             (if (bySource.isEmpty()) "" else "\nby source: $bySource") +
             (if (missing.isEmpty()) "" else "\nwithout a crest: " + missing.joinToString(" · ")) +
             (if (why.isEmpty()) "" else

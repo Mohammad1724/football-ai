@@ -155,6 +155,21 @@ interface TeamDao {
     )
     suspend fun crestlessInFixtures(limit: Int): List<TeamEntity>
 
+    /** Clubs still waiting for their first attempt under the current marker. */
+    @Query(
+        "SELECT COUNT(*) FROM teams t LEFT JOIN sync_meta a ON a.key = :prefix || t.id " +
+            "WHERE (t.crestUrl IS NULL OR TRIM(t.crestUrl) = '') AND t.kind = 'CLUB' " +
+            "AND a.updatedAt IS NULL",
+    )
+    suspend fun waitingForCrestAttempt(prefix: String): Int
+
+    /** Clubs that were asked under the current marker and are still on initials. */
+    @Query(
+        "SELECT COUNT(*) FROM teams t JOIN sync_meta a ON a.key = :prefix || t.id " +
+            "WHERE (t.crestUrl IS NULL OR TRIM(t.crestUrl) = '') AND t.kind = 'CLUB'",
+    )
+    suspend fun askedWithoutCrest(prefix: String): Int
+
     @Query(
         "SELECT providerId AS providerId, COUNT(*) AS total, " +
             "SUM(CASE WHEN crestUrl IS NULL OR crestUrl = '' THEN 0 ELSE 1 END) AS withCrest " +

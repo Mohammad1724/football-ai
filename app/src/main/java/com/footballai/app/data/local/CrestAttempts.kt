@@ -14,6 +14,9 @@ object CrestAttempts {
 
     fun key(teamId: String): String = PREFIX + teamId
 
+    /** The same prefix, for the queries that join on it. */
+    fun prefix(): String = PREFIX
+
     /** For reports: how the app spells the marker today. */
     fun version(): String = PREFIX.trimEnd(':')
 }
