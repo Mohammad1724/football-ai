@@ -49,6 +49,16 @@ jobs:
           set -o pipefail
           gradle :app:testDebugUnitTest --stacktrace 2>&1 | tee -a build-output.txt
 
+      # TEMPORARY: the development workspace cannot read Actions logs, so a failing test
+      # run posts its failure detail to an open issue instead. Remove with the script.
+      - name: Report failing tests
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          ISSUE_NUMBER: "42"
+        run: python3 scripts/ci_test_report.py
+
       - name: Assemble signed APKs
         run: |
           set -o pipefail
