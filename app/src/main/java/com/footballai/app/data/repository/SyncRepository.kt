@@ -84,6 +84,8 @@ class SyncRepository(
     private val clock: TimeProvider,
 ) {
 
+    private val crestBackfillMutex = Mutex()
+
     suspend fun syncCompetitions(providerId: String): Outcome<Int> {
         val provider = registry.provider(providerId)
             ?: return Outcome.Failure(AppError(ErrorCode.NOT_FOUND, detail = "Unknown provider $providerId"))
@@ -537,50 +539,39 @@ class SyncRepository(
         }
     }
 
-    /**
-     * Gives a badge address to clubs whose own payload carried none.
-     *
-     * The archived leagues arrive without logos, and a badge needs an address before it can
-     * draw anything: that is why a list of clubs could show initials while the picture
-     * itself was reachable. The source's public search knows the club and its crest, so a
-     * bounded number of teams that actually appear in a fixture are asked once a day, and
-     * only an exact name match is stored — a reserve side is a different club.
-     *
-     * A team the search cannot confirm keeps no address and keeps its initials: nothing is
-     * guessed, and a wrong crest is worse than a monogram.
+    /** Repair crestless clubs in fixtures, prioritising matches closest to today.
+     * A completed search without a match cools down per team so it cannot starve the queue.
+     * Network/quota errors stop the batch without marking the team as searched.
      */
     suspend fun backfillCrests(
         providerId: String = EspnOpenProvider.PROVIDER_ID,
         limit: Int = 200,
         force: Boolean = false,
-    ): Int {
-        val provider = registry.provider(providerId) as? EspnOpenProvider ?: return 0
+    ): Int = crestBackfillMutex.withLock {
+        val provider = registry.provider(providerId) as? EspnOpenProvider ?: return@withLock 0
         val now = clock.nowEpochMs()
-        val last = db.syncMetaDao().entity(CREST_BACKFILL_MARKER)?.updatedAt ?: 0L
-        if (!force && now - last < CREST_BACKFILL_INTERVAL_MS) return 0
+        val last = db.syncMetaDao().entity(CREST_BACKFILL_MARKER)?.updatedAt
+        if (!force && last != null && now - last < CREST_BACKFILL_INTERVAL_MS) return@withLock 0
         var filled = 0
-        for (team in db.teamDao().crestlessInFixtures(limit)) {
-            // The archive's abbreviation first, written out in full ("Ein Frankfurt" ->
-            // "Eintracht Frankfurt"), because the source's search cannot know it; the
-            // published name is the fallback for a team that arrived under its own name.
+        for (team in db.teamDao().crestlessInFixtures(now, now - CREST_RETRY_INTERVAL_MS, limit)) {
             val queries = listOfNotNull(
                 com.footballai.app.domain.catalog.TeamNames.canonicalName(team.name),
                 team.name,
             ).filter { it.isNotBlank() }.distinct()
             var url: String? = null
             for (query in queries) {
-                url = when (val result = provider.crestForTeamName(query)) {
-                    is Outcome.Success -> result.value
-                    is Outcome.Failure -> null
+                when (val result = provider.crestForTeamName(query)) {
+                    is Outcome.Success -> url = result.value
+                    // In particular, do not consume the rest of the batch on quota errors.
+                    is Outcome.Failure -> return@withLock filled
                 }
                 if (url != null) break
             }
-            if (url == null) continue
-            db.teamDao().upsertAll(listOf(team.copy(crestUrl = url, updatedAt = now)))
-            filled++
+            if (url != null) filled += db.teamDao().setCrestIfMissing(team.id, url)
+            db.syncMetaDao().put(SyncMetaEntity("crest-attempt-v2:" + team.id, "checked", clock.nowEpochMs()))
         }
-        db.syncMetaDao().put(SyncMetaEntity(CREST_BACKFILL_MARKER, "ok", now))
-        return filled
+        db.syncMetaDao().put(SyncMetaEntity(CREST_BACKFILL_MARKER, "ok", clock.nowEpochMs()))
+        filled
     }
 
     /**
@@ -758,52 +749,54 @@ class SyncRepository(
             )
         }
 
-        val teamIds = matches.flatMap {
-            listOf(Ids.team(providerId, it.home.providerKey), Ids.team(providerId, it.away.providerKey))
-        }
-        val knownTeams = db.teamDao().byIds(teamIds.distinct()).associateBy { it.id }
-        val teams = LinkedHashMap<String, TeamEntity>()
-        for (match in matches) {
-            for (remote in listOf(match.home, match.away)) {
-                val id = Ids.team(providerId, remote.providerKey)
-                val entity = remote.toEntity(providerId, now, classification.teamKind)
-                // A team discovered as a national team keeps that identity; a club-league
-                // fixture can never silently downgrade it.
-                val previous = knownTeams[id]
-                val withKind = if (previous?.kind == TeamKind.NATIONAL.name && entity.kind != TeamKind.NATIONAL.name) {
-                    entity.copy(kind = previous.kind, countryCode = entity.countryCode ?: previous.countryCode)
-                } else {
-                    entity
-                }
-                // A source that publishes no badge must not take one away. The archive and
-                // the daily fixtures both arrive without crests, and overwriting the address
-                // a previous sync (or the crest backfill) had stored is what made a badge
-                // appear and then vanish the next time the screen was opened.
-                val previousCrest = previous?.crestUrl
-                val withCrest = if (
-                    withKind.crestUrl.isNullOrBlank() && !previousCrest.isNullOrBlank()
-                ) {
-                    withKind.copy(crestUrl = previousCrest)
-                } else {
-                    withKind
-                }
-                // An ESPN club whose payload carried no logo still has a published address:
-                // the source's own crest folder, one per numeric club id. Storing it now
-                // means the team never waits for the backfill, and the backfill's queue
-                // stays for the archive clubs that have no such address.
-                teams[id] = if (withCrest.crestUrl.isNullOrBlank()) {
-                    val fallback = com.footballai.app.domain.catalog.CrestUrls.forClub(
-                        providerId,
-                        withCrest.providerKey,
-                        runCatching { TeamKind.valueOf(withCrest.kind) }.getOrDefault(TeamKind.CLUB),
-                    )
-                    if (fallback != null) withCrest.copy(crestUrl = fallback) else withCrest
-                } else {
-                    withCrest
+        db.withTransaction {
+            val teamIds = matches.flatMap {
+                listOf(Ids.team(providerId, it.home.providerKey), Ids.team(providerId, it.away.providerKey))
+            }
+            val knownTeams = db.teamDao().byIds(teamIds.distinct()).associateBy { it.id }
+            val teams = LinkedHashMap<String, TeamEntity>()
+            for (match in matches) {
+                for (remote in listOf(match.home, match.away)) {
+                    val id = Ids.team(providerId, remote.providerKey)
+                    val entity = remote.toEntity(providerId, now, classification.teamKind)
+                    // A team discovered as a national team keeps that identity; a club-league
+                    // fixture can never silently downgrade it.
+                    val previous = teams[id] ?: knownTeams[id]
+                    val withKind = if (previous?.kind == TeamKind.NATIONAL.name && entity.kind != TeamKind.NATIONAL.name) {
+                        entity.copy(kind = previous.kind, countryCode = entity.countryCode ?: previous.countryCode)
+                    } else {
+                        entity
+                    }
+                    // A source that publishes no badge must not take one away. The archive and
+                    // the daily fixtures both arrive without crests, and overwriting the address
+                    // a previous sync (or the crest backfill) had stored is what made a badge
+                    // appear and then vanish the next time the screen was opened.
+                    val previousCrest = previous?.crestUrl
+                    val withCrest = if (
+                        withKind.crestUrl.isNullOrBlank() && !previousCrest.isNullOrBlank()
+                    ) {
+                        withKind.copy(crestUrl = previousCrest)
+                    } else {
+                        withKind
+                    }
+                    // An ESPN club whose payload carried no logo still has a published address:
+                    // the source's own crest folder, one per numeric club id. Storing it now
+                    // means the team never waits for the backfill, and the backfill's queue
+                    // stays for the archive clubs that have no such address.
+                    teams[id] = if (withCrest.crestUrl.isNullOrBlank()) {
+                        val fallback = com.footballai.app.domain.catalog.CrestUrls.forClub(
+                            providerId,
+                            withCrest.providerKey,
+                            runCatching { TeamKind.valueOf(withCrest.kind) }.getOrDefault(TeamKind.CLUB),
+                        )
+                        if (fallback != null) withCrest.copy(crestUrl = fallback) else withCrest
+                    } else {
+                        withCrest
+                    }
                 }
             }
+            db.teamDao().upsertAll(teams.values.toList())
         }
-        db.teamDao().upsertAll(teams.values.toList())
 
         val entities = matches.map { match ->
             val previous = if (providerId == FootballDataCoUkProvider.PROVIDER_ID && match.season != null) {
@@ -934,7 +927,8 @@ class SyncRepository(
     companion object {
         /** A table changes at most after a round of matches, so a day is generous. */
         private const val STANDINGS_MAX_AGE_MS = 24L * 60L * 60L * 1000L
-        private const val CREST_BACKFILL_MARKER = "crest-backfill-v1"
+        private const val CREST_BACKFILL_MARKER = "crest-backfill-v2"
+        private const val CREST_RETRY_INTERVAL_MS = 7L * 24L * 60L * 60L * 1000L
 
         /** Badges are repaired in batches, so the batch runs hourly until none are left. */
         private const val CREST_BACKFILL_INTERVAL_MS = 60L * 60L * 1000L

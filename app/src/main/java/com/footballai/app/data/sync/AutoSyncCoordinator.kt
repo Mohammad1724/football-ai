@@ -239,7 +239,7 @@ class AutoSyncCoordinator(
                     runCatching {
                         syncRepository.refreshStandings(id, settings.followedCompetitionKeys.toList())
                     }
-                    runCatching { syncRepository.backfillCrests(providerId = id) }
+                    runCatching { syncRepository.backfillCrests() }
                     val run = SyncRun(
                         added = result.value.fixtures,
                         warnings = result.value.errors,

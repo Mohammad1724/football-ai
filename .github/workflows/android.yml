@@ -36,6 +36,9 @@ jobs:
         with:
           gradle-version: "8.9"
 
+      - name: Crest queue SQLite regression tests
+        run: python3 scripts/check_crest_queue.py
+
       - name: Engine unit tests
         run: |
           set -o pipefail

@@ -81,7 +81,30 @@ interface TeamDao {
     @Query("SELECT * FROM teams ORDER BY updatedAt DESC LIMIT 1")
     suspend fun mostRecentlyUpdated(): TeamEntity?
 
-    /** Teams that have no badge address but do appear in a fixture: the ones a reader sees. */
+    /** Recent fixtures first; unsuccessful searches cool down individually, not the whole queue. */
+    @Query("""
+        SELECT teams.* FROM teams
+        JOIN (
+            SELECT teamId, MIN(ABS(kickoffEpochMs - :now)) AS distance FROM (
+                SELECT homeTeamId AS teamId, kickoffEpochMs FROM matches
+                UNION ALL
+                SELECT awayTeamId AS teamId, kickoffEpochMs FROM matches
+            ) GROUP BY teamId
+        ) fixtures ON fixtures.teamId = teams.id
+        LEFT JOIN sync_meta attempt ON attempt.key = 'crest-attempt-v2:' || teams.id
+        WHERE (teams.crestUrl IS NULL OR TRIM(teams.crestUrl) = '')
+          AND teams.kind = 'CLUB'
+          AND NOT (teams.providerId = 'espn-open' AND TRIM(teams.providerKey) != ''
+                   AND TRIM(teams.providerKey) NOT GLOB '*[^0-9]*')
+          AND (attempt.updatedAt IS NULL OR attempt.updatedAt <= :retryBefore)
+        ORDER BY fixtures.distance ASC, teams.id ASC LIMIT :limit
+    """)
+    suspend fun crestlessInFixtures(now: Long, retryBefore: Long, limit: Int): List<TeamEntity>
+
+    /** Do not overwrite a crest delivered by a concurrent fixture sync. */
+    @Query("UPDATE teams SET crestUrl = :url WHERE id = :id AND (crestUrl IS NULL OR TRIM(crestUrl) = '')")
+    suspend fun setCrestIfMissing(id: String, url: String): Int
+
     @Query(
         "SELECT * FROM teams WHERE (crestUrl IS NULL OR crestUrl = '') AND id IN " +
             "(SELECT homeTeamId FROM matches UNION SELECT awayTeamId FROM matches) " +

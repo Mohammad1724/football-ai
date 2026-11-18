@@ -64,6 +64,7 @@ import com.footballai.app.ui.theme.FootballAiThemeExtra
 import com.footballai.app.ui.theme.Radii
 import com.footballai.app.ui.theme.Spacing
 import com.footballai.app.R
+import kotlinx.coroutines.delay
 
 @Composable
 fun SectionHeader(
@@ -274,7 +275,7 @@ fun TeamBadge(team: TeamRef, size: Int = 26) {
     // A nation is shown by its flag. A club is never shown by a flag: it gets the provider's
     // crest when there is one, and its initials otherwise — every club row looks the same
     // kind of row, whether or not the provider supplies crests.
-    val flag = NameLocalization.flagEmoji(team.name, team.shortName)
+    val flag = if (team.isNational) NameLocalization.flagEmoji(team.name, team.shortName) else null
     val crest = team.crestUrl?.takeIf { it.isNotBlank() }
     Box(
         modifier = Modifier
@@ -296,7 +297,10 @@ fun TeamBadge(team: TeamRef, size: Int = 26) {
                 // when a badge stayed empty on a real phone there was nothing to look at,
                 // because the library reported neither the status nor the reason.
                 val image by produceState<ImageBitmap?>(initialValue = null, crest) {
-                    value = CrestImages.load(crest)
+                    do {
+                        value = CrestImages.load(crest)
+                        if (value == null) delay(CrestImages.RETRY_DELAY_MS)
+                    } while (value == null)
                 }
                 val loaded = image
                 if (loaded == null) {

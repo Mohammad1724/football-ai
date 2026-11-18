@@ -49,27 +49,26 @@ object CrestImages {
 
     private val cache = object : LruCache<String, ImageBitmap>(CACHE_ENTRIES) {}
 
-    /**
-     * Addresses that already failed.
-     *
-     * Android's [LruCache] cannot hold a null value, so failures get their own small set:
-     * without it a missing crest is requested again on every scroll, which is exactly the
-     * kind of silent waste that makes a list feel heavy. The set is deliberately smaller
-     * than the success cache: a failure is often a slow network rather than a wrong
-     * address, and a small set forgets old failures sooner so the badge is retried.
-     */
-    private val failed = LinkedHashSet<String>()
+    /** Retry transient failures even if the user never scrolls away from the row. */
+    const val RETRY_DELAY_MS = 5L * 60L * 1000L
+    private val failed = LinkedHashMap<String, Long>()
     private val failedLock = Any()
-    private val failedLimit = 16
+    private val failedLimit = 128
 
-    /** A repair may have fixed an address, so the "do not ask again" set is dropped. */
     fun forgetFailures() = synchronized(failedLock) { failed.clear() }
 
-    private fun isKnownBad(url: String): Boolean = synchronized(failedLock) { url in failed }
+    private fun isKnownBad(url: String): Boolean = synchronized(failedLock) {
+        val until = failed[url] ?: return@synchronized false
+        if (android.os.SystemClock.elapsedRealtime() >= until) {
+            failed.remove(url)
+            false
+        } else true
+    }
 
     private fun rememberBad(url: String) = synchronized(failedLock) {
-        if (failed.size >= failedLimit) failed.remove(failed.first())
-        failed.add(url)
+        failed.remove(url)
+        if (failed.size >= failedLimit) failed.remove(failed.keys.first())
+        failed[url] = android.os.SystemClock.elapsedRealtime() + RETRY_DELAY_MS
     }
 
     /**
@@ -113,21 +112,20 @@ object CrestImages {
         cache.get(key)?.let { cached -> return cached }
         if (isKnownBad(key)) return null
         return withContext(Dispatchers.IO) {
-            // The source first; the mirror only when the source refused, and the failure
-            // text says which of the two answered so a report can tell them apart.
-            val bytes = fetch(key) ?: fetch(mirrorUrl(key)) ?: run {
-                rememberBad(key)
-                return@withContext null
+            // A successful HTTP response may still contain HTML or an unsupported image.
+            // Try the mirror after a decode failure as well as after a network failure.
+            for (address in listOf(key, mirrorUrl(key))) {
+                val bytes = fetch(address) ?: continue
+                val options = BitmapFactory.Options().apply { inSampleSize = DECODE_SAMPLE }
+                val bitmap = runCatching { BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options) }
+                    .getOrNull()
+                if (bitmap != null) {
+                    return@withContext bitmap.asImageBitmap().also { cache.put(key, it) }
+                }
+                lastFailure = "$address · decoded to nothing"
             }
-            val options = BitmapFactory.Options().apply { inSampleSize = DECODE_SAMPLE }
-            val bitmap = runCatching { BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options) }
-                .getOrNull()
-            if (bitmap == null) {
-                lastFailure = "$key · decoded to nothing"
-                rememberBad(key)
-                return@withContext null
-            }
-            bitmap.asImageBitmap().also { image -> cache.put(key, image) }
+            rememberBad(key)
+            null
         }
     }
 
@@ -145,12 +143,12 @@ object CrestImages {
 
     /** One request, status kept: a 404 is a wrong address, a 403 is a refusal. */
     private fun status(url: String): String {
-        val request = Request.Builder()
-            .url(url)
-            .header("User-Agent", browserUserAgent)
-            .header("Accept", "image/avif,image/webp,image/png,image/*;q=0.8")
-            .build()
         return runCatching {
+            val request = Request.Builder()
+                .url(url)
+                .header("User-Agent", browserUserAgent)
+                .header("Accept", "image/avif,image/webp,image/png,image/*;q=0.8")
+                .build()
             client.newCall(request).execute().use { response ->
                 val type = response.header("Content-Type").orEmpty().substringBefore(';')
                 "HTTP ${response.code} ${type}".trim()
@@ -159,12 +157,12 @@ object CrestImages {
     }
 
     private fun fetch(url: String): ByteArray? {
-        val request = Request.Builder()
-            .url(url)
-            .header("User-Agent", browserUserAgent)
-            .header("Accept", "image/avif,image/webp,image/png,image/*;q=0.8")
-            .build()
         return runCatching {
+            val request = Request.Builder()
+                .url(url)
+                .header("User-Agent", browserUserAgent)
+                .header("Accept", "image/avif,image/webp,image/png,image/*;q=0.8")
+                .build()
             client.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) {
                     lastFailure = "$url · HTTP ${response.code}"
