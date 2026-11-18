@@ -515,6 +515,60 @@ class SyncRepository(
         return written
     }
 
+    /**
+     * The table of a competition, even when its own source publishes none.
+     *
+     * Most fixtures here come from the CSV source, which has no table. The same league *is*
+     * documented by ESPN under its own slug, and `LeagueCrestIndex.LEAGUES` already maps the
+     * two ("E0" is "eng.1"). So the table is borrowed from there and stored under the
+     * competition the reader is actually looking at: a row it can recognise keeps our club
+     * id, name and crest, and a row it cannot is stored as published rather than dropped —
+     * a table with holes reads as a broken sync.
+     */
+    suspend fun refreshTableFor(competitionId: String): Int {
+        val competition = db.competitionDao().byId(competitionId) ?: return 0
+        val own = registry.provider(competition.providerId)
+        if (own?.info?.capabilities?.standings == true) {
+            return refreshStandings(competition.providerId, listOf(competition.providerKey), maxAgeMs = 0)
+        }
+        val slug = com.footballai.app.data.remote.LeagueCrestIndex.LEAGUES[competition.providerKey]
+            ?: return 0
+        val source = registry.provider(EspnOpenProvider.PROVIDER_ID) ?: return 0
+        if (!source.info.capabilities.standings) return 0
+        val season = competition.season ?: java.time.Instant.ofEpochMilli(clock.nowEpochMs())
+            .atZone(java.time.ZoneId.systemDefault()).year
+        val table = when (val result = source.standings(slug, season)) {
+            is Outcome.Failure -> return 0
+            is Outcome.Success -> result.value
+        }
+        if (table.isEmpty()) return 0
+        val ours = db.teamDao().forCompetition(competitionId)
+        val now = clock.nowEpochMs()
+        val rows = table.map { row ->
+            val team = matchPublishedName(ours, row.teamName)
+            StandingEntity(
+                competitionId = competitionId,
+                season = season,
+                teamId = team?.id ?: Ids.team(EspnOpenProvider.PROVIDER_ID, row.teamKey),
+                teamName = team?.name ?: row.teamName,
+                crestUrl = team?.crestUrl?.takeIf { it.isNotBlank() } ?: row.crestUrl,
+                rank = row.rank,
+                points = row.points,
+                played = row.played,
+                goalDifference = row.goalDifference,
+                form = row.form,
+                updatedAt = now,
+            )
+        }
+        db.standingDao().insertAll(rows)
+        return rows.size
+    }
+
+    /** The club this published name can only mean, or nothing when it is ambiguous. */
+    private fun matchPublishedName(teams: List<TeamEntity>, published: String): TeamEntity? =
+        teams.filter { team -> com.footballai.app.data.remote.ClubNameMatcher.matches(published, team.name) }
+            .singleOrNull()
+
     suspend fun syncStandings(providerId: String, competitionKey: String, season: Int): Outcome<Int> {
         val provider = registry.provider(providerId)
             ?: return Outcome.Failure(AppError(ErrorCode.NOT_FOUND, detail = "Unknown provider $providerId"))

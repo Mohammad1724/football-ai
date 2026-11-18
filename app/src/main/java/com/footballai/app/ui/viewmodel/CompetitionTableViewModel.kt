@@ -20,6 +20,8 @@ data class TableRow(
     val goalDifference: Int,
     val points: Int,
     val form: String?,
+    /** A row whose club is stored here can be opened; a borrowed row may have no page. */
+    val navigable: Boolean = false,
 )
 
 data class CompetitionTableState(
@@ -60,13 +62,11 @@ class CompetitionTableViewModel(
                 val competition = container.matchRepository.competitionEntity(competitionId)
                 val table = container.matchRepository.leagueTable(competitionId)
                 if (table == null && refresh && competition != null) {
-                    // Nothing stored: ask for it once. A failure here is not an error the
-                    // reader can do anything about — the screen still says "no table yet".
-                    runCatching {
-                        container.syncRepository.refreshStandings(
-                            competition.providerId, listOf(competition.providerKey),
-                        )
-                    }
+                    // Nothing stored: ask for it once — from the competition's own source
+                    // when it publishes a table, otherwise the same league's table from the
+                    // one source that does. A failure here is not an error the reader can
+                    // act on: the screen still says "no table yet".
+                    runCatching { container.syncRepository.refreshTableFor(competitionId) }
                 }
                 val shown = table ?: container.matchRepository.leagueTable(competitionId)
                 _state.update { previous ->
@@ -83,6 +83,7 @@ class CompetitionTableViewModel(
                                 goalDifference = row.goalDifference,
                                 points = row.points,
                                 form = row.form,
+                                navigable = container.matchRepository.teamEntity(row.teamId) != null,
                             )
                         },
                         isLoading = false,

@@ -114,7 +114,10 @@ fun CompetitionTableScreen(
                 ) {
                     item(key = "table-header") { TableHeader() }
                     items(state.rows, key = { it.teamId }) { row ->
-                        TableRowCard(row = row, onClick = { onTeamClick(row.teamId) })
+                        TableRowCard(
+                            row = row,
+                            onClick = { if (row.navigable) onTeamClick(row.teamId) },
+                        )
                     }
                 }
             }
@@ -168,7 +171,7 @@ private fun TableRowCard(row: TableRow, onClick: () -> Unit) {
     Column(modifier = Modifier.fillMaxWidth().padding(vertical = Spacing.xxs)) {
         SoftCard(
             modifier = Modifier.fillMaxWidth(),
-            onClick = onClick,
+            onClick = onClick.takeIf { row.navigable },
             containerColor = if (row.rank <= 3) colors.cardStrong else colors.card,
         ) {
             Row(
