@@ -110,4 +110,9 @@ class EspnCrestSearchTest {
         val basketball = """{"items":[{"name":"Bayern Munich","sport":"basketball","logos":[{"href":"https://example.com/1.png"}]}]}"""
         assertNull(provider.parseCrestSearch(basketball, "Bayern Munich"))
     }
+    @Test
+    fun `space search for slash separated name uses published matching logo`() {
+        val payload = """{"items":[{"name":"Bodo/Glimt","sport":"soccer","logos":[{"href":"https://a.espncdn.com/i/teamlogos/soccer/500/2980.png","rel":["default"]}]}]}"""
+        assertEquals("https://a.espncdn.com/i/teamlogos/soccer/500/2980.png", provider.parseCrestSearch(payload, "Bodo Glimt"))
+    }
 }

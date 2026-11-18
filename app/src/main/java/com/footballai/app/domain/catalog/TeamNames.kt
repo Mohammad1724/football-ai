@@ -873,7 +873,10 @@ object TeamNames {
 
     /** Case, accents and punctuation are not part of a club's name. */
     fun normalizeNameKey(value: String): String {
-        val folded = java.text.Normalizer.normalize(value, java.text.Normalizer.Form.NFD)
+        // NFD does not decompose Polish Ł or Norwegian Ø; both occur in club names.
+        val transliterated = value.replace('ł', 'l').replace('Ł', 'L')
+            .replace('ø', 'o').replace('Ø', 'O')
+        val folded = java.text.Normalizer.normalize(transliterated, java.text.Normalizer.Form.NFD)
             .replace(Regex("\\p{Mn}+"), "")
         return folded.lowercase().replace(Regex("[^a-z0-9']+"), " ").trim()
     }

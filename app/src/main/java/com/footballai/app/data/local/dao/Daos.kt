@@ -87,11 +87,15 @@ interface TeamDao {
         JOIN (
             SELECT teamId, MIN(ABS(kickoffEpochMs - :now)) AS distance FROM (
                 SELECT homeTeamId AS teamId, kickoffEpochMs FROM matches
+                WHERE (:fromEpochMs IS NULL OR kickoffEpochMs >= :fromEpochMs)
+                  AND (:toEpochMs IS NULL OR kickoffEpochMs < :toEpochMs)
                 UNION ALL
                 SELECT awayTeamId AS teamId, kickoffEpochMs FROM matches
+                WHERE (:fromEpochMs IS NULL OR kickoffEpochMs >= :fromEpochMs)
+                  AND (:toEpochMs IS NULL OR kickoffEpochMs < :toEpochMs)
             ) GROUP BY teamId
         ) fixtures ON fixtures.teamId = teams.id
-        LEFT JOIN sync_meta attempt ON attempt.key = 'crest-attempt-v3:' || teams.id
+        LEFT JOIN sync_meta attempt ON attempt.key = 'crest-attempt-v4:' || teams.id
         WHERE (teams.crestUrl IS NULL OR TRIM(teams.crestUrl) = '')
           AND teams.kind = 'CLUB'
           AND NOT (teams.providerId = 'espn-open' AND TRIM(teams.providerKey) != ''
@@ -99,7 +103,9 @@ interface TeamDao {
           AND (attempt.updatedAt IS NULL OR attempt.updatedAt <= :retryBefore)
         ORDER BY fixtures.distance ASC, teams.id ASC LIMIT :limit
     """)
-    suspend fun crestlessInFixtures(now: Long, retryBefore: Long, limit: Int): List<TeamEntity>
+    suspend fun crestlessInFixtures(
+        now: Long, retryBefore: Long, limit: Int, fromEpochMs: Long?, toEpochMs: Long?,
+    ): List<TeamEntity>
 
     @Query("""
         SELECT DISTINCT competitions.gender FROM competitions
@@ -107,6 +113,13 @@ interface TeamDao {
         WHERE matches.homeTeamId = :teamId OR matches.awayTeamId = :teamId
     """)
     suspend fun fixtureGenders(teamId: String): List<String>
+
+    @Query("""
+        SELECT DISTINCT competitions.providerKey FROM competitions
+        JOIN matches ON matches.competitionId = competitions.id
+        WHERE matches.homeTeamId = :teamId OR matches.awayTeamId = :teamId
+    """)
+    suspend fun fixtureCompetitionKeys(teamId: String): List<String>
 
     /** Do not overwrite a crest delivered by a concurrent fixture sync. */
     @Query("UPDATE teams SET crestUrl = :url WHERE id = :id AND (crestUrl IS NULL OR TRIM(crestUrl) = '')")

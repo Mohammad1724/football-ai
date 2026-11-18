@@ -43,4 +43,9 @@ class SportsDbCrestsTest {
         assertEquals("Bayern Munich", TeamNames.canonicalName("FC Bayern München"))
         assertEquals("Espanyol", TeamNames.canonicalName("RCD Espanyol de Barcelona"))
     }
+    @Test fun `Polish exact name keeps stroked L when matching`() {
+        val payload = """{"teams":[{"strTeam":"ŁKS Łódź","strSport":"Soccer","strGender":"Male","strBadge":"https://r2.thesportsdb.com/a.png"}]}"""
+        assertEquals("https://r2.thesportsdb.com/a.png", client.parse(payload, "LKS Lodz", "MEN"))
+        assertNull(client.parse(payload, "KS Lodz", "MEN"))
+    }
 }

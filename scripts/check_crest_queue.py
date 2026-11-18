@@ -26,8 +26,8 @@ class CrestQueueTests(unittest.TestCase):
     def match(self, home, away, kickoff):
         self.db.execute('INSERT INTO matches VALUES (?,?,?)', (home, away, kickoff))
 
-    def queue(self, now=1000, retry_before=500, limit=200):
-        return [row[0] for row in self.db.execute(QUEUE, dict(now=now, retryBefore=retry_before, limit=limit))]
+    def queue(self, now=1000, retry_before=500, limit=200, start=None, end=None):
+        return [row[0] for row in self.db.execute(QUEUE, dict(now=now, retryBefore=retry_before, limit=limit, fromEpochMs=start, toEpochMs=end))]
 
     def test_near_matches_first_and_no_duplicate_teams(self):
         for name in ('old', 'soon', 'other', 'unused'):
@@ -37,13 +37,21 @@ class CrestQueueTests(unittest.TestCase):
         self.assertEqual(self.queue(), ['other', 'soon', 'old'])
         self.assertEqual(self.queue(limit=1), ['other'])
 
+    def test_selected_day_excludes_other_days(self):
+        for name in ('yesterday', 'today', 'tomorrow', 'shared'):
+            self.team(name)
+        self.match('yesterday', 'shared', 900)
+        self.match('today', 'shared', 1000)
+        self.match('tomorrow', 'shared', 1100)
+        self.assertEqual(self.queue(start=950, end=1050), ['shared', 'today'])
+
     def test_failed_searches_do_not_starve_next_batch_and_retry_later(self):
         for name in ('first', 'second', 'third'):
             self.team(name)
         self.match('first', 'second', 1000)
         self.match('third', 'first', 1010)
         self.db.executemany('INSERT INTO sync_meta VALUES (?, ?)',
-                            [('crest-attempt-v3:first', 900), ('crest-attempt-v3:second', 900)])
+                            [('crest-attempt-v4:first', 900), ('crest-attempt-v4:second', 900)])
         self.assertEqual(self.queue(limit=2), ['third'])
         self.assertEqual(self.queue(retry_before=900), ['first', 'second', 'third'])
 

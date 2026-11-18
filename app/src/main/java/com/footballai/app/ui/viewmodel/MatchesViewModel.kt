@@ -135,7 +135,13 @@ class MatchesViewModel(private val container: AppContainer) : ViewModel() {
                 delay(800)
                 if (container.networkMonitor.isOnlineNow()) {
                     val (from, to) = localDayWindow(container.clock.nowEpochMs(), offset)
-                    container.syncRepository.backfillCrests(force = true, priorityEpochMs = from + (to - from) / 2)
+                    try {
+                        container.syncRepository.backfillCrestsForDay(from, to)
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (_: Exception) {
+                        // Crest repair is optional; it must never crash the match list.
+                    }
                 }
             }
         }
