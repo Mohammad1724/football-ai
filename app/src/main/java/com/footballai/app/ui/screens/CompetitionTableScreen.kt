@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -29,6 +30,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.footballai.app.R
 import com.footballai.app.domain.catalog.NameLocalization
+import com.footballai.app.core.Formatters
 import com.footballai.app.domain.model.TeamRef
 import com.footballai.app.ui.LocalAppContainer
 import com.footballai.app.ui.LocalLanguageTag
@@ -127,40 +129,36 @@ fun CompetitionTableScreen(
 
 @Composable
 private fun TableHeader() {
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = Spacing.md, vertical = Spacing.sm),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            text = stringResource(R.string.table_played),
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.width(28.dp),
-        )
-        Text(
-            text = stringResource(R.string.table_goal_difference),
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.width(28.dp),
-        )
-        Text(
-            text = stringResource(R.string.table_points),
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.width(32.dp),
-        )
-        Spacer(Modifier.width(Spacing.sm))
+        // Laid out in reading order, so the rank sits at the start of the row in Persian and
+        // in English alike without a special case.
+        Spacer(Modifier.width(22.dp))
+        Spacer(Modifier.width(Spacing.xs))
         Text(
             text = stringResource(R.string.table_team),
             style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = muted,
             modifier = Modifier.weight(1f),
         )
+        for (label in listOf(
+            R.string.table_played, R.string.table_won, R.string.table_drawn,
+            R.string.table_lost, R.string.table_goal_difference, R.string.table_points,
+        )) {
+            Text(
+                text = stringResource(label),
+                style = MaterialTheme.typography.labelSmall,
+                color = muted,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                modifier = Modifier.width(if (label == R.string.table_goal_difference) 32.dp else 26.dp),
+            )
+        }
     }
 }
 
@@ -172,6 +170,8 @@ private fun TableRowCard(row: TableRow, onClick: () -> Unit) {
         SoftCard(
             modifier = Modifier.fillMaxWidth(),
             onClick = onClick.takeIf { row.navigable },
+            // The top three are the places a season is decided in; a slightly stronger card
+            // says so without a second colour scheme.
             containerColor = if (row.rank <= 3) colors.cardStrong else colors.card,
         ) {
             Row(
@@ -180,16 +180,17 @@ private fun TableRowCard(row: TableRow, onClick: () -> Unit) {
                     .padding(horizontal = Spacing.md, vertical = Spacing.sm),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                NumberCell(value = row.played.toString(), width = 28)
-                NumberCell(
-                    value = if (row.goalDifference > 0) "+${row.goalDifference}" else row.goalDifference.toString(),
-                    width = 28,
+                Text(
+                    text = Formatters.integer(row.rank, languageTag),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.width(22.dp),
                 )
-                NumberCell(value = row.points.toString(), width = 32, bold = true)
-                Spacer(Modifier.width(Spacing.sm))
+                Spacer(Modifier.width(Spacing.xs))
                 TeamBadge(
                     team = TeamRef(id = row.teamId, name = row.teamName, crestUrl = row.crestUrl),
-                    size = 24,
+                    size = 22,
                 )
                 Spacer(Modifier.width(Spacing.sm))
                 // The Persian name when the catalog has one, the published name otherwise.
@@ -197,19 +198,30 @@ private fun TableRowCard(row: TableRow, onClick: () -> Unit) {
                     text = NameLocalization.namePair(row.teamName, languageTag).first,
                     style = MaterialTheme.typography.bodyMedium,
                     maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
                 )
-                Text(
-                    text = row.rank.toString(),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.width(24.dp),
-                    textAlign = TextAlign.Center,
+                NumberCell(Formatters.integer(row.played, languageTag), 26)
+                NumberCell(row.wins?.let { Formatters.integer(it, languageTag) } ?: DASH, 26)
+                NumberCell(row.draws?.let { Formatters.integer(it, languageTag) } ?: DASH, 26)
+                NumberCell(row.losses?.let { Formatters.integer(it, languageTag) } ?: DASH, 26)
+                // A signed single number rather than "goals for-goals against": a hyphen
+                // between two numbers is read the other way round in a right-to-left row.
+                NumberCell(
+                    value = when {
+                        row.goalDifference > 0 -> "+" + Formatters.integer(row.goalDifference, languageTag)
+                        row.goalDifference < 0 -> "−" + Formatters.integer(-row.goalDifference, languageTag)
+                        else -> Formatters.integer(0, languageTag)
+                    },
+                    width = 32,
                 )
+                NumberCell(Formatters.integer(row.points, languageTag), 26, bold = true)
             }
         }
     }
 }
+
+private const val DASH = "—"
 
 @Composable
 private fun NumberCell(value: String, width: Int, bold: Boolean = false) {

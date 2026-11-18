@@ -255,8 +255,16 @@ class EspnOpenProvider(
                         ?: entry.team?.logos?.firstOrNull()?.href?.takeIf { it.isNotBlank() },
                     points = stat("points") ?: 0,
                     played = stat("gamesPlayed") ?: 0,
+                    // In this sport the two "points" columns are goals: the measured
+                    // document answers 15 for and 5 against on a row that reports a goal
+                    // difference of 10.
                     goalDifference = stat("pointDifferential") ?: 0,
                     form = null,
+                    wins = stat("wins"),
+                    draws = stat("ties"),
+                    losses = stat("losses"),
+                    goalsFor = stat("pointsFor"),
+                    goalsAgainst = stat("pointsAgainst"),
                 )
             },
         )

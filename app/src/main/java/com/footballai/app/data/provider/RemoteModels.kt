@@ -83,6 +83,12 @@ data class RemoteStandingRow(
     val played: Int,
     val goalDifference: Int,
     val form: String?,
+    /** Wins, draws, losses and goals. Null means the source did not publish the column. */
+    val wins: Int? = null,
+    val draws: Int? = null,
+    val losses: Int? = null,
+    val goalsFor: Int? = null,
+    val goalsAgainst: Int? = null,
 )
 
 data class RemoteHistoryMatch(

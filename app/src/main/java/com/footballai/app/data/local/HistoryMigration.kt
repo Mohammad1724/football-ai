@@ -43,6 +43,23 @@ object HistoryMigration {
     }
 
     /**
+     * 4 -> 5: the columns a table is read by.
+     *
+     * Additive and nullable on purpose: a source that publishes no wins column leaves the
+     * field empty, and an empty field is drawn as a dash. Storing a zero there would be a
+     * number the source never said.
+     */
+    val MIGRATION_4_5 = object : Migration(4, 5) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE standings ADD COLUMN wins INTEGER")
+            db.execSQL("ALTER TABLE standings ADD COLUMN draws INTEGER")
+            db.execSQL("ALTER TABLE standings ADD COLUMN losses INTEGER")
+            db.execSQL("ALTER TABLE standings ADD COLUMN goalsFor INTEGER")
+            db.execSQL("ALTER TABLE standings ADD COLUMN goalsAgainst INTEGER")
+        }
+    }
+
+    /**
      * 3 -> 4: remember whether a historical result was played on neutral ground.
      *
      * Additive only. Existing rows keep their data and are treated as normal home/away

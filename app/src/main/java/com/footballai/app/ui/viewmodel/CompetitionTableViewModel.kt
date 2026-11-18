@@ -19,6 +19,12 @@ data class TableRow(
     val played: Int,
     val goalDifference: Int,
     val points: Int,
+    /** Null when the source published no such column; the row prints a dash. */
+    val wins: Int? = null,
+    val draws: Int? = null,
+    val losses: Int? = null,
+    val goalsFor: Int? = null,
+    val goalsAgainst: Int? = null,
     val form: String?,
     /** A row whose club is stored here can be opened; a borrowed row may have no page. */
     val navigable: Boolean = false,
@@ -82,6 +88,11 @@ class CompetitionTableViewModel(
                                 played = row.played,
                                 goalDifference = row.goalDifference,
                                 points = row.points,
+                                wins = row.wins,
+                                draws = row.draws,
+                                losses = row.losses,
+                                goalsFor = row.goalsFor,
+                                goalsAgainst = row.goalsAgainst,
                                 form = row.form,
                                 navigable = container.matchRepository.teamEntity(row.teamId) != null,
                             )

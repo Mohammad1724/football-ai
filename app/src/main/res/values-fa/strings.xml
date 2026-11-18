@@ -53,6 +53,9 @@
     <string name="empty_table_title">جدولی ذخیره نشده</string>
     <string name="empty_table_message">برای این تورنمنت هنوز جدولی دریافت نشده؛ با همگام‌سازی بازی‌ها جدول هم می‌آید.</string>
     <string name="table_played">بازی</string>
+    <string name="table_won">برد</string>
+    <string name="table_drawn">مساوی</string>
+    <string name="table_lost">باخت</string>
     <string name="table_goal_difference">تفاضل</string>
     <string name="table_points">امتیاز</string>
     <string name="table_team">تیم</string>

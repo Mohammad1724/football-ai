@@ -53,6 +53,9 @@
     <string name="empty_table_title">No table stored</string>
     <string name="empty_table_message">Sync fixtures for this competition and its table arrives with them.</string>
     <string name="table_played">P</string>
+    <string name="table_won">W</string>
+    <string name="table_drawn">D</string>
+    <string name="table_lost">L</string>
     <string name="table_goal_difference">GD</string>
     <string name="table_points">Pts</string>
     <string name="table_team">Team</string>

@@ -182,6 +182,9 @@ class ApiFootballProvider(
                         played = row.all?.played ?: 0,
                         goalDifference = row.goalsDiff ?: 0,
                         form = row.form,
+                        wins = row.all?.win,
+                        draws = row.all?.draw,
+                        losses = row.all?.lose,
                     )
                 }
             }

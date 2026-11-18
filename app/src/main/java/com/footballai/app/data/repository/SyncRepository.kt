@@ -558,6 +558,11 @@ class SyncRepository(
                 goalDifference = row.goalDifference,
                 form = row.form,
                 updatedAt = now,
+                wins = row.wins,
+                draws = row.draws,
+                losses = row.losses,
+                goalsFor = row.goalsFor,
+                goalsAgainst = row.goalsAgainst,
             )
         }
         db.standingDao().insertAll(rows)
@@ -591,6 +596,11 @@ class SyncRepository(
                         goalDifference = row.goalDifference,
                         form = row.form,
                         updatedAt = now,
+                        wins = row.wins,
+                        draws = row.draws,
+                        losses = row.losses,
+                        goalsFor = row.goalsFor,
+                        goalsAgainst = row.goalsAgainst,
                     )
                 }
                 if (rows.isNotEmpty()) db.standingDao().insertAll(rows)

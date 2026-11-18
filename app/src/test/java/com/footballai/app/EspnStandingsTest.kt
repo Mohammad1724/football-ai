@@ -9,6 +9,7 @@ import com.footballai.app.data.provider.RemoteStandingRow
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertNull
 
 /**
  * The table comes from the same undocumented endpoint as the fixtures, so its mapping is
@@ -71,6 +72,17 @@ class EspnStandingsTest {
         assertEquals(9, rows[0].played)
         assertEquals(20, rows[0].goalDifference)
         assertEquals(2, rows[1].rank)
+        // The columns a table is read by, taken from the same named list. "pointsFor" and
+        // "pointsAgainst" are goals in this sport, which the measured document confirms:
+        // 29 for and 9 against sit on the row whose difference is 20.
+        assertEquals(6, rows[0].wins)
+        assertEquals(3, rows[0].draws)
+        assertEquals(0, rows[0].losses)
+        assertEquals(29, rows[0].goalsFor)
+        assertEquals(9, rows[0].goalsAgainst)
+        // Dortmund's row publishes none of them: absent, not zero.
+        assertNull(rows[1].wins)
+        assertNull(rows[1].goalsFor)
     }
 
     @Test

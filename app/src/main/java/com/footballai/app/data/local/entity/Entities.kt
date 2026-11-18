@@ -248,6 +248,15 @@ data class StandingEntity(
     val goalDifference: Int,
     val form: String?,
     val updatedAt: Long,
+    /**
+     * Wins, draws, losses and goals. Null means the source did not publish the column, and
+     * the table prints a dash instead of a zero it would have made up.
+     */
+    val wins: Int? = null,
+    val draws: Int? = null,
+    val losses: Int? = null,
+    val goalsFor: Int? = null,
+    val goalsAgainst: Int? = null,
 )
 
 @Entity(tableName = "sync_meta")
