@@ -346,16 +346,30 @@ class MatchRepository(
         val now = clock.nowEpochMs()
         val from = now - 2L * TimeConstants.DAY_MS
         val to = now + 12L * TimeConstants.DAY_MS
-        val missing = db.teamDao().crestCompetitionsForDay(from, to).mapNotNull { competition ->
+        val lanes = db.teamDao().crestCompetitionsForDay(from, to).mapNotNull { competition ->
             val teams = db.teamDao().crestlessTeamsForCompetitionDay(competition.id, from, to)
             if (teams.isEmpty()) null else competition.providerKey to teams
-        }.sortedByDescending { it.second.size }.take(6)
-            .map { (key, teams) ->
-                "$key ${teams.size}: " + teams.take(3).joinToString(", ") { it.name }
-            }
+        }.sortedByDescending { it.second.size }
+        val missing = lanes.take(6).map { (key, teams) ->
+            "$key ${teams.size}: " + teams.take(3).joinToString(", ") { it.name }
+        }
+        // A count says how many are missing; this says why one of them still is. A club that
+        // was asked and answered nothing cools down for a week; "never tried" means the sweep
+        // has not reached it, which is a different problem and a different fix.
+        val wanted = lanes.firstOrNull()?.second?.take(3).orEmpty()
+        val why = wanted.joinToString(" · ") { team ->
+            val gender = db.teamDao().fixtureGenders(team.id).singleOrNull() ?: "?"
+            val last = db.syncMetaDao()
+                .entity(com.footballai.app.data.local.CrestAttempts.key(team.id))?.updatedAt
+            val age = last?.let { written -> ((now - written) / TimeConstants.DAY_MS).coerceAtLeast(0) }
+            "${team.name} (" + listOf(team.kind, gender, age?.let { "asked ${it}d ago" } ?: "never asked")
+                .joinToString(", ") + ")"
+        }
         return "teams: $withCrest of $total with a crest · $sampleText" +
             (if (bySource.isEmpty()) "" else "\nby source: $bySource") +
-            (if (missing.isEmpty()) "" else "\nwithout a crest: " + missing.joinToString(" · "))
+            (if (missing.isEmpty()) "" else "\nwithout a crest: " + missing.joinToString(" · ")) +
+            (if (why.isEmpty()) "" else
+                "\ncooldown ${com.footballai.app.data.local.CrestAttempts.version()}: $why")
     }
 
     suspend fun matchEntity(matchId: String): MatchEntity? = db.matchDao().byId(matchId)

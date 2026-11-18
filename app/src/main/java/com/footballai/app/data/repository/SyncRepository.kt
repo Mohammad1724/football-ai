@@ -711,7 +711,11 @@ class SyncRepository(
             // Bumped to v7 with the fallback source's name rules: a club that was refused
             // because its published name was `Billericay Town` and the feed says `Billericay`
             // is asked once more instead of cooling down for a week.
-            db.syncMetaDao().put(SyncMetaEntity(CREST_ATTEMPT_PREFIX + team.id, "checked", clock.nowEpochMs()))
+            db.syncMetaDao().put(
+                SyncMetaEntity(
+                    com.footballai.app.data.local.CrestAttempts.key(team.id), "checked", clock.nowEpochMs(),
+                ),
+            )
             attempted++
         }
         if (priorityEpochMs == null) {
@@ -1083,9 +1087,6 @@ class SyncRepository(
          * front quarter.
          */
         private const val SPORTSDB_ATTEMPTS_PER_BATCH = 45
-
-        /** Kept in step with the `crest-attempt-v7:` literal in [com.footballai.app.data.local.dao.TeamDao]. */
-        private const val CREST_ATTEMPT_PREFIX = "crest-attempt-v7:"
 
         /** Badges are repaired in batches, so the batch runs hourly until none are left. */
         private const val CREST_BACKFILL_INTERVAL_MS = 60L * 60L * 1000L
