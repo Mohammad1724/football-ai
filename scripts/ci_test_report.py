@@ -30,6 +30,16 @@ def failures():
 def main():
     found = failures()
     body = "### failing unit tests\n\n" + ("\n".join(found) if found else "none found in the XML reports")
+    # A compile error leaves no XML behind; the build output does have the compiler's word.
+    errors = []
+    if os.path.exists("build-output.txt"):
+        with open("build-output.txt", encoding="utf-8", errors="replace") as handle:
+            lines = handle.read().splitlines()
+        errors = [line for line in lines if "e: file" in line or "error:" in line or "FAILURE:" in line][:12]
+        if not errors:
+            errors = lines[-25:]
+    if errors:
+        body += "\n\n### build output\n```\n" + "\n".join(errors)[:20000] + "\n```"
     print(body[:4000])
     token, repo, issue = os.environ.get("GH_TOKEN"), os.environ.get("REPO"), os.environ.get("ISSUE_NUMBER")
     if token and repo and issue:
