@@ -637,6 +637,9 @@ class SyncRepository(
             val slugs = competitionKeys
                 .mapNotNull { key -> com.footballai.app.data.remote.LeagueCrestIndex.LEAGUES[key] }
                 .distinct()
+            val documented = slugs.any { slug ->
+                leagueCrestIndex.league(slug) is Outcome.Success
+            }
             val alias = com.footballai.app.data.remote.CrestSearchAliases.lookup(
                 team.providerId, competitionKeys, team.name,
             )
@@ -661,8 +664,16 @@ class SyncRepository(
                 // Both search services treat slash-separated names as a single token.
                 team.name.replace('/', ' '),
             ).filter { it.isNotBlank() }.distinct()
+            // A competition the crest source does not document — no league document at all,
+            // which is the case for the German third tier, the English sixth tier and the
+            // Polish and Czech divisions — is not where a search answer comes from. Asking
+            // five spellings per club there spends the request budget of the whole batch on
+            // lanes that cannot answer and starves the fallback source of its turn. Those
+            // lanes get their own name and nothing else.
+            val espnQueries = if (documented) queries else listOf(team.name, team.name.replace('/', ' '))
+                .filter { it.isNotBlank() }.distinct()
             val searchWorthwhile = url == null && !roster.matched
-            for (query in if (searchWorthwhile) queries else emptyList()) {
+            for (query in if (searchWorthwhile) espnQueries else emptyList()) {
                 when (val result = provider.crestForTeamName(query, slugs.firstOrNull())) {
                     is Outcome.Success -> url = result.value
                     // In particular, do not consume the rest of the batch on quota errors.
@@ -679,7 +690,15 @@ class SyncRepository(
                 val gender = db.teamDao().fixtureGenders(team.id).singleOrNull()
                 if (gender != null) {
                     sportsDbAttempts++
-                    for (query in (listOfNotNull(alias, team.name) + queries).distinct()) {
+                    // The search is literal, so the spellings that can answer are the
+                    // published one, the verified alias, and the same words without the
+                    // legal form — "Rot-Weiss Essen" is published with a hyphen the feed
+                    // does not have. Each extra spelling costs a request at 2 seconds a
+                    // request, so the rest of the list is not tried here.
+                    val coreQuery = com.footballai.app.data.remote.ClubNameMatcher.core(team.name)
+                        .joinToString(" ")
+                    for (query in listOfNotNull(alias, team.name, coreQuery.takeIf { it.isNotBlank() })
+                        .distinct()) {
                         when (val result = sportsDbCrests.find(query, gender)) {
                             is Outcome.Success -> url = result.value
                             is Outcome.Failure -> return@withLock CrestBatch(filled, attempted, failed = true)
@@ -1057,8 +1076,13 @@ class SyncRepository(
         private const val CREST_BACKFILL_MARKER = "crest-backfill-v4"
         private const val CREST_RETRY_INTERVAL_MS = 7L * 24L * 60L * 60L * 1000L
 
-        /** TheSportsDB allows a few dozen lookups a minute; one batch takes a slice of them. */
-        private const val SPORTSDB_ATTEMPTS_PER_BATCH = 25
+        /**
+         * TheSportsDB allows a few dozen lookups a minute; one batch takes a slice of them.
+         * Each attempt is now at most three spellings, so a batch of 45 costs about what 25
+         * used to, while a sweep of four batches reaches the whole day view instead of its
+         * front quarter.
+         */
+        private const val SPORTSDB_ATTEMPTS_PER_BATCH = 45
 
         /** Kept in step with the `crest-attempt-v7:` literal in [com.footballai.app.data.local.dao.TeamDao]. */
         private const val CREST_ATTEMPT_PREFIX = "crest-attempt-v7:"

@@ -16,6 +16,12 @@ import java.util.concurrent.ConcurrentHashMap
 class LeagueCrestIndex(private val client: ApiClient) {
     private val json = Json { ignoreUnknownKeys = true }
     private val cache = ConcurrentHashMap<String, CacheEntry>()
+    /**
+     * Slugs that answered "no such league". Half the lower divisions are like this — the
+     * Ukrainian, Polish, Czech and Croatian first tiers, both English sixth tiers — and a
+     * failure is not cached above, so without this every club in such a lane asked again.
+     */
+    private val missing = ConcurrentHashMap<String, Long>()
     private data class CacheEntry(val createdAt: Long, val teams: List<LeagueCrestTeam>)
 
     suspend fun league(slug: String): Outcome<List<LeagueCrestTeam>> {
@@ -23,12 +29,26 @@ class LeagueCrestIndex(private val client: ApiClient) {
         if (cached != null && System.currentTimeMillis() - cached.createdAt in 0 until CACHE_MS) {
             return Outcome.Success(cached.teams)
         }
+        val missingAt = missing[slug]
+        if (missingAt != null && System.currentTimeMillis() - missingAt in 0 until CACHE_MS) {
+            return Outcome.Failure(AppError(ErrorCode.NOT_FOUND, detail = "no document for $slug"))
+        }
         val url = "https://site.api.espn.com/apis/site/v2/sports/soccer/$slug/teams"
         return when (val result = client.get("espn-open", QuotaPolicy(150, 3000), url, query = mapOf("limit" to "100"))) {
-            is Outcome.Failure -> result
+            is Outcome.Failure -> {
+                // "This league is not published" is a fact worth remembering; a quota or
+                // network failure is not, and is retried on the next club.
+                if (result.error.code == ErrorCode.NOT_FOUND || result.error.code == ErrorCode.PARSE_ERROR) {
+                    missing[slug] = System.currentTimeMillis()
+                }
+                result
+            }
             is Outcome.Success -> {
                 val teams = parse(result.value, slug)
-                if (teams == null) Outcome.Failure(AppError(ErrorCode.PARSE_ERROR, detail = "Invalid league teams"))
+                if (teams == null) {
+                    missing[slug] = System.currentTimeMillis()
+                    Outcome.Failure(AppError(ErrorCode.PARSE_ERROR, detail = "Invalid league teams"))
+                }
                 else {
                     cache[slug] = CacheEntry(System.currentTimeMillis(), teams)
                     Outcome.Success(teams)
