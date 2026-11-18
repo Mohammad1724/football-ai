@@ -1,7 +1,13 @@
 name: ESPN probe
 # Temporary: asks ESPN what it publishes and posts the answer on issue #40, because the
 # development workspace cannot open espn.com. Delete this workflow once the table is built.
-on: workflow_dispatch
+on:
+  # workflow_dispatch is only registered from the default branch, so run on push instead.
+  push:
+    paths:
+      - '.github/workflows/espn-probe.yml'
+      - 'scripts/espn_probe.py'
+  workflow_dispatch:
 permissions:
   contents: read
   issues: write
