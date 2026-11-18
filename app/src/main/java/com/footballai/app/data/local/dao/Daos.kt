@@ -155,10 +155,18 @@ interface TeamDao {
     )
     suspend fun crestlessInFixtures(limit: Int): List<TeamEntity>
 
-    /** Clubs still waiting for their first attempt under the current marker. */
+    /**
+     * Clubs still waiting for their first attempt under the current marker.
+     *
+     * The predicate is the one [crestlessInFixtures] selects with, so the number is the work
+     * the next sync can actually do — not every crestless row in the database.
+     */
     @Query(
         "SELECT COUNT(*) FROM teams t LEFT JOIN sync_meta a ON a.key = :prefix || t.id " +
             "WHERE (t.crestUrl IS NULL OR TRIM(t.crestUrl) = '') AND t.kind = 'CLUB' " +
+            "AND t.id IN (SELECT homeTeamId FROM matches UNION SELECT awayTeamId FROM matches) " +
+            "AND NOT (t.providerId = 'espn-open' AND TRIM(t.providerKey) != '' " +
+            "AND TRIM(t.providerKey) NOT GLOB '*[^0-9]*') " +
             "AND a.updatedAt IS NULL",
     )
     suspend fun waitingForCrestAttempt(prefix: String): Int
@@ -166,7 +174,8 @@ interface TeamDao {
     /** Clubs that were asked under the current marker and are still on initials. */
     @Query(
         "SELECT COUNT(*) FROM teams t JOIN sync_meta a ON a.key = :prefix || t.id " +
-            "WHERE (t.crestUrl IS NULL OR TRIM(t.crestUrl) = '') AND t.kind = 'CLUB'",
+            "WHERE (t.crestUrl IS NULL OR TRIM(t.crestUrl) = '') AND t.kind = 'CLUB' " +
+            "AND t.id IN (SELECT homeTeamId FROM matches UNION SELECT awayTeamId FROM matches)",
     )
     suspend fun askedWithoutCrest(prefix: String): Int
 
