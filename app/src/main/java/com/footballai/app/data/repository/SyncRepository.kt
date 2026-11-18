@@ -560,10 +560,22 @@ class SyncRepository(
         if (!force && now - last < STANDINGS_MAX_AGE_MS) return 0
         var filled = 0
         for (team in db.teamDao().crestlessInFixtures(limit)) {
-            val url = when (val result = provider.crestForTeamName(team.name)) {
-                is Outcome.Success -> result.value
-                is Outcome.Failure -> null
-            } ?: continue
+            // The archive's abbreviation first, written out in full ("Ein Frankfurt" ->
+            // "Eintracht Frankfurt"), because the source's search cannot know it; the
+            // published name is the fallback for a team that arrived under its own name.
+            val queries = listOfNotNull(
+                com.footballai.app.domain.catalog.TeamNames.canonicalName(team.name),
+                team.name,
+            ).filter { it.isNotBlank() }.distinct()
+            var url: String? = null
+            for (query in queries) {
+                url = when (val result = provider.crestForTeamName(query)) {
+                    is Outcome.Success -> result.value
+                    is Outcome.Failure -> null
+                }
+                if (url != null) break
+            }
+            if (url == null) continue
             db.teamDao().upsertAll(listOf(team.copy(crestUrl = url, updatedAt = now)))
             filled++
         }
@@ -758,10 +770,21 @@ class SyncRepository(
                 // A team discovered as a national team keeps that identity; a club-league
                 // fixture can never silently downgrade it.
                 val previous = knownTeams[id]
-                teams[id] = if (previous?.kind == TeamKind.NATIONAL.name && entity.kind != TeamKind.NATIONAL.name) {
+                val withKind = if (previous?.kind == TeamKind.NATIONAL.name && entity.kind != TeamKind.NATIONAL.name) {
                     entity.copy(kind = previous.kind, countryCode = entity.countryCode ?: previous.countryCode)
                 } else {
                     entity
+                }
+                // A source that publishes no badge must not take one away. The archive and
+                // the daily fixtures both arrive without crests, and overwriting the address
+                // a previous sync (or the crest backfill) had stored is what made a badge
+                // appear and then vanish the next time the screen was opened.
+                teams[id] = if (
+                    withKind.crestUrl.isNullOrBlank() && !previous?.crestUrl.isNullOrBlank()
+                ) {
+                    withKind.copy(crestUrl = previous.crestUrl)
+                } else {
+                    withKind
                 }
             }
         }

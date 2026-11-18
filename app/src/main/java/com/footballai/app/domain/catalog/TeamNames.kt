@@ -721,4 +721,161 @@ object TeamNames {
     Club("Flora Tallinn", "فلورا تالین", countryIso2 = "EE"),
     Club("Kauno Žalgiris", "کائونو ژالگیریس", countryIso2 = "LT"),
     )
+
+    /**
+     * The short team names football-data.co.uk publishes, written out in full.
+     *
+     * That archive abbreviates in its own style — "Ath Madrid", "Ein Frankfurt", "Nott'm
+     * Forest", "M'gladbach" — and none of those strings appears in any other source, so a
+     * club that arrived from the archive could never be matched to its crest or its Persian
+     * name. This is a dictionary, not a guess: every line is one published abbreviation and
+     * the club it stands for, and a name that is not listed here stays unmatched rather than
+     * being attached to the nearest club.
+     */
+    val footballDataNames: Map<String, String> = mapOf(
+        // Premier League
+        "arsenal" to "Arsenal",
+        "aston villa" to "Aston Villa",
+        "bournemouth" to "Bournemouth",
+        "brentford" to "Brentford",
+        "brighton" to "Brighton",
+        "chelsea" to "Chelsea",
+        "crystal palace" to "Crystal Palace",
+        "everton" to "Everton",
+        "fulham" to "Fulham",
+        "ipswich" to "Ipswich Town",
+        "leicester" to "Leicester City",
+        "liverpool" to "Liverpool",
+        "man city" to "Manchester City",
+        "man united" to "Manchester United",
+        "newcastle" to "Newcastle United",
+        "nott'm forest" to "Nottingham Forest",
+        "southampton" to "Southampton",
+        "spurs" to "Tottenham Hotspur",
+        "west ham" to "West Ham United",
+        "wolves" to "Wolverhampton Wanderers",
+        "sheffield utd" to "Sheffield United",
+        "sheffield weds" to "Sheffield Wednesday",
+        "west brom" to "West Bromwich Albion",
+        "norwich" to "Norwich City",
+        "watford" to "Watford",
+        "leeds" to "Leeds United",
+        "burnley" to "Burnley",
+        // La Liga
+        "alaves" to "Deportivo Alavés",
+        "ath bilbao" to "Athletic Club",
+        "ath madrid" to "Atlético Madrid",
+        "barcelona" to "Barcelona",
+        "betis" to "Real Betis",
+        "celta" to "Celta Vigo",
+        "espanyol" to "Espanyol",
+        "getafe" to "Getafe",
+        "girona" to "Girona",
+        "las palmas" to "Las Palmas",
+        "leganes" to "Leganés",
+        "mallorca" to "Mallorca",
+        "osasuna" to "Osasuna",
+        "rayo vallecano" to "Rayo Vallecano",
+        "real madrid" to "Real Madrid",
+        "sevilla" to "Sevilla",
+        "sociedad" to "Real Sociedad",
+        "valencia" to "Valencia",
+        "valladolid" to "Real Valladolid",
+        "villarreal" to "Villarreal",
+        // Bundesliga
+        "augsburg" to "FC Augsburg",
+        "bayern munich" to "Bayern Munich",
+        "bochum" to "VfL Bochum",
+        "darmstadt" to "Darmstadt 98",
+        "dortmund" to "Borussia Dortmund",
+        "ein frankfurt" to "Eintracht Frankfurt",
+        "freiburg" to "SC Freiburg",
+        "hamburg" to "Hamburger SV",
+        "heidenheim" to "1. FC Heidenheim",
+        "hertha" to "Hertha BSC",
+        "hoffenheim" to "TSG Hoffenheim",
+        "holstein kiel" to "Holstein Kiel",
+        "koln" to "FC Köln",
+        "fc koln" to "FC Köln",
+        "leverkusen" to "Bayer Leverkusen",
+        "m'gladbach" to "Borussia Mönchengladbach",
+        "mainz" to "Mainz 05",
+        "rb leipzig" to "RB Leipzig",
+        "schalke 04" to "Schalke 04",
+        "st pauli" to "FC St. Pauli",
+        "stuttgart" to "VfB Stuttgart",
+        "union berlin" to "Union Berlin",
+        "werder bremen" to "Werder Bremen",
+        "wolfsburg" to "VfL Wolfsburg",
+        // Serie A
+        "atalanta" to "Atalanta",
+        "bologna" to "Bologna",
+        "cagliari" to "Cagliari",
+        "como" to "Como",
+        "empoli" to "Empoli",
+        "fiorentina" to "Fiorentina",
+        "genoa" to "Genoa",
+        "inter" to "Inter Milan",
+        "juventus" to "Juventus",
+        "lazio" to "Lazio",
+        "lecce" to "Lecce",
+        "milan" to "AC Milan",
+        "monza" to "Monza",
+        "napoli" to "Napoli",
+        "parma" to "Parma",
+        "roma" to "AS Roma",
+        "torino" to "Torino",
+        "udinese" to "Udinese",
+        "venezia" to "Venezia",
+        "verona" to "Hellas Verona",
+        // Ligue 1
+        "angers" to "Angers",
+        "auxerre" to "AJ Auxerre",
+        "brest" to "Brest",
+        "clermont" to "Clermont Foot",
+        "le havre" to "Le Havre",
+        "lens" to "RC Lens",
+        "lille" to "Lille",
+        "lorient" to "Lorient",
+        "lyon" to "Olympique Lyonnais",
+        "marseille" to "Olympique Marseille",
+        "metz" to "FC Metz",
+        "monaco" to "AS Monaco",
+        "montpellier" to "Montpellier",
+        "nantes" to "FC Nantes",
+        "nice" to "OGC Nice",
+        "paris sg" to "Paris Saint-Germain",
+        "reims" to "Stade de Reims",
+        "rennes" to "Stade Rennais",
+        "st etienne" to "Saint-Étienne",
+        "strasbourg" to "RC Strasbourg",
+        "toulouse" to "Toulouse",
+    )
+
+    /**
+     * The full name of a club whose source published an abbreviation.
+     *
+     * Tried in order: the dictionary of published archive abbreviations, then the club
+     * catalogue's own names and aliases. Nothing is matched by similarity: "Milan" is a
+     * club and "Inter" is another one, and a badge or a name attached to the wrong club is
+     * worse than an English name and a monogram.
+     */
+    fun canonicalName(raw: String): String? {
+        val key = normalizeNameKey(raw)
+        if (key.isEmpty()) return null
+        footballDataNames[key]?.let { return it }
+        val club = clubs.firstOrNull { club ->
+            normalizeNameKey(club.english) == key ||
+                club.aliases.any { alias -> normalizeNameKey(alias) == key }
+        }
+        return club?.english
+    }
+
+    /** Case, accents and punctuation are not part of a club's name. */
+    fun normalizeNameKey(value: String): String {
+        val folded = java.text.Normalizer.normalize(value, java.text.Normalizer.Form.NFD)
+            .replace(Regex("\\p{Mn}+"), "")
+        return folded.lowercase().replace(Regex("[^a-z0-9']+"), " ").trim()
+    }
+
 }

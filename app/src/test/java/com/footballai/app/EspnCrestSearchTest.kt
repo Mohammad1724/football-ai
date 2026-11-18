@@ -66,6 +66,29 @@ class EspnCrestSearchTest {
     }
 
     @Test
+    fun `a longer published name is accepted when only one club can be meant`() {
+        val longer = """
+            {"items":[{"id":"124","name":"1. FC Köln","displayName":"1. FC Köln",
+             "logos":[{"href":"https://a.espncdn.com/i/teamlogos/soccer/500/124.png","rel":["default"]}]}]}
+        """.trimIndent()
+        assertEquals(
+            "https://a.espncdn.com/i/teamlogos/soccer/500/124.png",
+            provider.parseCrestSearch(longer, "FC Köln"),
+        )
+    }
+
+    @Test
+    fun `two clubs that could both be meant is not a match`() {
+        val ambiguous = """
+            {"items":[
+              {"id":"1","name":"Köln","logos":[{"href":"https://a.espncdn.com/i/teamlogos/soccer/500/1.png","rel":["default"]}]},
+              {"id":"2","name":"Köln II","logos":[{"href":"https://a.espncdn.com/i/teamlogos/soccer/500/2.png","rel":["default"]}]}
+            ]}
+        """.trimIndent()
+        assertNull(provider.parseCrestSearch(ambiguous, "FC Köln"))
+    }
+
+    @Test
     fun `an unconfirmed name gets no address rather than the nearest club`() {
         assertNull(provider.parseCrestSearch(payload, "Ein Frankfurt"))
     }

@@ -12,6 +12,7 @@ import com.footballai.app.data.provider.RemoteMatch
 import com.footballai.app.data.provider.RemoteStandingRow
 import com.footballai.app.data.provider.RemoteTeam
 import com.footballai.app.data.provider.RemoteTeamStatistics
+import com.footballai.app.domain.catalog.TeamNames
 import com.footballai.app.domain.model.MatchStatus
 import com.footballai.app.domain.model.ProviderCapabilities
 import com.footballai.app.domain.model.ProviderInfo
@@ -58,6 +59,13 @@ class EspnOpenProvider(
         /** The table lives under a different path prefix on the same host. */
         private const val STANDINGS_BASE_URL = "https://site.api.espn.com/apis/v2/sports/soccer"
         private const val SEARCH_BASE_URL = "https://site.api.espn.com/apis/common/v3/search"
+
+        /** Words that describe a club's legal form rather than which club it is. */
+        private val NAME_NOISE = setOf(
+            "fc", "afc", "ac", "cf", "sc", "as", "ss", "ssc", "us", "sv", "vfl", "vfb",
+            "tsg", "rc", "ogc", "aj", "club", "de", "futbol", "calcio", "1", "05", "04",
+            "98", "ii",
+        )
 
         /**
          * Days fetched per competition per sync: yesterday, today and the next two.
@@ -285,13 +293,13 @@ class EspnOpenProvider(
         val decoded = runCatching {
             json.decodeFromString(EspnSearchResponse.serializer(), payload)
         }.getOrNull() ?: return null
-        val wanted = normalizedName(query)
+        val wanted = TeamNames.normalizeNameKey(query)
         if (wanted.isEmpty()) return null
-        val match = decoded.items.firstOrNull { item ->
-            normalizedName(item.name) == wanted ||
-                normalizedName(item.displayName) == wanted ||
-                normalizedName(item.location) == wanted
-        } ?: return null
+        // An exact published name is the best answer and needs no tie-breaking.
+        val exact = decoded.items.firstOrNull { item ->
+            namesOf(item).any { name -> name == wanted }
+        }
+        val match = exact ?: uniqueByCoreName(decoded.items, wanted) ?: return null
         return match.logos
             .firstOrNull { logo -> logo.rel.any { it.equals("default", ignoreCase = true) } }
             ?.href
@@ -299,15 +307,31 @@ class EspnOpenProvider(
             ?: match.logos.firstOrNull()?.href?.takeIf { it.isNotBlank() }
     }
 
-    /** Diacritics, punctuation and case are not part of a club's identity. */
-    private fun normalizedName(value: String?): String {
-        if (value == null) return ""
-        val folded = java.text.Normalizer.normalize(value, java.text.Normalizer.Form.NFD)
-            .replace(Regex("\\p{Mn}+"), "")
-        return folded.lowercase()
-            .replace(Regex("[^a-z0-9]+"), " ")
-            .trim()
+    private fun namesOf(item: EspnSearchItem): List<String> =
+        listOfNotNull(item.name, item.displayName, item.location)
+            .map { name -> TeamNames.normalizeNameKey(name) }
+            .filter { it.isNotEmpty() }
+
+    /**
+     * The same club under a longer published name: "Köln" against "1. FC Köln".
+     *
+     * Only the tokens that name the club count — "fc", "ac", "cf" and friends describe a
+     * legal form, not an identity — and the answer is used only when exactly one candidate
+     * carries the whole core of the query. Two candidates that could both be meant is not a
+     * match, it is a guess.
+     */
+    private fun uniqueByCoreName(items: List<EspnSearchItem>, wanted: String): EspnSearchItem? {
+        val wantedCore = coreTokens(wanted)
+        if (wantedCore.isEmpty()) return null
+        val candidates = items.filter { item ->
+            val itemCore = namesOf(item).flatMap { name -> coreTokens(name) }.toSet()
+            wantedCore.all { token -> itemCore.contains(token) }
+        }
+        return candidates.singleOrNull()
     }
+
+    private fun coreTokens(value: String): List<String> =
+        value.split(' ').filter { token -> token.isNotEmpty() && token !in NAME_NOISE }
 
     /** One request per day, bounded to [WINDOW_DAYS] days around today. */
     private fun windowDates(fromEpochMs: Long?, toEpochMs: Long?): List<LocalDate> {
