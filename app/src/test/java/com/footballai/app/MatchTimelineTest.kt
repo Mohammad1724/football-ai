@@ -85,7 +85,8 @@ class MatchTimelineTest {
             includeHalfTime = true,
         )
         assertEquals("De Bruyne", entries[0].assistName)
-        val substitution = entries[1]
+        // The break sits between them: 45' falls after the goal and before the change.
+        val substitution = entries.single { it.kind == TimelineEntry.Kind.SUBSTITUTION }
         assertEquals(TimelineEntry.Kind.SUBSTITUTION, substitution.kind)
         assertEquals("Alvarez", substitution.playerName)
         assertEquals("Haaland", substitution.assistName)
