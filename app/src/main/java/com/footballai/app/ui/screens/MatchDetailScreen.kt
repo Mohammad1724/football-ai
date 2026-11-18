@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -43,6 +44,7 @@ import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Tab
+import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -76,6 +78,8 @@ import com.footballai.app.R
 import com.footballai.app.core.Formatters
 import com.footballai.app.domain.model.MarketType
 import com.footballai.app.domain.model.MatchDetail
+import com.footballai.app.domain.model.MatchStatus
+import com.footballai.app.domain.model.MatchTimeline
 import com.footballai.app.domain.model.TeamLineup
 import com.footballai.app.domain.model.MatchStatisticPair
 import com.footballai.app.domain.model.PredictionView
@@ -102,7 +106,9 @@ import com.footballai.app.ui.components.SectionHeader
 import com.footballai.app.ui.components.StatComparisonRow
 import com.footballai.app.ui.components.StatusChip
 import com.footballai.app.ui.components.TeamBadge
+import com.footballai.app.ui.components.HalfTimeRow
 import com.footballai.app.ui.components.TeamMonogram
+import com.footballai.app.ui.components.TimelineRow
 import com.footballai.app.ui.components.TeamNameLines
 import com.footballai.app.ui.errorLabel
 import com.footballai.app.ui.evidenceGapLabel
@@ -129,6 +135,7 @@ import kotlin.math.roundToInt
  */
 private const val TAB_ANALYSIS = "analysis"
 private const val TAB_LIVE = "live"
+private const val TAB_TIMELINE = "timeline"
 private const val TAB_STATISTICS = "statistics"
 private const val TAB_HEAD_TO_HEAD = "head_to_head"
 private const val TAB_LINEUPS = "lineups"
@@ -178,6 +185,9 @@ fun MatchDetailScreen(
     // A tab whose content the source cannot provide is not shown at all: an empty page
     // behind a real-looking tab reads as a broken app, not as an honest one.
     val hasStatistics = detail != null && detail.statistics.isNotEmpty()
+    // A timeline is offered when there is one or when the source said it publishes events;
+    // a league whose provider sends none gets no tab that could only ever be empty.
+    val hasTimeline = detail != null && (detail.events.isNotEmpty() || detail.summary.hasEvents)
     val hasHeadToHead = state.headToHead.isNotEmpty()
     // The ten-match tab is the detail behind the form card, so it appears only when there
     // is a history to detail: three finished matches is the floor below which the page
@@ -186,6 +196,7 @@ fun MatchDetailScreen(
     val tabKeys = buildList {
         add(TAB_ANALYSIS)
         if (hasLiveTabNow) add(TAB_LIVE)
+        if (hasTimeline) add(TAB_TIMELINE)
         if (hasStatistics) add(TAB_STATISTICS)
         if (hasHeadToHead) add(TAB_HEAD_TO_HEAD)
         if (recentTen != null) add(TAB_RECENT_TEN)
@@ -195,6 +206,7 @@ fun MatchDetailScreen(
         stringResource(
             when (key) {
                 TAB_LIVE -> R.string.tab_live
+                TAB_TIMELINE -> R.string.tab_timeline
                 TAB_STATISTICS -> R.string.tab_statistics
                 TAB_HEAD_TO_HEAD -> R.string.tab_head_to_head
                 TAB_RECENT_TEN -> R.string.tab_recent_ten
@@ -272,7 +284,9 @@ fun MatchDetailScreen(
                 )
             }
 
-            TabRow(selectedTabIndex = selectedTab) {
+            // Six or seven tabs do not fit one phone width: past five the row scrolls, so a
+            // label is never squeezed into an ellipsis. Below that the fixed row is calmer.
+            val tabContent: @Composable () -> Unit = {
                 tabs.forEachIndexed { index, title ->
                     Tab(
                         selected = selectedTab == index,
@@ -280,6 +294,13 @@ fun MatchDetailScreen(
                         text = { Text(title, style = MaterialTheme.typography.labelMedium) },
                     )
                 }
+            }
+            if (tabs.size > 5) {
+                ScrollableTabRow(selectedTabIndex = selectedTab, edgePadding = 4.dp) {
+                    tabContent()
+                }
+            } else {
+                TabRow(selectedTabIndex = selectedTab) { tabContent() }
             }
 
             // The download can only help when the archive itself is missing; an unknown
@@ -348,6 +369,12 @@ fun MatchDetailScreen(
                     TAB_LIVE -> LiveTab(
                         header = matchHeader,
                         prediction = state.prediction,
+                        detail = detail,
+                        languageTag = languageTag,
+                    )
+
+                    TAB_TIMELINE -> TimelineTab(
+                        header = matchHeader,
                         detail = detail,
                         languageTag = languageTag,
                     )
@@ -1589,6 +1616,72 @@ private fun LiveTab(
             }
         }
         item { Spacer(Modifier.height(24.dp)) }
+    }
+}
+
+/**
+ * The match minute by minute: goals with their maker and their passer, cards, substitutions
+ * and the half-time break where it happened.
+ *
+ * Nothing here is invented. When the source stored no events, the page says so in one line
+ * instead of drawing an empty hourglass, and the half-time score appears only when the source
+ * published one — a missing score is "not known", never 0-0.
+ */
+@Composable
+private fun TimelineTab(
+    header: @Composable () -> Unit,
+    detail: MatchDetail,
+    languageTag: String,
+) {
+    val summary = detail.summary
+    // The break belongs in the list once it has happened: at half-time or after it, which a
+    // finished match implies and a live one shows in its minute.
+    val halfTimeReached = summary.status == MatchStatus.HALF_TIME ||
+        summary.status.isFinished ||
+        (summary.minute ?: 0) > 45 ||
+        detail.events.any { it.minute > 45 }
+    val entries = remember(detail.events, summary.home.id, summary.away.id, halfTimeReached) {
+        MatchTimeline.build(
+            events = detail.events,
+            homeTeamId = summary.home.id,
+            awayTeamId = summary.away.id,
+            includeHalfTime = halfTimeReached,
+        )
+    }
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(bottom = 24.dp),
+    ) {
+        item { header() }
+        if (entries.isEmpty()) {
+            item {
+                EmptyState(
+                    title = stringResource(R.string.timeline_empty_title),
+                    message = stringResource(R.string.timeline_empty_message),
+                )
+            }
+        } else {
+            item {
+                Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+                    entries.forEach { entry ->
+                        if (entry.isHalfTime) {
+                            HalfTimeRow(
+                                halfTimeHomeGoals = summary.homeHalfTimeGoals,
+                                halfTimeAwayGoals = summary.awayHalfTimeGoals,
+                                languageTag = languageTag,
+                            )
+                        } else {
+                            TimelineRow(
+                                entry = entry,
+                                home = summary.home,
+                                away = summary.away,
+                                languageTag = languageTag,
+                            )
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
