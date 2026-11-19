@@ -549,6 +549,9 @@
     <string name="search_matches">Search matches</string>
     <string name="search_matches_hint">League, team or match…</string>
     <string name="search_local_description">Search the leagues, teams and fixtures already downloaded on this device.</string>
+    <string name="search_clear">Clear search</string>
+    <string name="search_start">Enter a league or team name to search.</string>
+    <string name="search_no_category_results">No results in this category. Try another category or search term.</string>
     <string name="search_all">All</string>
     <string name="search_competitions">Competitions</string>
     <string name="search_teams">Teams</string>

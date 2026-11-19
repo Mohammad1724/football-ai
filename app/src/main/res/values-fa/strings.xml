@@ -549,6 +549,9 @@
     <string name="search_matches">جست‌وجوی مسابقات</string>
     <string name="search_matches_hint">نام لیگ، تیم یا مسابقه…</string>
     <string name="search_local_description">در لیگ‌ها، تیم‌ها و مسابقات دریافت‌شده روی همین دستگاه جست‌وجو کنید.</string>
+    <string name="search_clear">پاک‌کردن متن جست‌وجو</string>
+    <string name="search_start">برای جست‌وجو نام لیگ یا تیم را وارد کنید.</string>
+    <string name="search_no_category_results">در این دسته نتیجه‌ای پیدا نشد. دسته یا عبارت دیگری را امتحان کنید.</string>
     <string name="search_all">همه</string>
     <string name="search_competitions">لیگ‌ها</string>
     <string name="search_teams">تیم‌ها</string>

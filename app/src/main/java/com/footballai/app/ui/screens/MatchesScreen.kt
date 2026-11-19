@@ -39,18 +39,13 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Groups
 import androidx.compose.material.icons.rounded.Search
-import androidx.compose.material.icons.rounded.SportsSoccer
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
@@ -104,7 +99,6 @@ import com.footballai.app.ui.components.ScrollableRefreshContent
 import com.footballai.app.ui.components.SwipeRefresh
 import com.footballai.app.ui.components.SyncStatusStrip
 import com.footballai.app.ui.components.TeamBadge
-import com.footballai.app.ui.components.TeamMonogram
 import com.footballai.app.ui.components.TeamNameLines
 import com.footballai.app.ui.matchStatusLabel
 import com.footballai.app.ui.components.RowDivider
@@ -376,154 +370,6 @@ private fun MatchCalendarDialog(
             }) { Text(stringResource(R.string.filter_today)) }
         },
     ) { DatePicker(state = pickerState, showModeToggle = false) }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun MatchSearchDialog(
-    state: MatchesUiState,
-    onQueryChange: (String) -> Unit,
-    onFilterChange: (MatchSearchFilter) -> Unit,
-    onDismiss: () -> Unit,
-    onCompetitionClick: (String) -> Unit,
-    onTeamClick: (TeamRef) -> Unit,
-    onMatchClick: (MatchSummary) -> Unit,
-) {
-    val languageTag = LocalLanguageTag.current
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        confirmButton = {},
-        modifier = Modifier.fillMaxWidth(),
-        title = {
-            OutlinedTextField(
-                value = state.searchQuery,
-                onValueChange = onQueryChange,
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                placeholder = { Text(stringResource(R.string.search_matches_hint)) },
-                leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
-                trailingIcon = {
-                    IconButton(onClick = onDismiss) {
-                        Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.action_close))
-                    }
-                },
-            )
-        },
-        text = {
-            val hasVisibleResults = when (state.searchFilter) {
-                MatchSearchFilter.ALL -> !state.searchResults.isEmpty
-                MatchSearchFilter.COMPETITIONS -> state.searchResults.competitions.isNotEmpty()
-                MatchSearchFilter.TEAMS -> state.searchResults.teams.isNotEmpty()
-                MatchSearchFilter.MATCHES -> state.searchResults.matches.isNotEmpty()
-            }
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(MatchSearchFilter.entries.size) { index ->
-                        val filter = MatchSearchFilter.entries[index]
-                        FilterChip(
-                            selected = state.searchFilter == filter,
-                            onClick = { onFilterChange(filter) },
-                            label = { Text(stringResource(filter.labelRes())) },
-                        )
-                    }
-                }
-                if (state.searchQuery.isBlank()) {
-                    Text(
-                        stringResource(R.string.search_local_description),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                } else if (!hasVisibleResults) {
-                    EmptyState(stringResource(R.string.empty_matches_title), stringResource(R.string.no_search_results))
-                } else {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxWidth().height(520.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        if ((state.searchFilter == MatchSearchFilter.ALL || state.searchFilter == MatchSearchFilter.COMPETITIONS) && state.searchResults.competitions.isNotEmpty()) {
-                            item { SearchSectionTitle(stringResource(R.string.search_competitions)) }
-                            items(state.searchResults.competitions.size) { index ->
-                                val competition = state.searchResults.competitions[index]
-                                SearchResultRow(
-                                    title = NameLocalization.competitionNamePair(
-                                        competition.name,
-                                        competition.id,
-                                        languageTag,
-                                    ).first,
-                                    subtitle = competition.country ?: stringResource(R.string.search_competitions),
-                                    icon = { Icon(Icons.Rounded.Groups, contentDescription = null) },
-                                    onClick = { onCompetitionClick(competition.id) },
-                                )
-                            }
-                        }
-                        if ((state.searchFilter == MatchSearchFilter.ALL || state.searchFilter == MatchSearchFilter.TEAMS) && state.searchResults.teams.isNotEmpty()) {
-                            item { SearchSectionTitle(stringResource(R.string.search_teams)) }
-                            items(state.searchResults.teams.size) { index ->
-                                val team = state.searchResults.teams[index]
-                                SearchResultRow(
-                                    title = NameLocalization.displayName(
-                                        team.name,
-                                        languageTag,
-                                        team.shortName,
-                                    ),
-                                    subtitle = team.name.takeIf {
-                                        NameLocalization.persianTeamName(team.name, team.shortName) != null
-                                    } ?: stringResource(R.string.search_team_matches),
-                                    icon = { TeamBadge(team, size = 26) },
-                                    onClick = { onTeamClick(team) },
-                                )
-                            }
-                        }
-                        if ((state.searchFilter == MatchSearchFilter.ALL || state.searchFilter == MatchSearchFilter.MATCHES) && state.searchResults.matches.isNotEmpty()) {
-                            item { SearchSectionTitle(stringResource(R.string.search_match_results)) }
-                            items(state.searchResults.matches.size) { index ->
-                                val match = state.searchResults.matches[index]
-                                RecentMatchRow(match = match, languageTag = LocalLanguageTag.current, onClick = { onMatchClick(match) })
-                            }
-                        }
-                    }
-                }
-            }
-        },
-    )
-}
-
-private fun MatchSearchFilter.labelRes(): Int = when (this) {
-    MatchSearchFilter.ALL -> R.string.search_all
-    MatchSearchFilter.COMPETITIONS -> R.string.search_competitions
-    MatchSearchFilter.TEAMS -> R.string.search_teams
-    MatchSearchFilter.MATCHES -> R.string.title_matches
-}
-
-@Composable
-private fun SearchSectionTitle(title: String) {
-    Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-}
-
-@Composable
-private fun SearchResultRow(
-    title: String,
-    subtitle: String,
-    icon: @Composable () -> Unit,
-    onClick: () -> Unit,
-) {
-    Surface(
-        onClick = onClick,
-        shape = RoundedCornerShape(14.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(12.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            icon()
-            Column {
-                Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
-    }
 }
 
 /**

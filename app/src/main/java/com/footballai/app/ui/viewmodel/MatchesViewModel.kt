@@ -15,9 +15,10 @@ import com.footballai.app.domain.model.TeamRef
 import java.time.Instant
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
-import java.util.Locale
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -26,6 +27,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -57,6 +59,13 @@ private data class MatchListData(
     /** Matches of the teams the user follows, shown above everything else. */
     val favourites: List<MatchSummary> = emptyList(),
     val availableMatchesCount: Int = 0,
+)
+
+private data class SearchInput(
+    val query: String,
+    val matches: List<MatchSummary>,
+    val competitions: List<Competition>,
+    val dailyAnalysis: Boolean,
 )
 
 /** Club or national-team fixtures. National teams are a first-class scope, not a corner case. */
@@ -118,6 +127,7 @@ data class MatchesUiState(
     val searchQuery: String = "",
     val searchFilter: MatchSearchFilter = MatchSearchFilter.ALL,
     val searchResults: MatchSearchResults = MatchSearchResults(),
+    val searchLoading: Boolean = false,
     val matches: List<MatchSummary> = emptyList(),
     val competitions: List<Competition> = emptyList(),
     /** Count before filters, for explaining an empty filtered list. */
@@ -325,9 +335,15 @@ class MatchesViewModel(private val container: AppContainer) : ViewModel() {
                 container.matchRepository.observeCompetitions(),
                 container.settingsRepository.settings,
             ) { query, matches, competitions, settings ->
-                buildSearchResults(query, matches, competitions, settings.dailyAnalysisEnabled)
-            }.collect { results ->
-                _state.update { it.copy(searchResults = results) }
+                SearchInput(query, matches, competitions, settings.dailyAnalysisEnabled)
+            }.mapLatest { input ->
+                input.query to withContext(Dispatchers.Default) {
+                    buildSearchResults(input.query, input.matches, input.competitions, input.dailyAnalysis)
+                }
+            }.collect { (query, results) ->
+                if (query == searchQuery.value) {
+                    _state.update { it.copy(searchResults = results, searchLoading = false) }
+                }
             }
         }
     }
@@ -337,8 +353,9 @@ class MatchesViewModel(private val container: AppContainer) : ViewModel() {
     }
 
     fun updateSearchQuery(query: String) {
+        if (query == searchQuery.value) return
         searchQuery.value = query
-        _state.update { it.copy(searchQuery = query) }
+        _state.update { it.copy(searchQuery = query, searchResults = MatchSearchResults(), searchLoading = query.isNotBlank()) }
     }
 
     fun setSearchFilter(filter: MatchSearchFilter) {
@@ -459,28 +476,29 @@ class MatchesViewModel(private val container: AppContainer) : ViewModel() {
             allCompetitions: List<Competition>,
             dailyAnalysis: Boolean,
         ): MatchSearchResults {
-            val query = rawQuery.trim().lowercase(Locale.ROOT)
+            val query = NameLocalization.normalize(rawQuery)
             if (query.isEmpty()) return MatchSearchResults()
             val matches = allMatches.filter { !dailyAnalysis || it.id.startsWith("football-data-co-uk:") }
+            fun contains(value: String?) = value != null && NameLocalization.normalize(value).contains(query)
+            fun competitionMatches(id: String, name: String) =
+                contains(name) || contains(NameLocalization.persianCompetitionName(id, name))
             val competitions = allCompetitions.filter { competition ->
                 (!dailyAnalysis || competition.providerId == "football-data-co-uk") &&
-                    (competition.name.lowercase(Locale.ROOT).contains(query) ||
-                        competition.country?.lowercase(Locale.ROOT)?.contains(query) == true)
+                    (competitionMatches(competition.id, competition.name) || contains(competition.country))
             }.take(20)
             val teams = matches.flatMap { listOf(it.home, it.away) }
                 .distinctBy { it.id }
-                .filter { team ->
-                    team.name.lowercase(Locale.ROOT).contains(query) ||
-                        NameLocalization.matches(rawQuery, team.name, team.shortName)
-                }
+                .filter { team -> NameLocalization.matches(rawQuery, team.name, team.shortName) }
                 .sortedBy { it.name }
                 .take(20)
+            // Resolve a translated league name once per id, not once per match row.
+            val leagueMatches = mutableMapOf<String, Boolean>()
             val matchingMatches = matches.filter { match ->
-                match.home.name.lowercase(Locale.ROOT).contains(query) ||
-                    match.away.name.lowercase(Locale.ROOT).contains(query) ||
-                    match.competitionName.lowercase(Locale.ROOT).contains(query) ||
-                    NameLocalization.matches(rawQuery, match.home.name, match.home.shortName) ||
-                    NameLocalization.matches(rawQuery, match.away.name, match.away.shortName)
+                NameLocalization.matches(rawQuery, match.home.name, match.home.shortName) ||
+                    NameLocalization.matches(rawQuery, match.away.name, match.away.shortName) ||
+                    leagueMatches.getOrPut(match.competitionId) {
+                        competitionMatches(match.competitionId, match.competitionName)
+                    }
             }.take(50)
             return MatchSearchResults(competitions, teams, matchingMatches)
         }

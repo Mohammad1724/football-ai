@@ -98,6 +98,25 @@ class MatchesViewModelTest {
     }
 
     @Test
+    fun `search finds Persian league names in competitions and fixtures respecting local scope`() {
+        val competition = Competition("espn-open:league:esp.1", "LaLiga", "Spain", null, 2026, "espn-open", true)
+        val match = MatchSummary(
+            id = "espn-open:1", competitionId = competition.id, competitionName = competition.name,
+            competitionEmblemUrl = null, home = TeamRef("home", "Barcelona"), away = TeamRef("away", "Real Madrid"),
+            kickoffEpochMs = 1L, status = MatchStatus.SCHEDULED, minute = null, homeGoals = null, awayGoals = null,
+            lastSyncedAt = 1L, hasStatistics = false, hasLineups = false, hasEvents = false, hasOdds = false,
+        )
+        val persian = MatchesViewModel.buildSearchResults("لالیگا", listOf(match), listOf(competition), false)
+        assertEquals(listOf(competition), persian.competitions)
+        assertEquals(listOf(match), persian.matches)
+        val arabicSpelling = MatchesViewModel.buildSearchResults("لاليگا", listOf(match), listOf(competition), false)
+        assertEquals(listOf(competition), arabicSpelling.competitions)
+        assertEquals(listOf(match), arabicSpelling.matches)
+        assertTrue(MatchesViewModel.buildSearchResults("لالیگا", listOf(match), listOf(competition), true).isEmpty)
+        assertTrue(MatchesViewModel.buildSearchResults("---", listOf(match), listOf(competition), false).isEmpty)
+    }
+
+    @Test
     fun `day windows respect daylight saving transitions`() {
         val zone = ZoneId.of("Europe/London")
         val now = Instant.parse("2026-10-26T12:00:00Z").toEpochMilli()
