@@ -18,6 +18,9 @@ import com.footballai.app.data.settings.SettingsRepository
 import java.time.Instant
 import java.time.ZoneId
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -81,7 +84,16 @@ class AutoSyncCoordinator(
     private val matchRepository: MatchRepository,
     private val networkMonitor: NetworkMonitor,
     private val clock: TimeProvider,
+    maintenanceScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
 ) {
+
+    // App-lifetime scope: enrichment continues after a screen's refresh finishes, but is
+    // best effort if Android stops the process. A later sync will schedule it again.
+    private val maintenance = OptionalSyncMaintenance(
+        scope = maintenanceScope,
+        standings = { provider, keys -> syncRepository.refreshStandings(provider, keys); Unit },
+        crests = { syncRepository.backfillCrests(); Unit },
+    )
 
     private val mutex = Mutex()
 
@@ -206,14 +218,11 @@ class AutoSyncCoordinator(
                 if (report.fixturesReceived > 0 || report.errors.isEmpty()) {
                     settingsRepository.setLastSync(clock.nowEpochMs())
                 }
-                runCatching { predictionRepository.resolveFinishedPredictions() }
-                // Tables are a once-a-day extra: after the fixtures, never before them.
-                runCatching {
-                    syncRepository.refreshStandings(providerId ?: "", settings.followedCompetitionKeys.toList())
-                }
-                // Badges: a club whose payload carried no logo gets its address from the
-                // source's own search, once a day, for teams that appear in a fixture.
-                runCatching { syncRepository.backfillCrests() }
+                // The daily pipeline already grades results; retry only if it aborted.
+                if (report.errors.isNotEmpty()) resolvePredictions()
+                // Tables and badge searches can take minutes; they update Room separately
+                // and must not keep the refresh indicator running after results are ready.
+                maintenance.schedule(providerId ?: "", settings.followedCompetitionKeys.toList())
                 val run = SyncRun(
                     added = report.fixturesReceived,
                     warnings = report.errors,
@@ -235,11 +244,8 @@ class AutoSyncCoordinator(
             ) {
                 is Outcome.Failure -> fail(result.error, now)
                 is Outcome.Success -> {
-                    runCatching { predictionRepository.resolveFinishedPredictions() }
-                    runCatching {
-                        syncRepository.refreshStandings(id, settings.followedCompetitionKeys.toList())
-                    }
-                    runCatching { syncRepository.backfillCrests() }
+                    resolvePredictions()
+                    maintenance.schedule(id, settings.followedCompetitionKeys.toList())
                     val run = SyncRun(
                         added = result.value.fixtures,
                         warnings = result.value.errors,
@@ -285,6 +291,16 @@ class AutoSyncCoordinator(
 
     /** Force the next automatic trigger to run, e.g. after the user changed sources. */
     fun forgetAttempt() = _state.update { it.copy(lastAttemptEpochMs = null) }
+
+    private suspend fun resolvePredictions() {
+        try {
+            predictionRepository.resolveFinishedPredictions()
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            // A grading failure does not discard already synced fixtures.
+        }
+    }
 
     private fun succeed(run: SyncRun) {
         lastCompleted = run
