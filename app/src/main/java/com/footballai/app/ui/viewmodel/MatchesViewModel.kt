@@ -56,6 +56,7 @@ private data class MatchListData(
     val sourceName: String,
     /** Matches of the teams the user follows, shown above everything else. */
     val favourites: List<MatchSummary> = emptyList(),
+    val availableMatchesCount: Int = 0,
 )
 
 /** Club or national-team fixtures. National teams are a first-class scope, not a corner case. */
@@ -64,6 +65,36 @@ enum class MatchKindFilter { ALL, CLUBS, NATIONAL }
 enum class MatchGenderFilter { ALL, MEN, WOMEN }
 
 enum class MatchSearchFilter { ALL, COMPETITIONS, TEAMS, MATCHES }
+enum class MatchEmptyReason { FILTERED, FILTERED_NO_DATA, NO_DATA }
+
+/** All match-list filters, independent from the date and search. */
+data class MatchFilters(
+    val competitionId: String? = null,
+    val followedOnly: Boolean = false,
+    val liveOnly: Boolean = false,
+    val kind: MatchKindFilter = MatchKindFilter.ALL,
+    val gender: MatchGenderFilter = MatchGenderFilter.ALL,
+) {
+    val activeCount: Int get() = listOf(
+        competitionId != null, followedOnly, liveOnly,
+        kind != MatchKindFilter.ALL, gender != MatchGenderFilter.ALL,
+    ).count { it }
+
+    fun accepts(match: MatchSummary, followedCompetitionIds: Set<String>): Boolean =
+        (competitionId == null || match.competitionId == competitionId) &&
+            (!followedOnly || match.competitionId in followedCompetitionIds) &&
+            (!liveOnly || match.status.isLive) &&
+            when (kind) {
+                MatchKindFilter.ALL -> true
+                MatchKindFilter.CLUBS -> !match.isNational
+                MatchKindFilter.NATIONAL -> match.isNational
+            } &&
+            when (gender) {
+                MatchGenderFilter.ALL -> true
+                MatchGenderFilter.MEN -> !match.isWomen
+                MatchGenderFilter.WOMEN -> match.isWomen
+            }
+}
 
 data class MatchSearchResults(
     val competitions: List<Competition> = emptyList(),
@@ -89,6 +120,8 @@ data class MatchesUiState(
     val searchResults: MatchSearchResults = MatchSearchResults(),
     val matches: List<MatchSummary> = emptyList(),
     val competitions: List<Competition> = emptyList(),
+    /** Count before filters, for explaining an empty filtered list. */
+    val availableMatchesCount: Int = 0,
     /** Daily-analysis mode only ever serves the football-data.co.uk club leagues. */
     val dailyAnalysisMode: Boolean = true,
     /** Which source is actually serving this list, so an empty day can be explained. */
@@ -115,7 +148,14 @@ data class MatchesUiState(
     /** Competitions finished and total, while a sync runs. */
     val syncDone: Int = 0,
     val syncTotal: Int = 0,
-)
+) {
+    val filters: MatchFilters get() = MatchFilters(competitionId, followedOnly, liveOnly, kind, gender)
+    val emptyReason: MatchEmptyReason get() = when {
+        filters.activeCount == 0 -> MatchEmptyReason.NO_DATA
+        availableMatchesCount > 0 -> MatchEmptyReason.FILTERED
+        else -> MatchEmptyReason.FILTERED_NO_DATA
+    }
+}
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class MatchesViewModel(private val container: AppContainer) : ViewModel() {
@@ -188,21 +228,11 @@ class MatchesViewModel(private val container: AppContainer) : ViewModel() {
                             .mapIndexed { index, competition -> competition.id to index }
                             .toMap()
                         val followedIds = availableCompetitions.filter { it.isFollowed }.map { it.id }.toSet()
+                        val filters = MatchFilters(selected.competitionId, selected.followedOnly,
+                            selected.liveOnly, selected.kind, selected.gender)
                         val visible = matches.filter { match ->
                             (!dailyAnalysis || match.id.startsWith("football-data-co-uk:")) &&
-                                (selected.competitionId == null || match.competitionId == selected.competitionId) &&
-                                (!selected.followedOnly || match.competitionId in followedIds) &&
-                                (!selected.liveOnly || match.status.isLive) &&
-                                when (selected.kind) {
-                                    MatchKindFilter.ALL -> true
-                                    MatchKindFilter.CLUBS -> !match.isNational
-                                    MatchKindFilter.NATIONAL -> match.isNational
-                                } &&
-                                when (selected.gender) {
-                                    MatchGenderFilter.ALL -> true
-                                    MatchGenderFilter.MEN -> !match.isWomen
-                                    MatchGenderFilter.WOMEN -> match.isWomen
-                                }
+                                filters.accepts(match, followedIds)
                         }.sortedWith(
                             compareBy(
                                 { competitionRanks[it.competitionId] ?: Int.MAX_VALUE },
@@ -229,6 +259,7 @@ class MatchesViewModel(private val container: AppContainer) : ViewModel() {
                             dailyAnalysis,
                             scope.sourceName,
                             favouriteMatches,
+                            matches.count { !dailyAnalysis || it.id.startsWith("football-data-co-uk:") },
                         )
                     }
                 }.collect { data ->
@@ -237,6 +268,7 @@ class MatchesViewModel(private val container: AppContainer) : ViewModel() {
                         it.copy(
                             matches = data.matches,
                             competitions = data.competitions,
+                            availableMatchesCount = data.availableMatchesCount,
                             isLoading = false,
                             selectedDayOffset = selected.dayOffset,
                             dailyAnalysisMode = data.dailyAnalysis,
@@ -322,6 +354,19 @@ class MatchesViewModel(private val container: AppContainer) : ViewModel() {
         if (dayOffset !in -3650..3650) return
         selection.update { it.copy(dayOffset = dayOffset) }
     }
+
+    /** Apply or reset a filter set in one emission; neither changes the selected day. */
+    fun applyFilters(filters: MatchFilters) {
+        selection.update { it.copy(
+            competitionId = filters.competitionId,
+            followedOnly = filters.followedOnly,
+            liveOnly = filters.liveOnly,
+            kind = filters.kind,
+            gender = filters.gender,
+        ) }
+    }
+
+    fun clearFilters() = applyFilters(MatchFilters())
 
     fun setCompetition(competitionId: String?) {
         selection.update { it.copy(competitionId = competitionId) }

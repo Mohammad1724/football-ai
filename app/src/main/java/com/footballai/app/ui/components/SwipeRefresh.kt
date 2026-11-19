@@ -225,13 +225,14 @@ fun SyncStatusStrip(
     isOnline: Boolean,
     languageTag: String,
     modifier: Modifier = Modifier,
+    sourceName: String? = null,
 ) {
     if (!isOnline) {
         OfflineBanner(modifier = modifier)
         return
     }
     val refreshing = isSyncing || isAuto
-    if (!refreshing && error == null && lastSyncEpochMs == null) return
+    if (!refreshing && error == null && lastSyncEpochMs == null && sourceName.isNullOrBlank()) return
 
     Surface(
         modifier = modifier.fillMaxWidth(),
@@ -243,44 +244,57 @@ fun SyncStatusStrip(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Start,
         ) {
-            if (refreshing) {
-                // No arc here: the words already say it, and three spinners on one
-                // screen (app bar, strip, pull) read as a bug rather than as progress.
-                Text(
-                    text = if (progressTotal > 0) {
-                        stringResource(
-                            R.string.sync_progress_label,
-                            Formatters.integer(progressDone, languageTag),
-                            Formatters.integer(progressTotal, languageTag),
+            Column(modifier = Modifier.weight(1f)) {
+                if (refreshing) {
+                    // No arc here: the words already say it, and three spinners on one
+                    // screen (app bar, strip, pull) read as a bug rather than as progress.
+                    Text(
+                        text = if (progressTotal > 0) {
+                            stringResource(
+                                R.string.sync_progress_label,
+                                Formatters.integer(progressDone, languageTag),
+                                Formatters.integer(progressTotal, languageTag),
+                            )
+                        } else {
+                            stringResource(R.string.sync_running_label)
+                        },
+                        style = MaterialTheme.typography.labelSmall,
+                    )
+                } else if (error != null && (isAuto || added == null)) {
+                    Text(
+                        text = errorLabel(error),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                } else if (lastSyncEpochMs != null) {
+                    val relative = Formatters.relative(lastSyncEpochMs, nowEpochMs, languageTag)
+                    val whenLabel = relativeLabel(relative, isPast = true)
+                    val suffix = if (added != null && added > 0) {
+                        " • " + stringResource(
+                            R.string.sync_added_suffix,
+                            Formatters.integer(added, languageTag),
                         )
                     } else {
-                        stringResource(R.string.sync_running_label)
-                    },
-                    style = MaterialTheme.typography.labelSmall,
-                )
-            } else if (error != null && (isAuto || added == null)) {
-                Text(
-                    text = errorLabel(error),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.error,
-                )
-            } else if (lastSyncEpochMs != null) {
-                val relative = Formatters.relative(lastSyncEpochMs, nowEpochMs, languageTag)
-                val whenLabel = relativeLabel(relative, isPast = true)
-                val suffix = if (added != null && added > 0) {
-                    " • " + stringResource(
-                        R.string.sync_added_suffix,
-                        Formatters.integer(added, languageTag),
+                        ""
+                    }
+                    Text(
+                        text = stringResource(
+                            R.string.sync_last_updated,
+                            whenLabel,
+                        ) + suffix,
+                        style = MaterialTheme.typography.labelSmall,
                     )
-                } else {
-                    ""
                 }
+            }
+            if (!sourceName.isNullOrBlank()) {
+                Spacer(Modifier.width(8.dp))
                 Text(
-                    text = stringResource(
-                        R.string.sync_last_updated,
-                        whenLabel,
-                    ) + suffix,
+                    text = stringResource(R.string.source_label, sourceName),
                     style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
                 )
             }
         }

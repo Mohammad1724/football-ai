@@ -3,9 +3,6 @@
 package com.footballai.app.ui.screens
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.shrinkVertically
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -16,10 +13,11 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -32,14 +30,13 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Groups
@@ -49,8 +46,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -74,7 +69,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
@@ -88,6 +82,8 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -115,8 +111,7 @@ import com.footballai.app.ui.components.SoftCard
 import com.footballai.app.ui.theme.FootballAiThemeExtra
 import com.footballai.app.ui.theme.Radii
 import com.footballai.app.ui.theme.Spacing
-import com.footballai.app.ui.viewmodel.MatchGenderFilter
-import com.footballai.app.ui.viewmodel.MatchKindFilter
+import com.footballai.app.ui.viewmodel.MatchEmptyReason
 import com.footballai.app.ui.viewmodel.MatchesUiState
 import com.footballai.app.ui.viewmodel.MatchSearchFilter
 import com.footballai.app.ui.viewmodel.MatchesViewModel
@@ -142,13 +137,10 @@ fun MatchesScreen(
     // in Persian and on the right in English.
     val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     var calendarOpen by remember { mutableStateOf(false) }
-    // Whether the filter block is folded away because the reader is scrolling the list.
-    var filtersCollapsed by remember { mutableStateOf(false) }
+    var filtersOpen by remember { mutableStateOf(false) }
     // True while the pull gesture's own indicator is on screen: the app bar must not spin
     // as well, or one refresh looks like three.
     var pullActive by remember { mutableStateOf(false) }
-    // Changing the day brings the filters back: a new day is a new question.
-    LaunchedEffect(state.selectedDayOffset) { filtersCollapsed = false }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -192,28 +184,13 @@ fun MatchesScreen(
                 languageTag = languageTag,
                 onDaySelected = viewModel::selectDay,
             )
-            // Three chip rows used to sit on top of the list for as long as the screen
-            // was open, together with the day tabs and the status strip — close to half
-            // the phone before a single fixture was visible. They now fold away as soon
-            // as the reader scrolls into the fixtures and come back at the top.
-            AnimatedVisibility(
-                visible = !filtersCollapsed,
-                enter = expandVertically(animationSpec = tween(200)),
-                exit = shrinkVertically(animationSpec = tween(180)),
-            ) {
-                Column {
-                    MatchFilters(state = state, viewModel = viewModel, languageTag = languageTag)
-                    MatchScopeFilters(state = state, viewModel = viewModel)
-                    if (state.sourceName.isNotBlank()) {
-                        Text(
-                            text = stringResource(R.string.source_label, state.sourceName),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
-                        )
-                    }
-                }
-            }
+            QuickMatchFilters(
+                state = state,
+                onOpen = { filtersOpen = true },
+                onFollowed = viewModel::toggleFollowedOnly,
+                onLive = viewModel::toggleLiveOnly,
+                languageTag = languageTag,
+            )
 
             SyncStatusStrip(
                 isSyncing = state.isSyncing || state.autoSyncing,
@@ -226,6 +203,7 @@ fun MatchesScreen(
                 error = state.lastError,
                 isOnline = state.isOnline,
                 languageTag = languageTag,
+                sourceName = state.sourceName,
             )
 
             SwipeRefresh(
@@ -268,26 +246,26 @@ fun MatchesScreen(
                             LoadingState()
                         } else if (state.matches.isEmpty()) {
                             ScrollableRefreshContent {
-                                // An empty day is usually a coverage fact, not a missing
-                                // fixture, so the empty state says which source served it and
-                                // offers the one-tap switch.
+                                val filtered = state.filters.activeCount > 0
                                 EmptyState(
                                     title = stringResource(
-                                        if (state.dailyAnalysisMode) R.string.empty_coverage_title else R.string.empty_filtered_matches_title,
+                                        if (filtered) R.string.match_empty_filtered_title else R.string.match_empty_day_title,
                                     ),
-                                    message = when {
-                                        state.dailyAnalysisMode -> stringResource(R.string.empty_daily_mode_message, state.sourceName)
-                                        state.kind == MatchKindFilter.NATIONAL -> stringResource(R.string.empty_no_national_message, state.sourceName)
-                                        state.selectedDayOffset < 0 -> stringResource(R.string.empty_recent_results_message)
-                                        else -> stringResource(R.string.empty_upcoming_message)
-                                    },
+                                    message = stringResource(when {
+                                        state.emptyReason == MatchEmptyReason.FILTERED -> R.string.match_empty_filtered_message
+                                        state.emptyReason == MatchEmptyReason.FILTERED_NO_DATA -> R.string.match_empty_filtered_no_data
+                                        state.dailyAnalysisMode -> R.string.match_empty_daily_message
+                                        else -> R.string.match_empty_day_message
+                                    }),
                                     actionLabel = when {
-                                        state.isSyncing || state.autoSyncing || state.switchingSource -> null
+                                        filtered -> stringResource(R.string.match_filters_clear)
+                                        state.isSyncing || state.autoSyncing || state.switchingSource || !state.isOnline -> null
                                         state.dailyAnalysisMode -> stringResource(R.string.action_enable_global_coverage)
                                         else -> stringResource(R.string.action_sync)
                                     },
                                     onAction = when {
-                                        state.isSyncing || state.autoSyncing || state.switchingSource -> null
+                                        filtered -> ({ viewModel.clearFilters() })
+                                        state.isSyncing || state.autoSyncing || state.switchingSource || !state.isOnline -> null
                                         state.dailyAnalysisMode -> ({ viewModel.enableGlobalCoverage() })
                                         else -> ({ viewModel.refresh() })
                                     },
@@ -317,7 +295,6 @@ fun MatchesScreen(
                                 languageTag = languageTag,
                                 onMatchClick = onMatchClick,
                                 onCompetitionClick = onCompetitionClick,
-                                onScrolled = { scrolled -> filtersCollapsed = scrolled },
                             )
                         }
                     }
@@ -326,6 +303,14 @@ fun MatchesScreen(
         }
     }
 
+    if (filtersOpen) {
+        MatchFiltersDialog(
+            initial = state.filters,
+            competitions = state.competitions,
+            onApply = viewModel::applyFilters,
+            onDismiss = { filtersOpen = false },
+        )
+    }
     if (calendarOpen) {
         MatchCalendarDialog(
             selectedDayOffset = state.selectedDayOffset,
@@ -649,130 +634,38 @@ private fun RecentDayTabs(
     Spacer(Modifier.height(8.dp))
 }
 
+/** The common choices stay visible; the full filter set is one tap away. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun MatchFilters(state: MatchesUiState, viewModel: MatchesViewModel, languageTag: String) {
-    var competitionMenuOpen by remember { mutableStateOf(false) }
-    val selectedCompetition = state.competitions.firstOrNull { it.id == state.competitionId }
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .horizontalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp, vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Box {
-            FilterChip(
-                selected = state.competitionId != null,
-                onClick = { competitionMenuOpen = true },
-                label = {
-                    Text(
-                        selectedCompetition?.let {
-                            NameLocalization.competitionNamePair(it.name, it.id, languageTag).first
-                        } ?: stringResource(R.string.filter_country_continent),
-                        maxLines = 1,
-                    )
-                },
-                trailingIcon = { Icon(Icons.Default.ArrowDropDown, contentDescription = null) },
-            )
-            DropdownMenu(
-                expanded = competitionMenuOpen,
-                onDismissRequest = { competitionMenuOpen = false },
-            ) {
-                DropdownMenuItem(
-                    text = { Text(stringResource(R.string.filter_all_competitions)) },
-                    onClick = {
-                        viewModel.setCompetition(null)
-                        competitionMenuOpen = false
-                    },
-                )
-                state.competitions.forEach { competition ->
-                    DropdownMenuItem(
-                        text = {
-                            Text(
-                                NameLocalization.competitionNamePair(
-                                    competition.name,
-                                    competition.id,
-                                    languageTag,
-                                ).first,
-                            )
-                        },
-                        onClick = {
-                            viewModel.setCompetition(competition.id)
-                            competitionMenuOpen = false
-                        },
-                    )
-                }
-            }
-        }
-        FilterChip(
-            selected = state.followedOnly,
-            onClick = viewModel::toggleFollowedOnly,
-            label = { Text(stringResource(R.string.filter_my_matches)) },
-        )
-        FilterChip(
-            selected = state.liveOnly,
-            onClick = viewModel::toggleLiveOnly,
-            label = { Text(stringResource(R.string.filter_live_results)) },
-        )
-    }
-}
-
-/**
- * Second filter row: scope (clubs / national teams) and gender.
- *
- * Both are first-class because the catalogue covers club football, national teams and
- * women's competitions, and a user must be able to see which of those a list contains.
- */
-@Composable
-private fun MatchScopeFilters(state: MatchesUiState, viewModel: MatchesViewModel) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .horizontalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp, vertical = 2.dp),
+private fun QuickMatchFilters(
+    state: MatchesUiState,
+    onOpen: () -> Unit,
+    onFollowed: () -> Unit,
+    onLive: () -> Unit,
+    languageTag: String,
+) {
+    val active = state.filters.activeCount
+    val followedDescription = stringResource(R.string.match_filter_followed)
+    FlowRow(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.page, vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically,
     ) {
-        MatchKindFilter.entries.forEach { kind ->
-            FilterChip(
-                selected = state.kind == kind,
-                onClick = { viewModel.setKindFilter(kind) },
-                label = {
-                    Text(
-                        stringResource(
-                            when (kind) {
-                                MatchKindFilter.ALL -> R.string.filter_all
-                                MatchKindFilter.CLUBS -> R.string.filter_clubs
-                                MatchKindFilter.NATIONAL -> R.string.filter_national
-                            },
-                        ),
-                    )
-                },
-            )
-        }
-        Box(
-            modifier = Modifier
-                .width(1.dp)
-                .height(20.dp)
-                .background(MaterialTheme.colorScheme.outlineVariant),
+        FilterChip(
+            selected = active > 0,
+            onClick = onOpen,
+            leadingIcon = { Icon(Icons.Default.Tune, contentDescription = null, modifier = Modifier.size(18.dp)) },
+            label = { Text(if (active > 0) stringResource(R.string.match_filters_count, Formatters.integer(active, languageTag))
+                else stringResource(R.string.match_filters_title), maxLines = 1, overflow = TextOverflow.Ellipsis) },
         )
-        MatchGenderFilter.entries.forEach { gender ->
-            FilterChip(
-                selected = state.gender == gender,
-                onClick = { viewModel.setGenderFilter(gender) },
-                label = {
-                    Text(
-                        stringResource(
-                            when (gender) {
-                                MatchGenderFilter.ALL -> R.string.filter_all
-                                MatchGenderFilter.MEN -> R.string.filter_men
-                                MatchGenderFilter.WOMEN -> R.string.filter_women
-                            },
-                        ),
-                    )
-                },
-            )
-        }
+        FilterChip(
+            modifier = Modifier.semantics { contentDescription = followedDescription },
+            selected = state.followedOnly, onClick = onFollowed,
+            label = { Text(stringResource(R.string.match_filter_followed_short), maxLines = 1, overflow = TextOverflow.Ellipsis) },
+        )
+        FilterChip(
+            selected = state.liveOnly, onClick = onLive,
+            label = { Text(stringResource(R.string.match_filter_live), maxLines = 1, overflow = TextOverflow.Ellipsis) },
+        )
     }
 }
 
@@ -782,16 +675,8 @@ private fun GroupedMatchList(
     languageTag: String,
     onMatchClick: (String) -> Unit,
     onCompetitionClick: (String) -> Unit = {},
-    onScrolled: (Boolean) -> Unit = {},
 ) {
     val listState = rememberLazyListState()
-    // "Scrolled" means the reader has left the top of the list by a comfortable margin;
-    // coming back within it restores the filters, so they never feel lost.
-    LaunchedEffect(listState) {
-        snapshotFlow {
-            listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 64
-        }.collect { onScrolled(it) }
-    }
     // Matches already arrive sorted by the user's competition order, and groupBy keeps
     // the order in which each competition first appears, so the sections follow it too.
     // A followed team comes first: this section is the reason the user opened the app.
@@ -817,7 +702,7 @@ private fun GroupedMatchList(
             top = Spacing.sm,
             bottom = Spacing.xxl,
         ),
-        verticalArrangement = Arrangement.spacedBy(Spacing.md),
+        verticalArrangement = Arrangement.spacedBy(Spacing.sm),
     ) {
         if (favourites.isNotEmpty()) {
             item(key = "favourites") {
@@ -1014,7 +899,7 @@ private fun RecentMatchRow(
             // the team line collapsed to zero height and vanished.
             MatchTeam(match.home, languageTag, Modifier.fillMaxWidth())
         }
-        MatchMoment(match, languageTag, Modifier.width(84.dp))
+        MatchMoment(match, languageTag, Modifier.width(72.dp))
         MatchTeam(match.away, languageTag, Modifier.weight(1f))
     }
 }
@@ -1022,8 +907,8 @@ private fun RecentMatchRow(
 @Composable
 private fun MatchTeam(team: TeamRef, languageTag: String, modifier: Modifier = Modifier) {
     Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
-        TeamBadge(team, size = 30)
-        Spacer(Modifier.width(8.dp))
+        TeamBadge(team, size = 28)
+        Spacer(Modifier.width(6.dp))
         TeamNameLines(
             team = team,
             languageTag = languageTag,

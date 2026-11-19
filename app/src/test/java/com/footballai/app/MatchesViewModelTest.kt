@@ -4,12 +4,19 @@ import com.footballai.app.domain.model.Competition
 import com.footballai.app.domain.model.MatchStatus
 import com.footballai.app.domain.model.MatchSummary
 import com.footballai.app.domain.model.TeamRef
+import com.footballai.app.domain.model.TeamKind
+import com.footballai.app.ui.viewmodel.MatchFilters
+import com.footballai.app.ui.viewmodel.MatchKindFilter
+import com.footballai.app.ui.viewmodel.MatchGenderFilter
+import com.footballai.app.ui.viewmodel.MatchEmptyReason
+import com.footballai.app.ui.viewmodel.MatchesUiState
 import com.footballai.app.ui.viewmodel.MatchesViewModel
 import java.time.Instant
 import java.time.ZoneId
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlin.test.assertFalse
 
 class MatchesViewModelTest {
 
@@ -100,4 +107,34 @@ class MatchesViewModelTest {
         assertEquals(Instant.parse("2026-10-26T00:00:00Z").toEpochMilli(), end)
         assertEquals(25 * 60 * 60 * 1000L, end - start)
     }
+    @Test
+    fun `filter count and empty reasons reflect active filters and stored matches`() {
+        assertEquals(0, MatchFilters().activeCount)
+        val filters = MatchFilters("league", true, true, MatchKindFilter.NATIONAL, MatchGenderFilter.WOMEN)
+        assertEquals(5, filters.activeCount)
+        assertEquals(3, filters.copy(competitionId = null, liveOnly = false).activeCount)
+        assertEquals(MatchEmptyReason.NO_DATA, MatchesUiState().emptyReason)
+        assertEquals(MatchEmptyReason.FILTERED_NO_DATA, MatchesUiState(liveOnly = true).emptyReason)
+        assertEquals(MatchEmptyReason.FILTERED, MatchesUiState(liveOnly = true, availableMatchesCount = 1).emptyReason)
+    }
+
+    @Test
+    fun `all filter choices are applied together without changing their meaning`() {
+        val nationalTeam = TeamRef("a", "Team A", kind = TeamKind.NATIONAL)
+        val match = MatchSummary(
+            id = "match", competitionId = "league", competitionName = "League", competitionEmblemUrl = null,
+            home = nationalTeam, away = TeamRef("b", "Team B"), kickoffEpochMs = 1,
+            status = MatchStatus.LIVE, minute = null, homeGoals = 1, awayGoals = 0, lastSyncedAt = 1,
+            hasStatistics = false, hasLineups = false, hasEvents = false, hasOdds = false, gender = "WOMEN",
+        )
+        val filters = MatchFilters("league", true, true, MatchKindFilter.NATIONAL, MatchGenderFilter.WOMEN)
+        assertTrue(filters.accepts(match, setOf("league")))
+        assertFalse(filters.accepts(match, emptySet()))
+        assertFalse(filters.accepts(match.copy(status = MatchStatus.SCHEDULED), setOf("league")))
+        assertFalse(filters.accepts(match.copy(gender = "MEN"), setOf("league")))
+        assertFalse(filters.accepts(match.copy(home = TeamRef("a", "Club")), setOf("league")))
+        assertFalse(filters.accepts(match.copy(competitionId = "other"), setOf("other")))
+        assertTrue(MatchFilters().accepts(match, emptySet()))
+    }
+
 }
