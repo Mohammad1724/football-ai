@@ -147,6 +147,8 @@ class AppContainer(context: Context) {
      * it. Every refresh button and every automatic trigger goes through it, so two syncs
      * can never run at once and the UI always shows the truth about what is happening.
      */
+    val syncDiagnostics = com.footballai.app.data.sync.SyncDiagnosticsStore(database.syncMetaDao())
+
     val autoSyncCoordinator: com.footballai.app.data.sync.AutoSyncCoordinator =
         com.footballai.app.data.sync.AutoSyncCoordinator(
             settingsRepository = settingsRepository,
@@ -157,6 +159,7 @@ class AppContainer(context: Context) {
             matchRepository = matchRepository,
             networkMonitor = networkMonitor,
             clock = clock,
+            diagnostics = syncDiagnostics,
         )
 
     val performanceRepository: PerformanceRepository = PerformanceRepository(

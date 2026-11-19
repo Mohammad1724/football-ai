@@ -226,11 +226,12 @@ fun errorLabel(error: AppError): String {
             ErrorCode.EMPTY_RESPONSE -> R.string.error_empty
             ErrorCode.NOT_FOUND -> R.string.error_not_found
             ErrorCode.STORAGE_ERROR -> R.string.error_storage
-            ErrorCode.UNKNOWN -> R.string.error_unknown
+            ErrorCode.UNKNOWN -> if (error.detail == "PREDICTION_RESOLUTION_FAILED")
+                R.string.error_prediction_resolution else R.string.error_unknown
         },
     )
     val detail = error.detail
-    return if (error.code == ErrorCode.UNKNOWN && !detail.isNullOrBlank()) "$label — $detail" else label
+    return if (error.code == ErrorCode.UNKNOWN && !detail.isNullOrBlank() && detail != "PREDICTION_RESOLUTION_FAILED") "$label — $detail" else label
 }
 
 @Composable

@@ -6,6 +6,7 @@ import com.footballai.app.data.local.FootballDatabase
 import com.footballai.app.data.local.entity.SyncMetaEntity
 import com.footballai.app.data.local.mapper.Ids
 import com.footballai.app.data.remote.FootballDataCoUkProvider
+import com.footballai.app.data.sync.SyncTimingRecorder
 import com.footballai.app.domain.model.QualityLevel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -35,6 +36,7 @@ data class DailyAnalysisReport(
     val insufficientHistory: Int = 0,
     val failed: Int = 0,
     val resolved: Int = 0,
+    val gradingCompleted: Boolean = false,
     val errors: List<String> = emptyList(),
 )
 
@@ -69,7 +71,10 @@ class DailyAnalysisRepository(
             Instant.ofEpochMilli(clock.nowEpochMs()).atZone(zone).toLocalDate()
     }
 
-    suspend fun run(onProgress: (Int, Int) -> Unit = { _, _ -> }): DailyAnalysisReport = mutex.withLock {
+    suspend fun run(
+        onProgress: (Int, Int) -> Unit = { _, _ -> },
+        timing: SyncTimingRecorder? = null,
+    ): DailyAnalysisReport = mutex.withLock {
         withContext(Dispatchers.Default) {
             val now = clock.nowEpochMs()
             val source = registry.activeProviderId() ?: FootballDataCoUkProvider.PROVIDER_ID
@@ -105,19 +110,21 @@ class DailyAnalysisRepository(
                 val pendingSeasons = csvSeasons(db.matchDao().pendingResults(source, now), source)
                 total += pendingSeasons.size
                 onProgress(progressDone.get(), total)
-                errors.recordErrors(importAll(pendingSeasons, now) { step() })
+                errors.recordErrors(timed(timing, "results") { importAll(pendingSeasons, now) { step() } })
 
                 if (!fastPass) {
-                    when (val result = sync.syncCompetitions(source)) {
-                        is Outcome.Failure -> errors += result.error.code.name
-                        is Outcome.Success -> Unit
-                    }
-                    when (val result = sync.syncFixtures(source, competitionKeys = fixtureKeys,
-                        daysBack = if (source == "football-data-org") 7 else 0, daysAhead = 10, allowFallback = false, onProgress = onProgress)) {
-                        is Outcome.Failure -> errors += result.error.code.name
-                        is Outcome.Success -> {
-                            report = report.copy(fixturesReceived = result.value.fixtures)
-                            errors += result.value.errors
+                    timed(timing, "fixtures") {
+                        when (val result = sync.syncCompetitions(source)) {
+                            is Outcome.Failure -> errors += result.error.code.name
+                            is Outcome.Success -> Unit
+                        }
+                        when (val result = sync.syncFixtures(source, competitionKeys = fixtureKeys,
+                            daysBack = if (source == "football-data-org") 7 else 0, daysAhead = 10, allowFallback = false, onProgress = onProgress)) {
+                            is Outcome.Failure -> errors += result.error.code.name
+                            is Outcome.Success -> {
+                                report = report.copy(fixturesReceived = result.value.fixtures)
+                                errors += result.value.errors
+                            }
                         }
                     }
                     db.syncMetaDao().put(SyncMetaEntity(FULL_PASS_KEY, "done", now))
@@ -131,29 +138,32 @@ class DailyAnalysisRepository(
                 val candidateSeasons = csvSeasons(candidates, source).filter { it !in pendingSeasons }
                 total += candidateSeasons.size + candidates.size
                 onProgress(progressDone.get(), total)
-                errors.recordErrors(importAll(candidateSeasons, now) { step() })
+                errors.recordErrors(timed(timing, "history") { importAll(candidateSeasons, now) { step() } })
 
-                for (match in candidates) {
-                    if (db.predictionDao().firstPreMatch(match.id, PredictionRepository.MODEL_VERSION) != null) {
-                        report = report.copy(alreadySaved = report.alreadySaved + 1)
-                    } else {
-                        val asOf = clock.nowEpochMs()
-                        val strengths = ratings.strengths(source, match.competitionId, match.homeTeamId, match.awayTeamId, asOf)
-                        val count = ratings.matchCount(source, match.competitionId)
-                        if (!DailyAnalysisPolicy.hasEnoughHistory(count, strengths.first.matchesUsed, strengths.second.matchesUsed)) {
-                            report = report.copy(insufficientHistory = report.insufficientHistory + 1)
+                timed(timing, "predictions") {
+                    for (match in candidates) {
+                        if (db.predictionDao().firstPreMatch(match.id, PredictionRepository.MODEL_VERSION) != null) {
+                            report = report.copy(alreadySaved = report.alreadySaved + 1)
                         } else {
-                            when (val result = predictions.predict(match.id)) {
-                                is Outcome.Failure -> report = if (result.error.code == com.footballai.app.core.ErrorCode.INSUFFICIENT_HISTORY)
-                                    report.copy(insufficientHistory = report.insufficientHistory + 1)
-                                    else report.copy(failed = report.failed + 1)
-                                is Outcome.Success -> report = report.copy(predicted = report.predicted + 1)
+                            val asOf = clock.nowEpochMs()
+                            val strengths = ratings.strengths(source, match.competitionId, match.homeTeamId, match.awayTeamId, asOf)
+                            val count = ratings.matchCount(source, match.competitionId)
+                            if (!DailyAnalysisPolicy.hasEnoughHistory(count, strengths.first.matchesUsed, strengths.second.matchesUsed)) {
+                                report = report.copy(insufficientHistory = report.insufficientHistory + 1)
+                            } else {
+                                when (val result = predictions.predict(match.id)) {
+                                    is Outcome.Failure -> report = if (result.error.code == com.footballai.app.core.ErrorCode.INSUFFICIENT_HISTORY)
+                                        report.copy(insufficientHistory = report.insufficientHistory + 1)
+                                        else report.copy(failed = report.failed + 1)
+                                    is Outcome.Success -> report = report.copy(predicted = report.predicted + 1)
+                                }
                             }
                         }
+                        step()
                     }
-                    step()
                 }
-                report = report.copy(resolved = predictions.resolveFinishedPredictions())
+                val resolved = timed(timing, "grading") { predictions.resolveFinishedPredictions() }
+                report = report.copy(resolved = resolved, gradingCompleted = true)
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
@@ -164,6 +174,9 @@ class DailyAnalysisRepository(
             report
         }
     }
+
+    private suspend fun <T> timed(timing: SyncTimingRecorder?, phase: String, block: suspend () -> T): T =
+        if (timing == null) block() else timing.measure(phase, block)
 
     /** The league-season files that can contain the result of these matches. */
     private fun csvSeasons(matches: List<com.footballai.app.data.local.entity.MatchEntity>, source: String): List<Pair<String, Int>> =

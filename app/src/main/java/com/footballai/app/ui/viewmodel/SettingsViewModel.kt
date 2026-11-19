@@ -50,6 +50,7 @@ data class SettingsUiState(
     val syncTotal: Int = 0,
     val syncWarnings: List<String> = emptyList(),
     val justSynced: Int = 0,
+    val syncTiming: com.footballai.app.data.sync.SyncTimingReport? = null,
 )
 
 class SettingsViewModel(private val container: AppContainer) : ViewModel() {
@@ -74,6 +75,11 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
                 .map { it.favouritePlayers }
                 .distinctUntilChanged()
                 .collect { entries -> resolveFollowedPlayers(entries) }
+        }
+        viewModelScope.launch {
+            container.syncDiagnostics.reports.collect { report ->
+                _state.update { it.copy(syncTiming = report) }
+            }
         }
         refreshCounts()
     }

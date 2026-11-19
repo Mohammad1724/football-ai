@@ -138,7 +138,7 @@ data class PredictionsUiState(
     val upcomingCount: Int = 0,
     val resolvedCount: Int = 0,
     val resolving: Boolean = false,
-    val resolvedNow: Int = 0,
+    val resolvedNow: Int? = 0,
     /** True while the screen's refresh gesture is running a full sync. */
     val refreshing: Boolean = false,
     /** Fixtures the last refresh received; 0 is a valid answer, not a failure. */
@@ -256,8 +256,13 @@ class PredictionsViewModel(private val container: AppContainer) : ViewModel() {
                 when (val result = container.autoSyncCoordinator.syncNow(SyncTrigger.MANUAL)) {
                     is Outcome.Failure -> _state.update { it.copy(lastError = result.error) }
                     is Outcome.Success -> {
-                        val resolved = container.predictionRepository.resolveFinishedPredictions()
-                        _state.update { it.copy(resolvedNow = resolved, lastSyncedAdded = result.value.added) }
+                        _state.update { it.copy(
+                            resolvedNow = result.value.resolved,
+                            lastSyncedAdded = result.value.added,
+                            lastError = if (result.value.resolved == null)
+                                AppError(com.footballai.app.core.ErrorCode.UNKNOWN, detail = "PREDICTION_RESOLUTION_FAILED")
+                            else null,
+                        ) }
                     }
                 }
             } catch (cancelled: kotlinx.coroutines.CancellationException) {

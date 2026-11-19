@@ -21,6 +21,8 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -41,6 +43,8 @@ data class SyncRun(
     val fallbackProviderId: String?,
     val dailyReport: DailyAnalysisReport?,
     val providerName: String?,
+    /** Null means grading failed; zero means it completed and found nothing. */
+    val resolved: Int? = null,
 )
 
 /**
@@ -85,6 +89,7 @@ class AutoSyncCoordinator(
     private val networkMonitor: NetworkMonitor,
     private val clock: TimeProvider,
     maintenanceScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
+    private val diagnostics: SyncDiagnosticsStore? = null,
 ) {
 
     // App-lifetime scope: enrichment continues after a screen's refresh finishes, but is
@@ -180,6 +185,9 @@ class AutoSyncCoordinator(
                 progressTotal = 0,
             )
         }
+        var timing: SyncTimingRecorder? = null
+        var mode = "unknown"
+        var timingStatus = "failed"
         try {
             val previous = _state.value
             val justFinished = previous.lastSuccessEpochMs
@@ -189,15 +197,11 @@ class AutoSyncCoordinator(
                 // A sync finished a moment ago; repeating it would download the same
                 // answer again and make the button feel slow for no gain.
                 return Outcome.Success(
-                    SyncRun(
-                        added = previous.lastAdded,
-                        warnings = previous.lastWarnings,
-                        fallbackProviderId = previous.lastFallbackProviderId,
-                        dailyReport = null,
-                        providerName = null,
-                    ),
+                    lastCompleted?.copy(resolved = lastCompleted?.resolved?.let { 0 })
+                        ?: SyncRun(previous.lastAdded, previous.lastWarnings, previous.lastFallbackProviderId, null, null),
                 )
             }
+            timing = SyncTimingRecorder()
             if (!networkMonitor.isOnlineNow()) {
                 return fail(AppError(ErrorCode.NETWORK_UNAVAILABLE), now)
             }
@@ -209,63 +213,81 @@ class AutoSyncCoordinator(
                 _state.update { it.copy(progressDone = done, progressTotal = total) }
                 onProgress(done, total)
             }
+            mode = if (dailyMode) "daily" else "provider"
             if (dailyMode) {
                 // The daily analysis path downloads the CSVs, rebuilds the ratings and
                 // stores predictions; it *is* the sync for this mode.
-                val report = dailyAnalysisRepository.run(progress)
+                val report = dailyAnalysisRepository.run(progress, timing)
                 // Claiming a refresh that produced nothing at all would be a lie: the strip
                 // would say "just now" on top of data that was never updated.
                 if (report.fixturesReceived > 0 || report.errors.isEmpty()) {
                     settingsRepository.setLastSync(clock.nowEpochMs())
                 }
-                // The daily pipeline already grades results; retry only if it aborted.
-                if (report.errors.isNotEmpty()) resolvePredictions()
+                // Retry only if the daily pipeline never completed grading.
+                val resolved = if (report.gradingCompleted) report.resolved
+                    else timing.measure("grading") { resolvePredictions() }
+                val warnings = report.errors + if (resolved == null) listOf("PREDICTION_RESOLUTION_FAILED") else emptyList()
                 // Tables and badge searches can take minutes; they update Room separately
                 // and must not keep the refresh indicator running after results are ready.
                 maintenance.schedule(providerId ?: "", settings.followedCompetitionKeys.toList())
                 val run = SyncRun(
                     added = report.fixturesReceived,
-                    warnings = report.errors,
+                    warnings = warnings,
                     fallbackProviderId = null,
                     dailyReport = report,
                     providerName = providerRegistry.activeInfo(settings)?.displayName,
+                    resolved = resolved,
                 )
+                timingStatus = if (warnings.isEmpty() && report.failed == 0) "success" else "partial"
                 succeed(run)
                 return Outcome.Success(run)
             }
             val id = providerId ?: return fail(AppError(ErrorCode.MISSING_API_KEY), now)
             return when (
-                val result = syncRepository.syncFixtures(
-                    providerId = id,
-                    daysBack = DAYS_BACK,
-                    daysAhead = DAYS_AHEAD,
-                    onProgress = progress,
-                )
+                val result = timing.measure("fixtures") {
+                    syncRepository.syncFixtures(
+                        providerId = id,
+                        daysBack = DAYS_BACK,
+                        daysAhead = DAYS_AHEAD,
+                        onProgress = progress,
+                    )
+                }
             ) {
                 is Outcome.Failure -> fail(result.error, now)
                 is Outcome.Success -> {
-                    resolvePredictions()
+                    val resolved = timing.measure("grading") { resolvePredictions() }
+                    val warnings = result.value.errors + if (resolved == null) listOf("PREDICTION_RESOLUTION_FAILED") else emptyList()
                     maintenance.schedule(id, settings.followedCompetitionKeys.toList())
                     val run = SyncRun(
                         added = result.value.fixtures,
-                        warnings = result.value.errors,
+                        warnings = warnings,
                         fallbackProviderId = result.value.fallbackProviderId,
                         dailyReport = null,
                         providerName = providerRegistry.info(result.value.fallbackProviderId ?: id)?.displayName
                             ?: providerRegistry.activeInfo(settings)?.displayName,
+                        resolved = resolved,
                     )
+                    timingStatus = if (warnings.isEmpty()) "success" else "partial"
                     succeed(run)
                     Outcome.Success(run)
                 }
             }
         } catch (cancelled: CancellationException) {
-            _state.update { it.copy(isSyncing = false, trigger = null, progressDone = 0, progressTotal = 0) }
+            timingStatus = "cancelled"
             throw cancelled
         } catch (error: AppErrorException) {
             return fail(error.error, now)
         } catch (error: Exception) {
             return fail(AppError(ErrorCode.UNKNOWN, detail = error.message, cause = error), now)
         } finally {
+            val completedTiming = timing
+            if (completedTiming != null && diagnostics != null) {
+                // Keep failures/cancellations as well; diagnostics must never change the result.
+                withContext(NonCancellable) {
+                    try { diagnostics.save(completedTiming.report(clock.nowEpochMs(), mode, timingStatus)) }
+                    catch (_: Exception) { /* best effort */ }
+                }
+            }
             _state.update { it.copy(isSyncing = false, trigger = null, progressDone = 0, progressTotal = 0) }
         }
     }
@@ -292,13 +314,14 @@ class AutoSyncCoordinator(
     /** Force the next automatic trigger to run, e.g. after the user changed sources. */
     fun forgetAttempt() = _state.update { it.copy(lastAttemptEpochMs = null) }
 
-    private suspend fun resolvePredictions() {
-        try {
+    private suspend fun resolvePredictions(): Int? {
+        return try {
             predictionRepository.resolveFinishedPredictions()
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (_: Exception) {
             // A grading failure does not discard already synced fixtures.
+            null
         }
     }
 

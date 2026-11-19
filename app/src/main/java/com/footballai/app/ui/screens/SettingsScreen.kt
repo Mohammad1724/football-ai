@@ -292,6 +292,41 @@ fun SettingsScreen(onOpenDataSources: () -> Unit, onOpenCompetitionOrder: () -> 
             // last one is surfaced here on the next launch — the only way to report a
             // defect from a phone that has no developer tools attached.
             item { SectionHeader(title = stringResource(R.string.section_diagnostics)) }
+            state.syncTiming?.let { timing ->
+                item {
+                    val languageTag = LocalLanguageTag.current
+                    val status = stringResource(when (timing.status) {
+                        "success" -> R.string.sync_timing_success
+                        "partial" -> R.string.sync_timing_partial
+                        "cancelled" -> R.string.sync_timing_cancelled
+                        else -> R.string.sync_timing_failed
+                    })
+                    val mode = stringResource(when (timing.mode) {
+                        "daily" -> R.string.sync_timing_daily
+                        "provider" -> R.string.sync_timing_provider
+                        else -> R.string.sync_timing_unknown
+                    })
+                    val phases = listOf(
+                        "results" to R.string.sync_timing_results,
+                        "fixtures" to R.string.sync_timing_fixtures,
+                        "history" to R.string.sync_timing_history,
+                        "predictions" to R.string.sync_timing_predictions,
+                        "grading" to R.string.sync_timing_grading,
+                    )
+                    val lines = mutableListOf(
+                        stringResource(R.string.sync_timing_summary, Formatters.kickoffDateTime(timing.atEpochMs, languageTag), mode, status),
+                        stringResource(R.string.sync_timing_line, stringResource(R.string.sync_timing_total), Formatters.decimal(timing.totalMs / 1000.0, languageTag, 2)),
+                    )
+                    phases.forEach { (key, label) ->
+                        timing.phasesMs[key]?.let { duration ->
+                            lines.add(stringResource(R.string.sync_timing_line, stringResource(label), Formatters.decimal(duration / 1000.0, languageTag, 2)))
+                        }
+                    }
+                    lines.add(stringResource(R.string.sync_timing_explanation))
+                    InfoCard(title = stringResource(R.string.sync_timing_title), body = lines.joinToString("\n"),
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                }
+            }
             crashReport?.let { report ->
                 item {
                     InfoCard(
