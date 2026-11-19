@@ -38,6 +38,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.footballai.app.R
+import com.footballai.app.domain.catalog.NameLocalization
 import com.footballai.app.domain.model.TableVenue
 import com.footballai.app.ui.LocalAppContainer
 import com.footballai.app.ui.LocalLanguageTag
