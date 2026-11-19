@@ -82,6 +82,7 @@ import com.footballai.app.core.Formatters
 import com.footballai.app.domain.model.MarketType
 import com.footballai.app.domain.model.MatchDetail
 import com.footballai.app.domain.model.MatchStatus
+import com.footballai.app.domain.model.MatchSummary
 import com.footballai.app.domain.model.MatchTableHighlight
 import com.footballai.app.domain.model.TableSeasonComparison
 import com.footballai.app.domain.model.compareTableSeason
