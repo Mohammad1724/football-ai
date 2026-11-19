@@ -424,7 +424,7 @@
     <string name="match_filters_kind">Competition type</string>
     <string name="match_filters_gender">Football category</string>
     <string name="match_filters_more">Quick filters</string>
-    <string name="match_filter_followed_short">Following</string>
+    <string name="match_filter_followed_short">My leagues</string>
     <string name="match_filters_reset">Reset</string>
     <string name="match_filter_followed">Followed leagues</string>
     <string name="match_filter_followed_hint">Shows games from competitions you follow, not just favourite teams.</string>

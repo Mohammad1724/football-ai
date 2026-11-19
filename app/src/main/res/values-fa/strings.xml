@@ -424,7 +424,7 @@
     <string name="match_filters_kind">نوع رقابت</string>
     <string name="match_filters_gender">دسته فوتبال</string>
     <string name="match_filters_more">فیلترهای سریع</string>
-    <string name="match_filter_followed_short">دنبال‌شده‌ها</string>
+    <string name="match_filter_followed_short">لیگ‌های من</string>
     <string name="match_filters_reset">بازنشانی</string>
     <string name="match_filter_followed">لیگ‌های دنبال‌شده</string>
     <string name="match_filter_followed_hint">بازی‌های رقابت‌هایی را نشان می‌دهد که دنبال می‌کنید، نه فقط تیم‌های موردعلاقه.</string>

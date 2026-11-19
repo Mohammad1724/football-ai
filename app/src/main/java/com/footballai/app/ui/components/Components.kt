@@ -404,6 +404,7 @@ fun TeamNameLines(
     primaryStyle: TextStyle = MaterialTheme.typography.bodyLarge,
     secondaryStyle: TextStyle = MaterialTheme.typography.labelSmall,
     primaryMaxLines: Int = 1,
+    secondaryMaxLines: Int = 1,
 ) {
     val pair = NameLocalization.namePair(team.name, languageTag, team.shortName)
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(1.dp)) {
@@ -420,7 +421,7 @@ fun TeamNameLines(
                 text = "\u200E" + secondary,
                 style = secondaryStyle,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
+                maxLines = secondaryMaxLines,
                 overflow = TextOverflow.Ellipsis,
             )
         }

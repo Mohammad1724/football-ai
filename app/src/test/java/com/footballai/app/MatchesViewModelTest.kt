@@ -11,6 +11,7 @@ import com.footballai.app.ui.viewmodel.MatchGenderFilter
 import com.footballai.app.ui.viewmodel.MatchEmptyReason
 import com.footballai.app.ui.viewmodel.MatchesUiState
 import com.footballai.app.ui.viewmodel.MatchesViewModel
+import com.footballai.app.ui.screens.matchSections
 import java.time.Instant
 import java.time.ZoneId
 import kotlin.test.Test
@@ -135,6 +136,20 @@ class MatchesViewModelTest {
         assertFalse(filters.accepts(match.copy(home = TeamRef("a", "Club")), setOf("league")))
         assertFalse(filters.accepts(match.copy(competitionId = "other"), setOf("other")))
         assertTrue(MatchFilters().accepts(match, emptySet()))
+    }
+
+    @Test
+    fun `favourite matches remain both featured and in the complete league group`() {
+        val match = MatchSummary(
+            id = "match", competitionId = "league", competitionName = "League", competitionEmblemUrl = null,
+            home = TeamRef("a", "Team A"), away = TeamRef("b", "Team B"), kickoffEpochMs = 1,
+            status = MatchStatus.SCHEDULED, minute = null, homeGoals = null, awayGoals = null,
+            lastSyncedAt = 1, hasStatistics = false, hasLineups = false, hasEvents = false, hasOdds = false,
+        )
+        val league = Competition("league", "League", null, null, 2026, "provider", true)
+        val sections = matchSections(MatchesUiState(matches = listOf(match), favourites = listOf(match), competitions = listOf(league)))
+        assertEquals(listOf(match), sections.favourites)
+        assertEquals(listOf(listOf(match)), sections.groups)
     }
 
 }

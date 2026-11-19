@@ -35,6 +35,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Star
@@ -653,6 +654,7 @@ private fun QuickMatchFilters(
         FilterChip(
             selected = active > 0,
             onClick = onOpen,
+            colors = matchFilterChipColors(),
             leadingIcon = { Icon(Icons.Default.Tune, contentDescription = null, modifier = Modifier.size(18.dp)) },
             label = { Text(if (active > 0) stringResource(R.string.match_filters_count, Formatters.integer(active, languageTag))
                 else stringResource(R.string.match_filters_title), maxLines = 1, overflow = TextOverflow.Ellipsis) },
@@ -660,13 +662,38 @@ private fun QuickMatchFilters(
         FilterChip(
             modifier = Modifier.semantics { contentDescription = followedDescription },
             selected = state.followedOnly, onClick = onFollowed,
+            colors = matchFilterChipColors(),
+            leadingIcon = if (state.followedOnly) {
+                { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
+            } else null,
             label = { Text(stringResource(R.string.match_filter_followed_short), maxLines = 1, overflow = TextOverflow.Ellipsis) },
         )
         FilterChip(
             selected = state.liveOnly, onClick = onLive,
+            colors = matchFilterChipColors(),
+            leadingIcon = if (state.liveOnly) {
+                { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
+            } else null,
             label = { Text(stringResource(R.string.match_filter_live), maxLines = 1, overflow = TextOverflow.Ellipsis) },
         )
     }
+}
+
+/** A favourite is intentionally also kept in its competition's complete match list. */
+internal data class MatchSections(
+    val favourites: List<MatchSummary>,
+    val groups: List<List<MatchSummary>>,
+)
+
+internal fun matchSections(state: MatchesUiState): MatchSections {
+    val ranks = state.competitions.mapIndexed { index, competition -> competition.id to index }.toMap()
+    val groups = state.matches.groupBy { it.competitionId }.values.sortedWith(
+        compareBy(
+            { group -> ranks[group.first().competitionId] ?: Int.MAX_VALUE },
+            { group -> group.minOf { it.kickoffEpochMs } },
+        ),
+    )
+    return MatchSections(favourites = state.favourites.take(6), groups = groups)
 }
 
 @Composable
@@ -677,22 +704,9 @@ private fun GroupedMatchList(
     onCompetitionClick: (String) -> Unit = {},
 ) {
     val listState = rememberLazyListState()
-    // Matches already arrive sorted by the user's competition order, and groupBy keeps
-    // the order in which each competition first appears, so the sections follow it too.
-    // A followed team comes first: this section is the reason the user opened the app.
-    val favourites = state.favourites.take(6)
-    val competitionRank = state.competitions
-        .mapIndexed { index, competition -> competition.id to index }
-        .toMap()
-    val groups = state.matches
-        .groupBy { it.competitionId }
-        .values
-        .sortedWith(
-            compareBy(
-                { group -> competitionRank[group.first().competitionId] ?: Int.MAX_VALUE },
-                { group -> group.minOf { it.kickoffEpochMs } },
-            ),
-        )
+    val sections = matchSections(state)
+    val favourites = sections.favourites
+    val groups = sections.groups
     LazyColumn(
         state = listState,
         modifier = Modifier.fillMaxSize(),
@@ -915,6 +929,8 @@ private fun MatchTeam(team: TeamRef, languageTag: String, modifier: Modifier = M
             modifier = Modifier.weight(1f, fill = false),
             primaryStyle = MaterialTheme.typography.bodyMedium,
             primaryMaxLines = 2,
+            // Long published names may wrap instead of disappearing behind an ellipsis.
+            secondaryMaxLines = 2,
         )
     }
 }
