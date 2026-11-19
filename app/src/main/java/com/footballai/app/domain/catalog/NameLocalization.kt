@@ -77,6 +77,17 @@ object NameLocalization {
         }
     }
 
+    /** Exact curated aliases only: an ambiguous spelling cannot establish club identity. */
+    private val unambiguousClubNames: Map<String, String> = TeamNames.clubs
+        .flatMap { club -> (listOf(club.english) + club.aliases).map { normalize(it) to club.english } }
+        .filter { it.first.isNotEmpty() }
+        .groupBy({ it.first }, { it.second })
+        .mapNotNull { (key, clubs) -> clubs.distinct().singleOrNull()?.let { key to it } }
+        .toMap()
+
+    /** A matchable club identity only for an exact, unambiguous curated spelling. */
+    fun curatedClubIdentity(name: String): String? = unambiguousClubNames[normalize(name)]
+
     /** Every spelling of a name that can be compared: the name itself, then the same
      *  name with the noise words a source may add stripped off one end at a time. */
     private fun variants(value: String): List<String> {

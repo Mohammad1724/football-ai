@@ -500,7 +500,7 @@ object TeamNames {
     Club("Borussia Mönchengladbach", "بروسیا مونشن‌گلادباخ", countryIso2 = "DE", aliases = listOf("monchengladbach", "gladbach")),
     Club("VfL Bochum", "بوخوم", countryIso2 = "DE", aliases = listOf("bochum")),
     Club("Heidenheim", "هایدنهایم", countryIso2 = "DE", aliases = listOf("1. fc heidenheim")),
-    Club("FC Köln", "کلن", countryIso2 = "DE", aliases = listOf("koln", "1. fc koln")),
+    Club("FC Köln", "کلن", countryIso2 = "DE", aliases = listOf("koln", "1. fc koln", "FC Cologne", "Cologne", "1. FC Cologne")),
     Club("Hertha Berlin", "هرتا برلین", countryIso2 = "DE", aliases = listOf("hertha bsc")),
     Club("Schalke 04", "شالکه", countryIso2 = "DE", aliases = listOf("schalke")),
     Club("Hamburger SV", "هامبورگ", countryIso2 = "DE", aliases = listOf("hamburg")),

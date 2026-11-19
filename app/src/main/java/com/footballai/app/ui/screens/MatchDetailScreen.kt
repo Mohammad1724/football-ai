@@ -83,7 +83,6 @@ import com.footballai.app.domain.model.MarketType
 import com.footballai.app.domain.model.MatchDetail
 import com.footballai.app.domain.model.MatchStatus
 import com.footballai.app.domain.model.MatchSummary
-import com.footballai.app.domain.model.MatchTableHighlight
 import com.footballai.app.domain.model.TableSeasonComparison
 import com.footballai.app.domain.model.compareTableSeason
 import com.footballai.app.domain.model.MatchTimeline
@@ -1686,8 +1685,8 @@ private fun MatchTableTab(
     onOpenFullTable: () -> Unit,
     onTeamClick: (String) -> Unit,
 ) {
-    val marks = MatchTableHighlight.forMatch(match.home.id, match.away.id, match.status, match.homeGoals, match.awayGoals)
-    val foundTeams = table.rows.count { it.teamId in marks }
+    val marks = remember(match, table.rows) { MatchTableTeamMatching.marks(match, table.rows) }
+    val foundTeams = marks.size
     val tableSeason = table.season?.takeIf { it > 0 }
     val language = LocalLanguageTag.current
     LazyColumn(
@@ -1709,7 +1708,7 @@ private fun MatchTableTab(
                     color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 8.dp))
                 Text(stringResource(R.string.table_match_legend), style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 8.dp))
-                if (foundTeams < marks.size) Text(stringResource(R.string.table_match_teams_missing),
+                if (foundTeams < 2) Text(stringResource(R.string.table_match_teams_missing),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(bottom = 8.dp))
                 if (table.canSplitByVenue) VenueChips(selected = table.venue, onSelect = onVenue)
