@@ -4,7 +4,7 @@ import com.footballai.app.domain.model.Competition
 import com.footballai.app.domain.model.MatchStatus
 import com.footballai.app.domain.model.MatchSummary
 import com.footballai.app.domain.model.TeamRef
-import com.footballai.app.domain.model.TeamKind
+import com.footballai.engine.model.TeamKind
 import com.footballai.app.ui.viewmodel.MatchFilters
 import com.footballai.app.ui.viewmodel.MatchKindFilter
 import com.footballai.app.ui.viewmodel.MatchGenderFilter
