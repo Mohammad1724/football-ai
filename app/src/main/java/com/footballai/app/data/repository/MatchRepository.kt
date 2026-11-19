@@ -5,6 +5,7 @@ import com.footballai.app.core.TimeProvider
 import com.footballai.app.data.local.FootballDatabase
 import com.footballai.app.data.local.entity.CompetitionEntity
 import com.footballai.app.data.local.entity.MatchEntity
+import com.footballai.app.data.local.entity.StandingEntity
 import com.footballai.app.data.local.entity.TeamEntity
 import com.footballai.app.data.local.mapper.toDetail
 import com.footballai.app.data.local.mapper.toDomain
@@ -335,7 +336,7 @@ class MatchRepository(
     )
 
     /** A stored league table: its season and its rows, newest table when the season moved. */
-    data class LeagueTable(val season: Int, val rows: List<com.footballai.app.data.local.entity.StandingEntity>)
+    data class LeagueTable(val season: Int, val rows: List<StandingEntity>)
 
     /**
      * The table a competition actually has stored.
