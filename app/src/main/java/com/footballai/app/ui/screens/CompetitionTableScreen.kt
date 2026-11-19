@@ -1,5 +1,7 @@
 package com.footballai.app.ui.screens
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -38,20 +40,23 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.footballai.app.R
 import com.footballai.app.domain.catalog.NameLocalization
 import com.footballai.app.domain.model.LeagueStats
+import com.footballai.app.domain.model.TableVenue
 import com.footballai.app.core.Formatters
-import com.footballai.app.domain.model.TeamRef
 import com.footballai.app.ui.LocalAppContainer
 import com.footballai.app.ui.LocalLanguageTag
 import com.footballai.app.ui.components.EmptyState
 import com.footballai.app.ui.components.LoadingState
 import com.footballai.app.ui.components.SoftBackButton
 import com.footballai.app.ui.components.SoftCard
+import com.footballai.app.ui.components.TableProvenanceNote
+import com.footballai.app.ui.components.LeagueTableEmpty
+import com.footballai.app.ui.components.LeagueTableHeader
+import com.footballai.app.ui.components.LeagueTableRow
 import com.footballai.app.ui.components.ProbabilityBar
-import com.footballai.app.ui.components.TeamBadge
+import com.footballai.app.ui.components.VenueChips
 import com.footballai.app.ui.theme.FootballAiThemeExtra
 import com.footballai.app.ui.theme.Spacing
 import com.footballai.app.ui.viewmodel.CompetitionTableViewModel
-import com.footballai.app.ui.viewmodel.TableRow
 
 /**
  * The table of one tournament.
@@ -132,9 +137,17 @@ fun CompetitionTableScreen(
                     // Drawn even when there is no table: these numbers come from the results
                     // the app holds, so a league whose table the source never publishes still
                     // gets its home/draw/away split instead of an apology.
+                    if (state.canSplitByVenue) {
+                        item(key = "table-venue") {
+                            VenueChips(
+                                selected = state.venue,
+                                onSelect = viewModel::setVenue,
+                            )
+                        }
+                    }
                     if (state.isComputed) {
                         item(key = "table-computed") {
-                            ComputedTableNote(matches = state.computedMatches, languageTag = languageTag)
+                            TableProvenanceNote(matches = state.computedMatches)
                         }
                     }
                     state.leagueStats?.let { stats ->
@@ -144,66 +157,32 @@ fun CompetitionTableScreen(
                         item(key = "table-empty") {
                             // A knockout tie has no positions; a league with no table has
                             // simply not been downloaded, and that one can be asked for.
-                            if (state.isKnockout) {
-                                EmptyState(
-                                    title = stringResource(R.string.empty_table_knockout_title),
-                                    message = stringResource(R.string.empty_table_knockout_message),
-                                )
-                            } else {
-                                EmptyState(
-                                    title = stringResource(R.string.empty_table_title),
-                                    message = stringResource(R.string.empty_table_message),
-                                    actionLabel = stringResource(R.string.empty_table_retry),
-                                    onAction = viewModel::retry,
-                                )
-                            }
+                            LeagueTableEmpty(
+                                isKnockout = state.isKnockout,
+                                onRequest = viewModel::retry,
+                            )
                         }
                     } else {
-                        item(key = "table-header") { TableHeader() }
+                        item(key = "table-header") {
+                            LeagueTableHeader()
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = Spacing.md)
+                                    .height(1.dp)
+                                    .background(FootballAiThemeExtra.colors.hairline),
+                            )
+                        }
                         items(state.rows, key = { it.teamId }) { row ->
-                            TableRowCard(
+                            LeagueTableRow(
                                 row = row,
+                                modifier = Modifier.padding(vertical = Spacing.xxs),
                                 onClick = { if (row.navigable) onTeamClick(row.teamId) },
                             )
                         }
                     }
                 }
             }
-        }
-    }
-}
-
-/**
- * The line that keeps a counted table honest.
- *
- * Its numbers come from the matches in this app, not from the league's own table, so it says
- * so and names the size of the sample: a table over eight matches is a shape, not a verdict.
- */
-@Composable
-private fun ComputedTableNote(matches: Int, languageTag: String) {
-    SoftCard(
-        modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.sm),
-        containerColor = FootballAiThemeExtra.colors.cardStrong,
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(Spacing.md),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.TableChart,
-                contentDescription = null,
-                tint = FootballAiThemeExtra.colors.iconMuted,
-                modifier = Modifier.size(18.dp),
-            )
-            Spacer(Modifier.width(Spacing.sm))
-            Text(
-                text = stringResource(
-                    R.string.table_computed_note,
-                    Formatters.integer(matches, languageTag),
-                ),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
         }
     }
 }
@@ -290,113 +269,6 @@ private fun InfoRow(label: String, value: String) {
         )
         Text(text = value, style = MaterialTheme.typography.labelLarge)
     }
-}
-
-@Composable
-private fun TableHeader() {
-    val muted = MaterialTheme.colorScheme.onSurfaceVariant
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = Spacing.md, vertical = Spacing.sm),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        // Laid out in reading order, so the rank sits at the start of the row in Persian and
-        // in English alike without a special case.
-        Spacer(Modifier.width(22.dp))
-        Spacer(Modifier.width(Spacing.xs))
-        Text(
-            text = stringResource(R.string.table_team),
-            style = MaterialTheme.typography.labelSmall,
-            color = muted,
-            modifier = Modifier.weight(1f),
-        )
-        for (label in listOf(
-            R.string.table_played, R.string.table_won, R.string.table_drawn,
-            R.string.table_lost, R.string.table_goal_difference, R.string.table_points,
-        )) {
-            Text(
-                text = stringResource(label),
-                style = MaterialTheme.typography.labelSmall,
-                color = muted,
-                textAlign = TextAlign.Center,
-                maxLines = 1,
-                modifier = Modifier.width(if (label == R.string.table_goal_difference) 32.dp else 26.dp),
-            )
-        }
-    }
-}
-
-@Composable
-private fun TableRowCard(row: TableRow, onClick: () -> Unit) {
-    val colors = FootballAiThemeExtra.colors
-    val languageTag = LocalLanguageTag.current
-    Column(modifier = Modifier.fillMaxWidth().padding(vertical = Spacing.xxs)) {
-        SoftCard(
-            modifier = Modifier.fillMaxWidth(),
-            onClick = onClick.takeIf { row.navigable },
-            // The top three are the places a season is decided in; a slightly stronger card
-            // says so without a second colour scheme.
-            containerColor = if (row.rank <= 3) colors.cardStrong else colors.card,
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = Spacing.md, vertical = Spacing.sm),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = Formatters.integer(row.rank, languageTag),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.width(22.dp),
-                )
-                Spacer(Modifier.width(Spacing.xs))
-                TeamBadge(
-                    team = TeamRef(id = row.teamId, name = row.teamName, crestUrl = row.crestUrl),
-                    size = 22,
-                )
-                Spacer(Modifier.width(Spacing.sm))
-                // The Persian name when the catalog has one, the published name otherwise.
-                Text(
-                    text = NameLocalization.namePair(row.teamName, languageTag).first,
-                    style = MaterialTheme.typography.bodyMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f),
-                )
-                NumberCell(Formatters.integer(row.played, languageTag), 26)
-                NumberCell(row.wins?.let { Formatters.integer(it, languageTag) } ?: DASH, 26)
-                NumberCell(row.draws?.let { Formatters.integer(it, languageTag) } ?: DASH, 26)
-                NumberCell(row.losses?.let { Formatters.integer(it, languageTag) } ?: DASH, 26)
-                // A signed single number rather than "goals for-goals against": a hyphen
-                // between two numbers is read the other way round in a right-to-left row.
-                NumberCell(
-                    value = when {
-                        row.goalDifference > 0 -> "+" + Formatters.integer(row.goalDifference, languageTag)
-                        row.goalDifference < 0 -> "−" + Formatters.integer(-row.goalDifference, languageTag)
-                        else -> Formatters.integer(0, languageTag)
-                    },
-                    width = 32,
-                )
-                NumberCell(Formatters.integer(row.points, languageTag), 26, bold = true)
-            }
-        }
-    }
-}
-
-private const val DASH = "—"
-
-@Composable
-private fun NumberCell(value: String, width: Int, bold: Boolean = false) {
-    Text(
-        text = value,
-        style = if (bold) MaterialTheme.typography.labelLarge else MaterialTheme.typography.bodySmall,
-        fontWeight = if (bold) FontWeight.SemiBold else FontWeight.Normal,
-        textAlign = TextAlign.Center,
-        modifier = Modifier.width(width.dp),
-    )
 }
 
 /** A season is written as a single year or a span, the way the source numbers it. */

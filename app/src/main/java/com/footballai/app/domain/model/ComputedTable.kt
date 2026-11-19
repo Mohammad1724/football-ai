@@ -1,5 +1,13 @@
 package com.footballai.app.domain.model
 
+/**
+ * Which matches a table counts.
+ *
+ * A published table gives one combined set of numbers, so a source that publishes nothing can
+ * still be read the way a reader asks about it: at home, away, or altogether.
+ */
+enum class TableVenue { ALL, HOME, AWAY }
+
 /** One line of a table built from results, rather than read from a published table. */
 data class ComputedTableRow(
     val teamId: String,
@@ -37,25 +45,31 @@ object ComputedTable {
         val awayGoals: Int,
     )
 
-    fun rows(results: List<Result>): List<ComputedTableRow> {
+    fun rows(results: List<Result>, venue: TableVenue = TableVenue.ALL): List<ComputedTableRow> {
         if (results.isEmpty()) return emptyList()
         val tallies = LinkedHashMap<String, MutableTally>()
         fun tally(teamId: String) = tallies.getOrPut(teamId) { MutableTally() }
         for (result in results) {
-            val home = tally(result.homeTeamId)
-            val away = tally(result.awayTeamId)
-            home.played++
-            away.played++
-            home.goalsFor += result.homeGoals
-            home.goalsAgainst += result.awayGoals
-            away.goalsFor += result.awayGoals
-            away.goalsAgainst += result.homeGoals
+            // A home table counts only the matches a club played at home, an away table only
+            // the ones it played away: a match is not one row for both sides in those views.
+            val home = if (venue != TableVenue.AWAY) tally(result.homeTeamId) else null
+            val away = if (venue != TableVenue.HOME) tally(result.awayTeamId) else null
+            if (home != null) {
+                home.played++
+                home.goalsFor += result.homeGoals
+                home.goalsAgainst += result.awayGoals
+            }
+            if (away != null) {
+                away.played++
+                away.goalsFor += result.awayGoals
+                away.goalsAgainst += result.homeGoals
+            }
             when {
-                result.homeGoals > result.awayGoals -> home.wins++
-                result.homeGoals < result.awayGoals -> away.wins++
+                result.homeGoals > result.awayGoals -> if (home != null) home.wins++
+                result.homeGoals < result.awayGoals -> if (away != null) away.wins++
                 else -> {
-                    home.draws++
-                    away.draws++
+                    if (home != null) home.draws++
+                    if (away != null) away.draws++
                 }
             }
         }

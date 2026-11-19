@@ -6,6 +6,7 @@ import com.footballai.app.data.local.FootballDatabase
 import com.footballai.app.data.local.entity.CompetitionEntity
 import com.footballai.app.data.local.entity.MatchEntity
 import com.footballai.app.data.local.entity.StandingEntity
+import com.footballai.app.domain.model.TableVenue
 import com.footballai.app.data.local.entity.TeamEntity
 import com.footballai.app.data.local.mapper.toDetail
 import com.footballai.app.data.local.mapper.toDomain
@@ -280,7 +281,11 @@ class MatchRepository(
      * the numbers came from, because that is what makes the table readable rather than
      * authoritative.
      */
-    suspend fun computedTable(competitionId: String, season: Int? = null): ComputedLeagueTable? {
+    suspend fun computedTable(
+        competitionId: String,
+        season: Int? = null,
+        venue: TableVenue = TableVenue.ALL,
+    ): ComputedLeagueTable? {
         val competition = db.competitionDao().byId(competitionId) ?: return null
         if (!competition.competitionClass.contains("LEAGUE", ignoreCase = true)) return null
         val asked = season ?: competition.season
@@ -300,7 +305,7 @@ class MatchRepository(
                 awayGoals = away,
             )
         }
-        val computed = com.footballai.app.domain.model.ComputedTable.rows(results)
+        val computed = com.footballai.app.domain.model.ComputedTable.rows(results, venue)
         if (computed.size < 2) return null
         val teams = db.teamDao().byIds(computed.map { it.teamId }).associateBy { it.id }
         val now = clock.nowEpochMs()
@@ -326,6 +331,53 @@ class MatchRepository(
             )
         }
         return ComputedLeagueTable(season = resolved, rows = rows, matches = results.size)
+    }
+
+    /**
+     * The table a screen should draw, with where it came from.
+     *
+     * A published table always wins the combined view: it is the league's own answer. The
+     * home and away views can only come from results the app holds, so they are counted — and
+     * say so — rather than split from a table that never published a split.
+     */
+    data class TableView(
+        val rows: List<StandingEntity>,
+        val season: Int?,
+        val isComputed: Boolean,
+        /** How many finished matches a counted table was counted from. */
+        val computedMatches: Int,
+        /** A knockout tie has no positions, whatever the rows say. */
+        val isKnockout: Boolean,
+        val venue: TableVenue,
+    )
+
+    suspend fun tableFor(
+        competitionId: String,
+        venue: TableVenue = TableVenue.ALL,
+    ): TableView? {
+        val competition = db.competitionDao().byId(competitionId) ?: return null
+        val isKnockout = !competition.competitionClass.contains("LEAGUE", ignoreCase = true)
+        if (venue == TableVenue.ALL) {
+            leagueTable(competitionId)?.let { published ->
+                return TableView(
+                    rows = published.rows,
+                    season = published.season,
+                    isComputed = false,
+                    computedMatches = 0,
+                    isKnockout = isKnockout,
+                    venue = venue,
+                )
+            }
+        }
+        val counted = computedTable(competitionId, venue = venue) ?: return null
+        return TableView(
+            rows = counted.rows,
+            season = counted.season,
+            isComputed = true,
+            computedMatches = counted.matches,
+            isKnockout = isKnockout,
+            venue = venue,
+        )
     }
 
     /** A table counted from results, with the number of matches it was counted from. */

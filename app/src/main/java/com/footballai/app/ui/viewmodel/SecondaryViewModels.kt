@@ -9,6 +9,7 @@ import com.footballai.app.di.AppContainer
 import com.footballai.app.domain.model.Competition
 import com.footballai.app.domain.model.MatchSummary
 import com.footballai.app.domain.model.PredictionWithMatch
+import com.footballai.app.domain.model.TableVenue
 import com.footballai.app.domain.model.TeamProfile
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.catch
@@ -23,6 +24,8 @@ import kotlinx.coroutines.launch
 data class TeamUiState(
     val isLoading: Boolean = true,
     val profile: TeamProfile? = null,
+    /** The club's own league, counted or published, with its own row marked in the screen. */
+    val table: LeagueTableUiState = LeagueTableUiState(),
     val lastError: AppError? = null,
 )
 
@@ -41,8 +44,20 @@ class TeamViewModel(
     fun load() {
         viewModelScope.launch {
             val profile = container.matchRepository.teamProfile(teamId)
-            _state.update { TeamUiState(isLoading = false, profile = profile) }
+            // A club page shows the league it plays in: the table belongs to that competition,
+            // not to the club, so it goes through the same reader as the table page.
+            val table = profile
+                ?.takeIf { it.competitionId.isNotBlank() }
+                ?.let { container.matchRepository.leagueTableUi(it.competitionId, _state.value.table.venue) }
+                ?: LeagueTableUiState(venue = _state.value.table.venue)
+            _state.update { TeamUiState(isLoading = false, profile = profile, table = table) }
         }
+    }
+
+    fun setVenue(venue: TableVenue) {
+        if (venue == _state.value.table.venue) return
+        _state.update { it.copy(table = it.table.copy(venue = venue)) }
+        load()
     }
 }
 
@@ -52,6 +67,8 @@ data class CompetitionUiState(
     val isLoading: Boolean = true,
     val competition: Competition? = null,
     val fixtures: List<MatchSummary> = emptyList(),
+    /** The competition's own table, drawn on its second tab. */
+    val table: LeagueTableUiState = LeagueTableUiState(),
     val lastError: AppError? = null,
 )
 
@@ -71,10 +88,22 @@ class CompetitionViewModel(
         viewModelScope.launch {
             val competition = container.matchRepository.competition(competitionId)
             val fixtures = container.matchRepository.fixturesForCompetition(competitionId, 40)
+            val table = container.matchRepository.leagueTableUi(competitionId, _state.value.table.venue)
             _state.update {
-                CompetitionUiState(isLoading = false, competition = competition, fixtures = fixtures)
+                CompetitionUiState(
+                    isLoading = false,
+                    competition = competition,
+                    fixtures = fixtures,
+                    table = table,
+                )
             }
         }
+    }
+
+    fun setVenue(venue: TableVenue) {
+        if (venue == _state.value.table.venue) return
+        _state.update { it.copy(table = it.table.copy(venue = venue)) }
+        load()
     }
 }
 

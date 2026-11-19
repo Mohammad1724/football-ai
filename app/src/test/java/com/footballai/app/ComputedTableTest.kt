@@ -1,6 +1,7 @@
 package com.footballai.app
 
 import com.footballai.app.domain.model.ComputedTable
+import com.footballai.app.domain.model.TableVenue
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -75,6 +76,38 @@ class ComputedTableTest {
         )
         // Same points, same goal difference, same goals scored: a fixed order, not a random one.
         assertEquals(listOf("a", "b", "y", "z"), rows.map { it.teamId })
+    }
+
+    @Test
+    fun aHomeTableCountsOnlyTheMatchesPlayedAtHome() {
+        val results = listOf(
+            result("a", "b", 2, 0),
+            result("b", "a", 1, 1),
+        )
+        val home = ComputedTable.rows(results, TableVenue.HOME)
+        assertEquals(listOf("a", "b"), home.map { it.teamId })
+        val a = home.single { it.teamId == "a" }
+        assertEquals(1, a.played)
+        assertEquals(1, a.wins)
+        assertEquals(3, a.points)
+        val b = home.single { it.teamId == "b" }
+        assertEquals(1, b.played)
+        assertEquals(1, b.draws)
+
+        val away = ComputedTable.rows(results, TableVenue.AWAY)
+        val aAway = away.single { it.teamId == "a" }
+        assertEquals(1, aAway.played)
+        assertEquals(1, aAway.draws)
+        assertEquals(1, away.single { it.teamId == "b" }.losses)
+    }
+
+    @Test
+    fun aClubWithNoHomeMatchIsNotInTheHomeTable() {
+        val rows = ComputedTable.rows(
+            listOf(result("host", "visitor", 1, 0)),
+            TableVenue.HOME,
+        )
+        assertEquals(listOf("host"), rows.map { it.teamId })
     }
 
     @Test

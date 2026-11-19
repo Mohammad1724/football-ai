@@ -526,8 +526,15 @@ class SyncRepository(
      * id, name and crest, and a row it cannot is stored as published rather than dropped —
      * a table with holes reads as a broken sync.
      */
-    suspend fun refreshTableFor(competitionId: String): Int {
+    suspend fun refreshTableFor(competitionId: String, force: Boolean = false): Int {
         val competition = db.competitionDao().byId(competitionId) ?: return 0
+        // Opening the page asks for the table, and a league whose source has none would be
+        // asked again on every visit. The attempt is remembered either way — a failure is
+        // still an answer — so the next visit within this window reads what is stored.
+        val attemptMarker = TABLE_ATTEMPT_MARKER + competitionId
+        val lastAttempt = db.syncMetaDao().entity(attemptMarker)?.updatedAt ?: 0L
+        if (!force && clock.nowEpochMs() - lastAttempt < TABLE_ATTEMPT_INTERVAL_MS) return 0
+        db.syncMetaDao().put(SyncMetaEntity(attemptMarker, "asked", clock.nowEpochMs()))
         val own = registry.provider(competition.providerId)
         if (own?.info?.capabilities?.standings == true) {
             return refreshStandings(competition.providerId, listOf(competition.providerKey), maxAgeMs = 0)
@@ -1235,6 +1242,10 @@ class SyncRepository(
         /** Badges are repaired in batches, so the batch runs hourly until none are left. */
         private const val CREST_BACKFILL_INTERVAL_MS = 60L * 60L * 1000L
         private const val STANDINGS_MARKER = "standings"
+
+        /** How often one competition's table is asked for when the reader opens its page. */
+        private const val TABLE_ATTEMPT_MARKER = "standings-attempt:"
+        private const val TABLE_ATTEMPT_INTERVAL_MS = 6L * 60L * 60L * 1000L
         private const val DETAILS_TTL_MS = 90_000L
         private const val HISTORY_LOOKBACK_DAYS = 420L
 

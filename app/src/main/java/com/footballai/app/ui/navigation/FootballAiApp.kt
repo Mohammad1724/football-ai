@@ -242,6 +242,7 @@ private fun MainNavigation() {
                 MatchesScreen(
                     onMatchClick = { navController.navigate(Routes.matchDetail(it)) },
                     onCompetitionClick = { navController.navigate(Routes.competitionTable(it)) },
+                    onTeamClick = { navController.navigate(Routes.team(it)) },
                 )
             }
             composable(Routes.PREDICTIONS) {
@@ -307,6 +308,7 @@ private fun MainNavigation() {
                             Routes.competitionTable(entry.arguments?.getString("competitionId").orEmpty()),
                         )
                     },
+                    onTeamClick = { navController.navigate(Routes.team(it)) },
                 )
             }
         }

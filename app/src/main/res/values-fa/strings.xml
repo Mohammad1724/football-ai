@@ -57,8 +57,16 @@
     <string name="empty_table_knockout_message">در رقابت حذفی جایگاهی وجود ندارد. بازی‌های آن در فهرست مسابقات است و هر بازی تحلیل خودش را دارد.</string>
     <string name="table_computed_note">این جدول از %1$s بازی تمام‌شدهٔ ذخیره‌شده در اپ ساخته شده است، نه از جدول رسمی لیگ.</string>
     <string name="action_table">جدول</string>
+    <string name="table_venue_all">تمام مسابقات</string>
+    <string name="tab_table">جدول</string>
+    <string name="team_tab_summary">خلاصه</string>
+    <string name="competition_tab_fixtures">بازی‌ها</string>
+    <string name="table_open_full_page">باز کردن صفحهٔ کامل جدول</string>
+    <string name="table_venue_home">خانگی</string>
+    <string name="table_venue_away">خارج از خانه</string>
     <string name="table_entry_title">جدول لیگ</string>
     <string name="table_entry_subtitle">جایگاه تیم‌ها، برد و باخت و تفاضل گل</string>
+    <string name="table_entry_leader">صدرنشین: %1$s با %2$s امتیاز</string>
     <string name="table_played">بازی</string>
     <string name="table_won">برد</string>
     <string name="table_drawn">مساوی</string>

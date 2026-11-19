@@ -2,6 +2,7 @@ package com.footballai.app.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -26,11 +27,16 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -47,6 +53,8 @@ import com.footballai.app.R
 import com.footballai.app.core.Formatters
 import com.footballai.app.domain.catalog.NameLocalization
 import com.footballai.app.domain.model.ResultOutcome
+import com.footballai.app.domain.model.TableVenue
+import com.footballai.app.domain.model.TeamProfile
 import com.footballai.app.domain.model.TeamResult
 import com.footballai.app.ui.LocalAppContainer
 import com.footballai.app.ui.LocalLanguageTag
@@ -61,6 +69,12 @@ import com.footballai.app.ui.components.TeamBadge
 import com.footballai.app.ui.components.TeamNameLines
 import com.footballai.app.ui.theme.FootballAiThemeExtra
 import com.footballai.app.ui.theme.Radii
+import com.footballai.app.ui.components.LeagueTableBlock
+import com.footballai.app.ui.components.LeagueTableEmpty
+import com.footballai.app.ui.components.TableProvenanceNote
+import com.footballai.app.ui.components.VenueChips
+import com.footballai.app.ui.theme.Spacing
+import com.footballai.app.ui.viewmodel.LeagueTableUiState
 import com.footballai.app.ui.viewmodel.TeamViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -69,7 +83,9 @@ fun TeamScreen(
     teamId: String,
     onBack: () -> Unit,
     onCompetitionClick: (String) -> Unit,
+    onTeamClick: (String) -> Unit,
 ) {
+    var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     val container = LocalAppContainer.current
     val viewModel: TeamViewModel = viewModel(
         key = teamId,
@@ -109,6 +125,28 @@ fun TeamScreen(
                 EmptyState(
                     title = stringResource(R.string.empty_team_title),
                     message = stringResource(R.string.empty_team_message),
+                )
+                return@Column
+            }
+            TabRow(selectedTabIndex = selectedTab) {
+                Tab(
+                    selected = selectedTab == 0,
+                    onClick = { selectedTab = 0 },
+                    text = { Text(stringResource(R.string.team_tab_summary), style = MaterialTheme.typography.labelMedium) },
+                )
+                Tab(
+                    selected = selectedTab == 1,
+                    onClick = { selectedTab = 1 },
+                    text = { Text(stringResource(R.string.tab_table), style = MaterialTheme.typography.labelMedium) },
+                )
+            }
+            if (selectedTab == 1) {
+                TeamTableTab(
+                    profile = profile,
+                    table = state.table,
+                    onVenue = viewModel::setVenue,
+                    onOpenFullTable = { onCompetitionClick(profile.competitionId) },
+                    onTeamClick = onTeamClick,
                 )
                 return@Column
             }
@@ -158,7 +196,7 @@ fun TeamScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp, vertical = 4.dp),
-                        onClick = { onCompetitionClick(profile.competitionId) },
+                        onClick = { selectedTab = 1 },
                     ) {
                         Row(
                             modifier = Modifier.fillMaxWidth().padding(16.dp),
@@ -251,6 +289,79 @@ fun TeamScreen(
                     }
                 }
                 item { Spacer(Modifier.height(24.dp)) }
+            }
+        }
+    }
+}
+
+/**
+ * The club's league, as its own tab.
+ *
+ * A club page that hides the table behind a link makes the reader leave the page to answer
+ * "where do they stand"; this draws it here, with the club's own row marked, and keeps the
+ * full page one tap away for the league's overall numbers.
+ */
+@Composable
+private fun TeamTableTab(
+    profile: TeamProfile,
+    table: LeagueTableUiState,
+    onVenue: (TableVenue) -> Unit,
+    onOpenFullTable: () -> Unit,
+    onTeamClick: (String) -> Unit,
+) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(bottom = 24.dp),
+    ) {
+        item {
+            Column(modifier = Modifier.padding(horizontal = Spacing.page, vertical = Spacing.sm)) {
+                if (table.isComputed) TableProvenanceNote(matches = table.matches)
+                if (table.canSplitByVenue) {
+                    VenueChips(selected = table.venue, onSelect = onVenue)
+                }
+            }
+        }
+        if (table.isEmpty) {
+            item {
+                LeagueTableEmpty(
+                    isKnockout = table.isKnockout,
+                    onRequest = onOpenFullTable,
+                )
+            }
+        } else {
+            item {
+                LeagueTableBlock(
+                    rows = table.rows,
+                    modifier = Modifier.padding(horizontal = Spacing.page),
+                    highlightTeamId = profile.team.id,
+                    // Tapping the club whose page this is would only push a copy of itself.
+                    onTeamClick = { teamId -> if (teamId != profile.team.id) onTeamClick(teamId) },
+                )
+            }
+            item {
+                SoftCard(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = Spacing.page, vertical = Spacing.cardGap),
+                    onClick = onOpenFullTable,
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.TableChart,
+                            contentDescription = null,
+                            tint = FootballAiThemeExtra.colors.iconMuted,
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        Text(
+                            text = stringResource(R.string.table_open_full_page),
+                            style = MaterialTheme.typography.titleSmall,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                }
             }
         }
     }
