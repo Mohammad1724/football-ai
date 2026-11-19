@@ -2,6 +2,7 @@ package com.footballai.app.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.footballai.app.data.local.entity.StandingEntity
 import com.footballai.app.di.AppContainer
 import com.footballai.app.domain.model.LeagueStats
 import kotlinx.coroutines.CancellationException
@@ -91,7 +92,10 @@ class CompetitionTableViewModel(
                 } else {
                     null
                 }
-                val shown = table ?: computed?.rows.orEmpty()
+                // The rows the screen draws: the published table when there is one, otherwise
+                // the counted one. (A `LeagueTable` is not a list, so `table ?: computed` would
+                // be an `Any` and nothing below it would compile.)
+                val shown: List<StandingEntity> = table?.rows ?: computed?.rows.orEmpty()
                 // Counted over the same season the table is drawn for, so the two agree.
                 val stats = container.matchRepository.leagueStats(
                     competitionId, table?.season ?: computed?.season,
