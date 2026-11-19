@@ -30,6 +30,15 @@ class ScoreMatrixAndMarketsTest {
     }
 
     @Test
+    fun `high expected home goals can mathematically produce a high win probability`() {
+        // Rounded values from the screenshot; this checks arithmetic, not model accuracy.
+        val matrix = ScoreMatrix(4.73, 0.69, rho = 0.0)
+        assertEquals(0.94856, matrix.homeWin(), 0.0001)
+        assertEquals(0.03628, matrix.draw(), 0.0001)
+        assertEquals(0.01516, matrix.awayWin(), 0.0001)
+    }
+
+    @Test
     fun `over and under are complementary for every line`() {
         val matrix = ScoreMatrix(home, away)
         for (line in MarketCalculator.GOAL_LINES) {

@@ -67,6 +67,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -85,6 +87,7 @@ import com.footballai.app.domain.model.TableVenue
 import com.footballai.app.domain.model.TeamLineup
 import com.footballai.app.domain.model.MatchStatisticPair
 import com.footballai.app.domain.model.PredictionView
+import com.footballai.app.domain.model.PredictionKind
 import com.footballai.app.domain.model.StatisticType
 import com.footballai.app.ui.LocalAppContainer
 import com.footballai.app.ui.LocalLanguageTag
@@ -109,6 +112,7 @@ import com.footballai.app.ui.components.StatComparisonRow
 import com.footballai.app.ui.components.StatusChip
 import com.footballai.app.ui.components.TeamBadge
 import com.footballai.app.ui.components.HalfTimeRow
+import com.footballai.app.ui.components.HomeAwayScore
 import com.footballai.app.ui.components.LeagueTableBlock
 import com.footballai.app.ui.components.TableProvenanceNote
 import com.footballai.app.ui.components.VenueChips
@@ -501,26 +505,17 @@ private fun MatchHeader(
             ) {
                 TeamColumn(
                     team = summary.home,
-                    goals = summary.homeGoals.takeIf { summary.status.hasScore },
+                    role = stringResource(R.string.selection_home),
                     languageTag = languageTag,
                     onClick = onTeamClick,
                     modifier = Modifier.weight(1f),
                     isFavourite = favouriteTeams.contains(NameLocalization.favouriteKey(summary.home.name, summary.home.shortName)),
                     onToggleFavourite = { onToggleFavourite(summary.home.name, it) },
                 )
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Column(modifier = Modifier.weight(1.25f), horizontalAlignment = Alignment.CenterHorizontally) {
                     if (summary.status.hasScore) {
-                        Text(
-                            // A score the source has not published yet is a dash, never 0-0.
-                            text = Formatters.scoreOrNull(summary.homeGoals, summary.awayGoals, languageTag) ?: "—",
-                            // The score is the one number the eye goes looking for: it gets the
-                            // largest size on the screen and fixed-width digits so 2–1 and 0–0
-                            // sit on the same axis.
-                            style = MaterialTheme.typography.displaySmall.copy(
-                                fontFeatureSettings = "tnum",
-                            ),
-                            fontWeight = FontWeight.Bold,
-                        )
+                        HomeAwayScore(summary.homeGoals, summary.awayGoals, languageTag,
+                            style = MaterialTheme.typography.displaySmall.copy(fontFeatureSettings = "tnum", fontWeight = FontWeight.Bold))
                     } else {
                         Text(
                             text = Formatters.timeOnly(summary.kickoffEpochMs, languageTag),
@@ -532,11 +527,12 @@ private fun MatchHeader(
                         text = Formatters.dateOnly(summary.kickoffEpochMs, languageTag),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
                     )
                 }
                 TeamColumn(
                     team = summary.away,
-                    goals = summary.awayGoals.takeIf { summary.status.hasScore },
+                    role = stringResource(R.string.selection_away),
                     languageTag = languageTag,
                     onClick = onTeamClick,
                     modifier = Modifier.weight(1f),
@@ -560,7 +556,7 @@ private fun MatchHeader(
 @Composable
 private fun TeamColumn(
     team: TeamRef,
-    goals: Int?,
+    role: String,
     languageTag: String,
     onClick: (String) -> Unit,
     modifier: Modifier = Modifier,
@@ -572,6 +568,8 @@ private fun TeamColumn(
         modifier = modifier.clickable { onClick(team.id) },
         horizontalAlignment = if (alignEnd) Alignment.End else Alignment.Start,
     ) {
+        Text(role, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.height(4.dp))
         TeamBadge(team, size = 40)
         Spacer(Modifier.height(6.dp))
         TeamNameLines(
@@ -583,7 +581,7 @@ private fun TeamColumn(
         // Follow a team from where the user meets it: on its own match.
         IconButton(
             onClick = { onToggleFavourite(!isFavourite) },
-            modifier = Modifier.size(34.dp),
+            modifier = Modifier.size(48.dp),
         ) {
             Icon(
                 imageVector = if (isFavourite) Icons.Filled.Star else Icons.Outlined.StarBorder,
@@ -591,13 +589,6 @@ private fun TeamColumn(
                     if (isFavourite) R.string.action_unfollow_team else R.string.action_follow_team,
                 ),
                 tint = if (isFavourite) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        if (goals != null) {
-            Text(
-                text = Formatters.integer(goals, languageTag),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
@@ -729,6 +720,7 @@ private fun AnalysisTab(
         item {
             PredictionVerdictCard(
                 prediction = prediction,
+                isFinished = isFinished,
                 homeTeamName = homeName,
                 awayTeamName = awayName,
                 languageTag = languageTag,
@@ -773,6 +765,9 @@ private fun AnalysisTab(
                         )
                     }
                 }
+                Text(stringResource(R.string.analysis_data_vs_confidence),
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp))
                 Spacer(Modifier.height(10.dp))
                 ProbabilityBar(
                     homeWin = prediction.homeWin,
@@ -787,9 +782,9 @@ private fun AnalysisTab(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    ExpectedGoals(label = stringResource(R.string.expected_home_goals), value = prediction.expectedHomeGoals, languageTag = languageTag)
-                    ExpectedGoals(label = stringResource(R.string.expected_away_goals), value = prediction.expectedAwayGoals, languageTag = languageTag)
-                    ExpectedGoals(label = stringResource(R.string.expected_total_goals), value = prediction.expectedHomeGoals + prediction.expectedAwayGoals, languageTag = languageTag)
+                    ExpectedGoals(label = stringResource(if (prediction.kind == PredictionKind.LIVE) R.string.remaining_home_goals else R.string.expected_home_goals), value = prediction.expectedHomeGoals, languageTag = languageTag)
+                    ExpectedGoals(label = stringResource(if (prediction.kind == PredictionKind.LIVE) R.string.remaining_away_goals else R.string.expected_away_goals), value = prediction.expectedAwayGoals, languageTag = languageTag)
+                    ExpectedGoals(label = stringResource(if (prediction.kind == PredictionKind.LIVE) R.string.remaining_total_goals else R.string.expected_total_goals), value = prediction.expectedHomeGoals + prediction.expectedAwayGoals, languageTag = languageTag)
                 }
                 TextButton(onClick = { glossary = PredictionGlossary.EXPECTED_GOALS }) {
                     Text(stringResource(R.string.expected_goals_help))
@@ -816,15 +811,16 @@ private fun AnalysisTab(
 
         if (prediction.topScores.isNotEmpty()) {
             item {
-                SectionHeader(title = stringResource(R.string.section_likely_scores))
-                Row(
+                SectionHeader(title = stringResource(R.string.section_likely_scores),
+                    subtitle = stringResource(R.string.score_home_away_order))
+                androidx.compose.foundation.lazy.LazyRow(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    prediction.topScores.take(4).forEachIndexed { index, score ->
-                        ScoreChip(score = score, languageTag = languageTag, highlight = index == 0)
+                    items(prediction.topScores.take(4).size) { index ->
+                        ScoreChip(score = prediction.topScores[index], languageTag = languageTag, highlight = index == 0)
                     }
                 }
             }
@@ -937,23 +933,21 @@ private fun AnalysisTab(
         item { Spacer(Modifier.height(24.dp)) }
     }
     glossary?.let { selected ->
+        val closeText = stringResource(R.string.action_close)
+        val titleText = stringResource(if (selected == PredictionGlossary.EXPECTED_GOALS) R.string.expected_goals_help_title else R.string.section_data_quality)
+        val bodyText = stringResource(if (selected != PredictionGlossary.EXPECTED_GOALS) R.string.data_coverage_help_body
+            else if (prediction?.kind == PredictionKind.LIVE) R.string.expected_goals_live_help_body
+            else R.string.expected_goals_help_body)
         AlertDialog(
             onDismissRequest = { glossary = null },
-            confirmButton = {
-                TextButton(onClick = { glossary = null }) { Text(stringResource(R.string.action_close)) }
-            },
-            title = {
-                Text(stringResource(if (selected == PredictionGlossary.EXPECTED_GOALS) R.string.expected_goals_help_title else R.string.section_data_quality))
-            },
-            text = {
-                Text(stringResource(if (selected == PredictionGlossary.EXPECTED_GOALS) R.string.expected_goals_help_body else R.string.data_coverage_help_body))
-            },
+            confirmButton = { TextButton(onClick = { glossary = null }) { Text(closeText) } },
+            title = { Text(titleText) },
+            text = { Text(bodyText) },
         )
     }
 }
 
 /** The model's top pick, how far ahead it is, and the evidence standing behind it. */
-private enum class VerdictOutcome { HOME, DRAW, AWAY }
 
 private data class MatchVerdict(
     val outcome: VerdictOutcome,
@@ -986,6 +980,7 @@ private fun computeVerdict(prediction: PredictionView): MatchVerdict {
 @Composable
 private fun PredictionVerdictCard(
     prediction: PredictionView,
+    isFinished: Boolean,
     homeTeamName: String,
     awayTeamName: String,
     languageTag: String,
@@ -998,9 +993,9 @@ private fun PredictionVerdictCard(
         VerdictOutcome.AWAY -> colors.awaySeries
     }
     val outcomeLabel = when (verdict.outcome) {
-        VerdictOutcome.HOME -> stringResource(R.string.verdict_home_win, homeTeamName)
-        VerdictOutcome.DRAW -> stringResource(R.string.verdict_draw)
-        VerdictOutcome.AWAY -> stringResource(R.string.verdict_away_win, awayTeamName)
+        VerdictOutcome.HOME -> stringResource(MatchAnalysisPresentation.verdict(isFinished, VerdictOutcome.HOME), homeTeamName)
+        VerdictOutcome.DRAW -> stringResource(MatchAnalysisPresentation.verdict(isFinished, VerdictOutcome.DRAW))
+        VerdictOutcome.AWAY -> stringResource(MatchAnalysisPresentation.verdict(isFinished, VerdictOutcome.AWAY), awayTeamName)
     }
 
     Card(
@@ -1012,8 +1007,17 @@ private fun PredictionVerdictCard(
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                text = stringResource(R.string.prediction_verdict_title),
+                text = stringResource(MatchAnalysisPresentation.title(isFinished)),
                 style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                text = stringResource(
+                    MatchAnalysisPresentation.context(prediction.kind),
+                    Formatters.dateOnly(prediction.createdAtEpochMs, languageTag),
+                    Formatters.timeOnly(prediction.createdAtEpochMs, languageTag),
+                ),
+                style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.height(6.dp))
@@ -1087,7 +1091,7 @@ private fun WhyThisNumberCard(
         Spacer(Modifier.height(6.dp))
         Bullet(
             text = stringResource(
-                R.string.why_expected_goals,
+                MatchAnalysisPresentation.goalsExplanation(prediction.kind),
                 Formatters.decimal(prediction.expectedHomeGoals, languageTag, 1),
                 Formatters.decimal(prediction.expectedAwayGoals, languageTag, 1),
             ),
@@ -1389,6 +1393,10 @@ private fun TeamFormCard(
                 TrendDots(home?.sequence.orEmpty(), Modifier.weight(1f))
                 TrendDots(away?.sequence.orEmpty(), Modifier.weight(1f))
             }
+            Text(stringResource(R.string.form_trend_legend), style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp))
+            Text(stringResource(R.string.form_current_data_note), style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
             // The half-time sample is smaller than the window whenever the source did not
             // publish a break score; saying so keeps the ratio from looking like all ten.
             val worstHalves = listOfNotNull(home, away)
@@ -1474,8 +1482,18 @@ private fun FormRow(label: String, home: String?, away: String?) {
 @Composable
 private fun TrendDots(outcomes: List<ResultOutcome>, modifier: Modifier = Modifier) {
     val colors = FootballAiThemeExtra.colors
+    val win = stringResource(R.string.form_win)
+    val draw = stringResource(R.string.form_draw)
+    val loss = stringResource(R.string.form_loss)
+    val description = if (outcomes.isEmpty()) stringResource(R.string.form_no_trend) else outcomes.take(10).joinToString(", ") {
+        when (it) {
+            ResultOutcome.WIN -> win
+            ResultOutcome.DRAW -> draw
+            ResultOutcome.LOSS -> loss
+        }
+    }
     Row(
-        modifier = modifier,
+        modifier = modifier.clearAndSetSemantics { contentDescription = description },
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {

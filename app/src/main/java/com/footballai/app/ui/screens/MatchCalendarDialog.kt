@@ -42,7 +42,6 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -104,7 +103,7 @@ internal fun MatchCalendarDialog(
                             modifier = Modifier.padding(top = 2.dp, bottom = 8.dp))
                         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                             IconButton(onClick = { month = previousYear }, enabled = previousYear.intersects(min, max), modifier = Modifier.size(36.dp)) {
-                                Text(if (direction == LayoutDirection.Rtl) "»" else "«", style = MaterialTheme.typography.titleLarge,
+                                Text("«", style = MaterialTheme.typography.titleLarge,
                                     modifier = Modifier.semantics { contentDescription = resources.getString(R.string.calendar_previous_year) })
                             }
                             IconButton(onClick = { month = previous }, enabled = previous.intersects(min, max), modifier = Modifier.size(40.dp)) {
@@ -116,7 +115,7 @@ internal fun MatchCalendarDialog(
                                 Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = resources.getString(R.string.calendar_next_month))
                             }
                             IconButton(onClick = { month = nextYear }, enabled = nextYear.intersects(min, max), modifier = Modifier.size(36.dp)) {
-                                Text(if (direction == LayoutDirection.Rtl) "«" else "»", style = MaterialTheme.typography.titleLarge,
+                                Text("»", style = MaterialTheme.typography.titleLarge,
                                     modifier = Modifier.semantics { contentDescription = resources.getString(R.string.calendar_next_year) })
                             }
                         }

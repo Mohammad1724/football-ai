@@ -44,6 +44,8 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -620,6 +622,23 @@ fun QualityBadge(level: QualityLevel, completeness: Double, languageTag: String)
     )
 }
 
+/** Numbers follow the same layout direction as the teams, independent of Unicode bidi. */
+@Composable
+fun HomeAwayScore(home: Int?, away: Int?, languageTag: String, style: TextStyle, color: Color = MaterialTheme.colorScheme.onSurface) {
+    if (home == null || away == null) {
+        Text("—", style = style, color = color)
+        return
+    }
+    val homeText = Formatters.integer(home, languageTag)
+    val awayText = Formatters.integer(away, languageTag)
+    val description = androidx.compose.ui.res.stringResource(R.string.score_home_away_description, homeText, awayText)
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clearAndSetSemantics { contentDescription = description }) {
+        Text(homeText, style = style, color = color)
+        Text(" – ", style = style, color = color)
+        Text(awayText, style = style, color = color)
+    }
+}
+
 @Composable
 fun ScoreChip(score: ScoreLine, languageTag: String, modifier: Modifier = Modifier, highlight: Boolean = false) {
     val colors = FootballAiThemeExtra.colors
@@ -637,12 +656,9 @@ fun ScoreChip(score: ScoreLine, languageTag: String, modifier: Modifier = Modifi
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Text(
-                text = Formatters.localizeDigits("${score.homeGoals} - ${score.awayGoals}", languageTag),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = if (highlight) colors.positive else MaterialTheme.colorScheme.onSurface,
-            )
+            HomeAwayScore(score.homeGoals, score.awayGoals, languageTag,
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                color = if (highlight) colors.positive else MaterialTheme.colorScheme.onSurface)
             Text(
                 text = Formatters.percent(score.probability, languageTag, decimals = 1),
                 style = MaterialTheme.typography.labelSmall,
