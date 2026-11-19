@@ -42,18 +42,27 @@ class ComputedTableTest {
     }
 
     @Test
-    fun pointsThenGoalDifferenceThenGoalsScored() {
+    fun levelOnPointsTheGoalDifferenceDecides() {
+        // One win each: three points each, and "a" won by five while "b" won by one.
         val rows = ComputedTable.rows(
             listOf(
-                // "wide" wins big once; "narrow" wins twice by one goal: both on 6 points,
-                // and the goal difference decides.
-                result("wide", "x", 5, 0),
-                result("wide", "x", 0, 0),
-                result("narrow", "y", 1, 0),
-                result("narrow", "y", 1, 0),
+                result("a", "x", 5, 0),
+                result("b", "x", 1, 0),
             ),
         )
-        assertEquals(listOf("wide", "narrow", "x", "y"), rows.map { it.teamId })
+        assertEquals(listOf("a", "b", "x"), rows.map { it.teamId })
+    }
+
+    @Test
+    fun levelOnPointsAndGoalDifferenceTheGoalsScoredDecide() {
+        // Both won by one goal: two goals scored beats one.
+        val rows = ComputedTable.rows(
+            listOf(
+                result("high", "x", 2, 1),
+                result("low", "y", 1, 0),
+            ),
+        )
+        assertEquals(listOf("high", "low", "x", "y"), rows.map { it.teamId })
     }
 
     @Test
