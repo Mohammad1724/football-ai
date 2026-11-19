@@ -8,10 +8,16 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.outlined.TableChart
 import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -97,6 +103,16 @@ fun CompetitionTableScreen(
                         }
                     }
                 },
+                actions = {
+                    // A table can be stale or have failed to arrive; the reader should be able
+                    // to ask again without leaving the page.
+                    IconButton(onClick = viewModel::retry, enabled = !state.isLoading) {
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = stringResource(R.string.action_sync),
+                        )
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background,
                 ),
@@ -116,15 +132,31 @@ fun CompetitionTableScreen(
                     // Drawn even when there is no table: these numbers come from the results
                     // the app holds, so a league whose table the source never publishes still
                     // gets its home/draw/away split instead of an apology.
+                    if (state.isComputed) {
+                        item(key = "table-computed") {
+                            ComputedTableNote(matches = state.computedMatches, languageTag = languageTag)
+                        }
+                    }
                     state.leagueStats?.let { stats ->
                         item(key = "league-stats") { LeagueStatsCard(stats) }
                     }
                     if (state.rows.isEmpty()) {
                         item(key = "table-empty") {
-                            EmptyState(
-                                title = stringResource(R.string.empty_table_title),
-                                message = stringResource(R.string.empty_table_message),
-                            )
+                            // A knockout tie has no positions; a league with no table has
+                            // simply not been downloaded, and that one can be asked for.
+                            if (state.isKnockout) {
+                                EmptyState(
+                                    title = stringResource(R.string.empty_table_knockout_title),
+                                    message = stringResource(R.string.empty_table_knockout_message),
+                                )
+                            } else {
+                                EmptyState(
+                                    title = stringResource(R.string.empty_table_title),
+                                    message = stringResource(R.string.empty_table_message),
+                                    actionLabel = stringResource(R.string.empty_table_retry),
+                                    onAction = viewModel::retry,
+                                )
+                            }
                         }
                     } else {
                         item(key = "table-header") { TableHeader() }
@@ -137,6 +169,41 @@ fun CompetitionTableScreen(
                     }
                 }
             }
+        }
+    }
+}
+
+/**
+ * The line that keeps a counted table honest.
+ *
+ * Its numbers come from the matches in this app, not from the league's own table, so it says
+ * so and names the size of the sample: a table over eight matches is a shape, not a verdict.
+ */
+@Composable
+private fun ComputedTableNote(matches: Int, languageTag: String) {
+    SoftCard(
+        modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.sm),
+        containerColor = FootballAiThemeExtra.colors.cardStrong,
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(Spacing.md),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.TableChart,
+                contentDescription = null,
+                tint = FootballAiThemeExtra.colors.iconMuted,
+                modifier = Modifier.size(18.dp),
+            )
+            Spacer(Modifier.width(Spacing.sm))
+            Text(
+                text = stringResource(
+                    R.string.table_computed_note,
+                    Formatters.integer(matches, languageTag),
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }

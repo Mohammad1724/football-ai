@@ -50,8 +50,15 @@
     <string name="empty_backtest_title">داده‌ای برای ارزیابی نیست</string>
     <string name="empty_competition_message">برای این لیگ همگام‌سازی انجام دهید.</string>
     <string name="action_open_table">نمایش جدول</string>
-    <string name="empty_table_title">جدولی ذخیره نشده</string>
-    <string name="empty_table_message">برای این تورنمنت هنوز جدولی دریافت نشده؛ با همگام‌سازی بازی‌ها جدول هم می‌آید.</string>
+    <string name="empty_table_title">هنوز جدولی نیامده</string>
+    <string name="empty_table_message">جدول این لیگ برای این فصل دانلود نشده است. با باز شدن صفحه درخواست می‌شود؛ دکمهٔ زیر دوباره درخواست می‌کند.</string>
+    <string name="empty_table_retry">دریافت جدول</string>
+    <string name="empty_table_knockout_title">رقابت حذفی جدول ندارد</string>
+    <string name="empty_table_knockout_message">در رقابت حذفی جایگاهی وجود ندارد. بازی‌های آن در فهرست مسابقات است و هر بازی تحلیل خودش را دارد.</string>
+    <string name="table_computed_note">این جدول از %1$s بازی تمام‌شدهٔ ذخیره‌شده در اپ ساخته شده است، نه از جدول رسمی لیگ.</string>
+    <string name="action_table">جدول</string>
+    <string name="table_entry_title">جدول لیگ</string>
+    <string name="table_entry_subtitle">جایگاه تیم‌ها، برد و باخت و تفاضل گل</string>
     <string name="table_played">بازی</string>
     <string name="table_won">برد</string>
     <string name="table_drawn">مساوی</string>

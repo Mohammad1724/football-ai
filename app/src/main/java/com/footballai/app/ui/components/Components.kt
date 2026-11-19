@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.TableChart
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Inbox
@@ -341,24 +342,47 @@ fun CompetitionNameText(
     primaryMaxLines: Int = 2,
     showLatin: Boolean = true,
     primaryColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+    /**
+     * Opens the competition's table. The name of the competition is the one place on a match
+     * or a team page that already says which league this is, so it is also the place to go
+     * from there to the table — with a small table mark, because a plain name does not look
+     * like a door.
+     */
+    onTableClick: (() -> Unit)? = null,
 ) {
     val pair = NameLocalization.competitionNamePair(name, competitionId, languageTag)
-    Column(modifier = modifier) {
-        Text(
-            text = pair.first,
-            style = primaryStyle,
-            color = primaryColor,
-            maxLines = primaryMaxLines,
-            overflow = TextOverflow.Ellipsis,
-        )
-        val secondary = pair.second
-        if (showLatin && secondary != null && secondary != pair.first) {
+    val rowModifier = if (onTableClick != null) {
+        modifier.clickable(onClick = onTableClick)
+    } else {
+        modifier
+    }
+    Row(modifier = rowModifier, verticalAlignment = Alignment.CenterVertically) {
+        Column(modifier = Modifier.weight(1f, fill = false)) {
             Text(
-                text = "\u200E" + secondary,
-                style = secondaryStyle,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                maxLines = 1,
+                text = pair.first,
+                style = primaryStyle,
+                color = primaryColor,
+                maxLines = primaryMaxLines,
                 overflow = TextOverflow.Ellipsis,
+            )
+            val secondary = pair.second
+            if (showLatin && secondary != null && secondary != pair.first) {
+                Text(
+                    text = "\u200E" + secondary,
+                    style = secondaryStyle,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+        if (onTableClick != null) {
+            Spacer(Modifier.width(6.dp))
+            Icon(
+                imageVector = Icons.Outlined.TableChart,
+                contentDescription = androidx.compose.ui.res.stringResource(R.string.action_table),
+                tint = FootballAiThemeExtra.colors.iconMuted,
+                modifier = Modifier.size(14.dp),
             )
         }
     }

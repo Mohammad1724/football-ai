@@ -50,8 +50,15 @@
     <string name="empty_backtest_title">No history to evaluate</string>
     <string name="empty_competition_message">Run a fixture sync for this competition.</string>
     <string name="action_open_table">Show table</string>
-    <string name="empty_table_title">No table stored</string>
-    <string name="empty_table_message">Sync fixtures for this competition and its table arrives with them.</string>
+    <string name="empty_table_title">No table yet</string>
+    <string name="empty_table_message">This league\'s table has not been downloaded for this season. It is requested when the page opens; the button asks again.</string>
+    <string name="empty_table_retry">Fetch the table</string>
+    <string name="empty_table_knockout_title">A knockout has no table</string>
+    <string name="empty_table_knockout_message">There are no positions in a knockout competition. Its matches are in the fixtures list, and each one opens with its own analysis.</string>
+    <string name="table_computed_note">Counted from %1$s finished matches stored in the app, not from the league\'s published table.</string>
+    <string name="action_table">Table</string>
+    <string name="table_entry_title">League table</string>
+    <string name="table_entry_subtitle">Positions, wins, losses and goal difference</string>
     <string name="table_played">P</string>
     <string name="table_won">W</string>
     <string name="table_drawn">D</string>

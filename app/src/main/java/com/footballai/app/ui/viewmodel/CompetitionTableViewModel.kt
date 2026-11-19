@@ -40,6 +40,12 @@ data class CompetitionTableState(
     val isLoading: Boolean = true,
     /** A table is missing, not broken: the sync has simply never stored one. */
     val isEmpty: Boolean = false,
+    /** True when the rows were counted from stored results, not read from a published table. */
+    val isComputed: Boolean = false,
+    /** How many finished matches a computed table was counted from. */
+    val computedMatches: Int = 0,
+    /** A knockout tie has no positions: the screen says that instead of asking for a table. */
+    val isKnockout: Boolean = false,
     val error: String? = null,
 )
 
@@ -69,22 +75,32 @@ class CompetitionTableViewModel(
             _state.update { it.copy(isLoading = true, error = null) }
             try {
                 val competition = container.matchRepository.competitionEntity(competitionId)
-                val table = container.matchRepository.leagueTable(competitionId)
+                var table = container.matchRepository.leagueTable(competitionId)
                 if (table == null && refresh && competition != null) {
                     // Nothing stored: ask for it once — from the competition's own source
                     // when it publishes a table, otherwise the same league's table from the
-                    // one source that does. A failure here is not an error the reader can
-                    // act on: the screen still says "no table yet".
+                    // one source that does.
                     runCatching { container.syncRepository.refreshTableFor(competitionId) }
+                    table = container.matchRepository.leagueTable(competitionId)
                 }
-                val shown = table ?: container.matchRepository.leagueTable(competitionId)
+                // Still nothing published, but the app holds results for this league: a table
+                // counted from those is better than an apology, as long as it is labelled as
+                // what it is and says how many matches it was counted from.
+                val computed = if (table == null) {
+                    container.matchRepository.computedTable(competitionId)
+                } else {
+                    null
+                }
+                val shown = table ?: computed?.rows.orEmpty()
                 // Counted over the same season the table is drawn for, so the two agree.
-                val stats = container.matchRepository.leagueStats(competitionId, shown?.season)
+                val stats = container.matchRepository.leagueStats(
+                    competitionId, table?.season ?: computed?.season,
+                )
                 _state.update { previous ->
                     previous.copy(
                         competitionName = competition?.name ?: previous.competitionName,
-                        season = shown?.season,
-                        rows = shown?.rows.orEmpty().map { row ->
+                        season = table?.season ?: computed?.season,
+                        rows = shown.map { row ->
                             TableRow(
                                 rank = row.rank,
                                 teamId = row.teamId,
@@ -103,7 +119,11 @@ class CompetitionTableViewModel(
                             )
                         },
                         isLoading = false,
-                        isEmpty = shown == null,
+                        isEmpty = shown.isEmpty(),
+                        isComputed = computed != null,
+                        computedMatches = computed?.matches ?: 0,
+                        isKnockout = competition?.competitionClass
+                            ?.contains("LEAGUE", ignoreCase = true) == false,
                         leagueStats = stats,
                     )
                 }

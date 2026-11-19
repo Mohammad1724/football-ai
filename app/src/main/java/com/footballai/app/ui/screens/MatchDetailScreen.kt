@@ -147,6 +147,7 @@ fun MatchDetailScreen(
     matchId: String,
     onBack: () -> Unit,
     onTeamClick: (String) -> Unit,
+    onCompetitionClick: (String) -> Unit,
 ) {
     val container = LocalAppContainer.current
     val viewModel: MatchDetailViewModel = viewModel(
@@ -279,6 +280,7 @@ fun MatchDetailScreen(
                     detail = detail,
                     languageTag = languageTag,
                     onTeamClick = onTeamClick,
+                    onCompetitionClick = onCompetitionClick,
                     favouriteTeams = state.favouriteTeams,
                     onToggleFavourite = viewModel::toggleFavourite,
                 )
@@ -430,6 +432,7 @@ private fun MatchHeader(
     detail: MatchDetail,
     languageTag: String,
     onTeamClick: (String) -> Unit,
+    onCompetitionClick: (String) -> Unit,
     favouriteTeams: Set<String>,
     onToggleFavourite: (String, Boolean) -> Unit,
 ) {
@@ -454,6 +457,9 @@ private fun MatchHeader(
                     languageTag = languageTag,
                     modifier = Modifier.weight(1f),
                     primaryStyle = MaterialTheme.typography.labelMedium,
+                    // The league name is the only place on this page that says which
+                    // competition this is, so it is also the way into its table.
+                    onTableClick = { onCompetitionClick(summary.competitionId) },
                 )
                 Spacer(Modifier.width(8.dp))
                 StatusChip(

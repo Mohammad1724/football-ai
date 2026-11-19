@@ -271,6 +271,7 @@ private fun MainNavigation() {
                     matchId = matchId,
                     onBack = { navController.popBackStack() },
                     onTeamClick = { navController.navigate(Routes.team(it)) },
+                    onCompetitionClick = { navController.navigate(Routes.competitionTable(it)) },
                 )
             }
             composable(
@@ -280,6 +281,7 @@ private fun MainNavigation() {
                 TeamScreen(
                     teamId = entry.arguments?.getString("teamId").orEmpty(),
                     onBack = { navController.popBackStack() },
+                    onCompetitionClick = { navController.navigate(Routes.competitionTable(it)) },
                 )
             }
             composable(
@@ -300,6 +302,11 @@ private fun MainNavigation() {
                     competitionId = entry.arguments?.getString("competitionId").orEmpty(),
                     onBack = { navController.popBackStack() },
                     onMatchClick = { navController.navigate(Routes.matchDetail(it)) },
+                    onTableClick = {
+                        navController.navigate(
+                            Routes.competitionTable(entry.arguments?.getString("competitionId").orEmpty()),
+                        )
+                    },
                 )
             }
         }

@@ -16,6 +16,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.outlined.TableChart
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -37,6 +38,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
@@ -53,15 +55,21 @@ import com.footballai.app.ui.components.SoftBackButton
 import com.footballai.app.ui.components.EmptyState
 import com.footballai.app.ui.components.LoadingState
 import com.footballai.app.ui.components.SectionHeader
+import com.footballai.app.ui.components.SoftCard
 import com.footballai.app.ui.components.StatusChip
 import com.footballai.app.ui.components.TeamBadge
 import com.footballai.app.ui.components.TeamNameLines
 import com.footballai.app.ui.theme.FootballAiThemeExtra
+import com.footballai.app.ui.theme.Radii
 import com.footballai.app.ui.viewmodel.TeamViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TeamScreen(teamId: String, onBack: () -> Unit) {
+fun TeamScreen(
+    teamId: String,
+    onBack: () -> Unit,
+    onCompetitionClick: (String) -> Unit,
+) {
     val container = LocalAppContainer.current
     val viewModel: TeamViewModel = viewModel(
         key = teamId,
@@ -121,11 +129,58 @@ fun TeamScreen(teamId: String, onBack: () -> Unit) {
                                 primaryStyle = MaterialTheme.typography.headlineSmall,
                                 primaryMaxLines = 2,
                             )
-                            Text(
-                                text = profile.competitionName.ifBlank { stringResource(R.string.unknown_competition) },
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            // The line that already said which competition this club plays in is
+                            // also the way into that competition's table.
+                            Row(
+                                modifier = Modifier
+                                    .clip(Radii.smallShape)
+                                    .clickable { onCompetitionClick(profile.competitionId) },
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    text = profile.competitionName.ifBlank { stringResource(R.string.unknown_competition) },
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = FootballAiThemeExtra.colors.iconMuted,
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Icon(
+                                    imageVector = Icons.Outlined.TableChart,
+                                    contentDescription = stringResource(R.string.action_table),
+                                    tint = FootballAiThemeExtra.colors.iconMuted,
+                                    modifier = Modifier.size(14.dp),
+                                )
+                            }
+                        }
+                    }
+                }
+                item {
+                    SoftCard(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 4.dp),
+                        onClick = { onCompetitionClick(profile.competitionId) },
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.TableChart,
+                                contentDescription = null,
+                                tint = FootballAiThemeExtra.colors.iconMuted,
                             )
+                            Spacer(Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = stringResource(R.string.table_entry_title),
+                                    style = MaterialTheme.typography.titleSmall,
+                                )
+                                Text(
+                                    text = profile.competitionName.ifBlank { stringResource(R.string.unknown_competition) },
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
                         }
                     }
                 }

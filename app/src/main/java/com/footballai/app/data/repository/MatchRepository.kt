@@ -270,6 +270,70 @@ class MatchRepository(
         )
     }
 
+    /**
+     * A table built from the results this app holds, for a league whose source publishes none.
+     *
+     * Only league competitions get one: a knockout tie has no positions, and counting one
+     * would be inventing a competition that does not exist. The row set is every team with at
+     * least one finished match in the stored season, and the caller is told how many matches
+     * the numbers came from, because that is what makes the table readable rather than
+     * authoritative.
+     */
+    suspend fun computedTable(competitionId: String, season: Int? = null): ComputedLeagueTable? {
+        val competition = db.competitionDao().byId(competitionId) ?: return null
+        if (!competition.competitionClass.contains("LEAGUE", ignoreCase = true)) return null
+        val asked = season ?: competition.season
+        val finished = db.matchDao().finishedMatches(competitionId, asked)
+        // A season the app does not know is not a licence to add two seasons together: when
+        // neither the table nor the competition names one, the newest season among the stored
+        // results is used and the older ones are left out of the count.
+        val resolved = asked ?: finished.mapNotNull { it.season }.maxOrNull()
+        val counted = if (resolved == null) finished else finished.filter { it.season == resolved }
+        val results = counted.mapNotNull { match ->
+            val home = match.homeGoals ?: return@mapNotNull null
+            val away = match.awayGoals ?: return@mapNotNull null
+            com.footballai.app.domain.model.ComputedTable.Result(
+                homeTeamId = match.homeTeamId,
+                awayTeamId = match.awayTeamId,
+                homeGoals = home,
+                awayGoals = away,
+            )
+        }
+        val computed = com.footballai.app.domain.model.ComputedTable.rows(results)
+        if (computed.size < 2) return null
+        val teams = db.teamDao().byIds(computed.map { it.teamId }).associateBy { it.id }
+        val now = clock.nowEpochMs()
+        val rows = computed.mapIndexed { index, row ->
+            val team = teams[row.teamId]
+            StandingEntity(
+                competitionId = competitionId,
+                season = resolved ?: 0,
+                teamId = row.teamId,
+                teamName = team?.name ?: row.teamId,
+                crestUrl = team?.crestUrl?.takeIf { it.isNotBlank() },
+                rank = index + 1,
+                points = row.points,
+                played = row.played,
+                goalDifference = row.goalDifference,
+                form = null,
+                updatedAt = now,
+                wins = row.wins,
+                draws = row.draws,
+                losses = row.losses,
+                goalsFor = row.goalsFor,
+                goalsAgainst = row.goalsAgainst,
+            )
+        }
+        return ComputedLeagueTable(season = resolved, rows = rows, matches = results.size)
+    }
+
+    /** A table counted from results, with the number of matches it was counted from. */
+    data class ComputedLeagueTable(
+        val season: Int?,
+        val rows: List<StandingEntity>,
+        val matches: Int,
+    )
+
     /** A stored league table: its season and its rows, newest table when the season moved. */
     data class LeagueTable(val season: Int, val rows: List<com.footballai.app.data.local.entity.StandingEntity>)
 
