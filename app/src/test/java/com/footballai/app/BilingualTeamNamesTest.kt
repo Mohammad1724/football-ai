@@ -27,6 +27,35 @@ class BilingualTeamNamesTest {
         }
     }
     @Test
+    fun `club names shown in November screenshots have Persian and published names`() {
+        val names = mapOf(
+            "Amedspor" to "آمداسپور", "Kasimpasa" to "قاسم‌پاشا", "Kocaelispor" to "کوجائلی‌اسپور",
+            "Istanbul Basaksehir" to "استانبول باشاک‌شهیر", "Çorum" to "چوروم", "Göztepe" to "گوزتپه",
+            "Çaykur Rizespor" to "چای‌کور ریزه‌اسپور", "Erzurumspor" to "ارزروم‌اسپور",
+            "Alanyaspor" to "آلانیااسپور", "Gençlerbirliği" to "گنچلربیرلیغی", "Konyaspor" to "قونیه‌اسپور",
+            "Gaziantep" to "غازی‌عینتاب", "Samsunspor" to "سامسون‌اسپور", "Eyüpspor" to "ایوپ‌اسپور",
+            "sc Heerenveen" to "هیرنفین", "Fortuna Sittard" to "فورتونا سیتارد", "Go Ahead Eagles" to "گو اهد ایگلز",
+            "FC Groningen" to "خرونینگن", "SC Cambuur" to "کامبور", "N.E.C. Nijmegen" to "نایمخن",
+            "Sparta Rotterdam" to "اسپارتا روتردام", "PEC Zwolle" to "زووله", "FC Utrecht" to "اوترخت",
+            "Excelsior Rotterdam" to "اکسلسیور روتردام", "Telstar" to "تلستار", "ADO Den Haag" to "آدو دن هاخ", "Willem II" to "ویلم دوم",
+            "Partick Thistle" to "پارتیک تیستل", "Stenhousemuir" to "استنهاوسمویر", "Raith Rovers" to "ریث روورز",
+            "Dunfermline Athletic" to "دانفرملین اتلتیک", "Livingston" to "لیوینگستون",
+            "Inverness Caledonian Thistle" to "اینورنس کالدونین تیستل", "Ayr United" to "ایر یونایتد",
+            "Arbroath" to "آربروث", "Greenock Morton" to "گرینوک مورتون", "Queen's Park" to "کوئینز پارک",
+            "RC Deportivo" to "دپورتیوو لاکرونیا", "Deportivo Alavés" to "آلاوس", "Levante UD" to "لوانته", "Málaga CF" to "مالاگا",
+            "Viktoria Köln" to "ویکتوریا کلن", "TSV Havelse" to "هاولسه",
+            "Colwyn Bay" to "کولوین بی", "Airbus" to "ایرباس", "Holywell" to "هولی‌ول", "Briton Ferry" to "بریتِن فری",
+            "Connahs Q." to "کوناز کی", "Caernarfon" to "کارنارفون", "Ammanford" to "امانفورد", "Cardiff Metropolitan" to "کاردیف متروپولیتن",
+        )
+        names.forEach { (source, persian) ->
+            assertEquals(persian to source, NameLocalization.namePair(source, "fa"), source)
+            assertEquals(source, NameLocalization.namePair(source, "en").first, source)
+        }
+        assertNull(NameLocalization.persianTeamName("Viktoria Köln II"))
+        assertNull(NameLocalization.persianTeamName("Colwyn Bay Wanderers"))
+    }
+
+    @Test
     fun `unknown and reserve clubs do not acquire an invented name`() {
         assertEquals("Imaginary United" to null, NameLocalization.namePair("Imaginary United", "fa"))
         assertNull(NameLocalization.persianTeamName("Bayern Munich II"))

@@ -10,6 +10,8 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
+import kotlin.test.assertFalse
 
 /**
  * The table comes from the same undocumented endpoint as the fixtures, so its mapping is
@@ -34,6 +36,15 @@ class EspnStandingsTest {
             override fun nowEpochMs(): Long = 1_794_614_400_000L
         },
     )
+
+    @Test
+    fun `mapped CSV leagues are allowed for standings without expanding fixture polling`() {
+        assertTrue(EspnOpenProvider.supportsStandingsKey("aus.1"))
+        assertTrue(EspnOpenProvider.supportsStandingsKey("sco.2"))
+        assertTrue(EspnOpenProvider.supportsStandingsKey("eng.1"))
+        assertFalse(EspnOpenProvider.supportsStandingsKey("unknown.league"))
+        assertFalse(EspnOpenProvider.COMPETITIONS.any { it.key == "aus.1" })
+    }
 
     private val payload = """
         {"children":[{"standings":{"season":2026,"entries":[

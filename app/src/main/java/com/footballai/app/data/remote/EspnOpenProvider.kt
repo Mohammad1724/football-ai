@@ -105,6 +105,12 @@ class EspnOpenProvider(
 
         private val byKey: Map<String, EspnCompetitionInfo> = COMPETITIONS.associateBy { it.key }
 
+        // A standings request may also come from a CSV competition mapped to an ESPN
+        // league. These curated slugs do not add competitions to fixture polling and do
+        // not promise that ESPN publishes a table for every one of them.
+        internal fun supportsStandingsKey(key: String): Boolean =
+            key in byKey || key in LeagueCrestIndex.LEAGUES.values
+
         private fun defaultJson(): Json = Json { ignoreUnknownKeys = true; isLenient = true; explicitNulls = false }
     }
 
@@ -209,7 +215,7 @@ class EspnOpenProvider(
         competitionKey: String,
         season: Int,
     ): Outcome<List<RemoteStandingRow>> = withContext(Dispatchers.IO) {
-        if (byKey[competitionKey] == null) {
+        if (!supportsStandingsKey(competitionKey)) {
             return@withContext Outcome.Failure(
                 AppError(ErrorCode.NOT_FOUND, detail = "Unknown ESPN competition $competitionKey"),
             )

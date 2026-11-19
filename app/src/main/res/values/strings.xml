@@ -53,7 +53,7 @@
     <string name="table_team_missing_title">Team not found in this table</string>
     <string name="table_team_missing_message">The available table does not contain this team. It may be incomplete or from another season. Open the full table or try again later.</string>
     <string name="empty_table_title">No table yet</string>
-    <string name="empty_table_message">This league\'s table has not been downloaded for this season. It is requested when the page opens; the button asks again.</string>
+    <string name="empty_table_message">No table is available for this league. The source may not publish one, or the request may have failed. You can try again.</string>
     <string name="empty_table_retry">Fetch the table</string>
     <string name="empty_table_knockout_title">A knockout has no table</string>
     <string name="empty_table_knockout_message">There are no positions in a knockout competition. Its matches are in the fixtures list, and each one opens with its own analysis.</string>
@@ -76,7 +76,7 @@
     <string name="table_goal_difference">GD</string>
     <string name="table_points">Pts</string>
     <string name="league_stats_title">League numbers</string>
-    <string name="league_stats_matches">From %1$s finished matches</string>
+    <string name="league_stats_matches">Based on %1$s finished matches stored as fixtures; the table may use a different sample.</string>
     <string name="league_stats_home_wins">Home wins</string>
     <string name="league_stats_away_wins">Away wins</string>
     <string name="league_stats_goals">Goals per match</string>

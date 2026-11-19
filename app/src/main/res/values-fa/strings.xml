@@ -53,7 +53,7 @@
     <string name="table_team_missing_title">تیم در این جدول پیدا نشد</string>
     <string name="table_team_missing_message">جدول موجود شامل این تیم نیست؛ ممکن است ناقص یا مربوط به فصل دیگری باشد. جدول کامل را باز کنید یا بعداً دوباره امتحان کنید.</string>
     <string name="empty_table_title">هنوز جدولی نیامده</string>
-    <string name="empty_table_message">جدول این لیگ برای این فصل دانلود نشده است. با باز شدن صفحه درخواست می‌شود؛ دکمهٔ زیر دوباره درخواست می‌کند.</string>
+    <string name="empty_table_message">جدولی برای این لیگ در دسترس نیست؛ ممکن است منبع جدول نداشته باشد یا دریافت آن ناموفق بوده باشد. می‌توانید دوباره تلاش کنید.</string>
     <string name="empty_table_retry">دریافت جدول</string>
     <string name="empty_table_knockout_title">رقابت حذفی جدول ندارد</string>
     <string name="empty_table_knockout_message">در رقابت حذفی جایگاهی وجود ندارد. بازی‌های آن در فهرست مسابقات است و هر بازی تحلیل خودش را دارد.</string>
@@ -76,7 +76,7 @@
     <string name="table_goal_difference">تفاضل</string>
     <string name="table_points">امتیاز</string>
     <string name="league_stats_title">شاخص‌های لیگ</string>
-    <string name="league_stats_matches">بر پایهٔ %1$s بازی تمام‌شده</string>
+    <string name="league_stats_matches">بر پایهٔ %1$s بازی تمام‌شدهٔ ذخیره‌شده در بخش مسابقات؛ ممکن است با نمونهٔ جدول متفاوت باشد.</string>
     <string name="league_stats_home_wins">برد میزبان</string>
     <string name="league_stats_away_wins">برد مهمان</string>
     <string name="league_stats_goals">گل در هر بازی</string>
