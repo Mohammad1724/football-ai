@@ -19,6 +19,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -28,6 +30,7 @@ import com.footballai.app.R
 import com.footballai.app.core.Formatters
 import com.footballai.app.domain.catalog.NameLocalization
 import com.footballai.app.domain.model.TableVenue
+import com.footballai.app.domain.model.MatchTableMark
 import com.footballai.app.domain.model.TeamRef
 import com.footballai.app.ui.LocalLanguageTag
 import com.footballai.app.ui.theme.FootballAiThemeExtra
@@ -103,8 +106,8 @@ fun LeagueTableHeader(modifier: Modifier = Modifier) {
  *
  * [highlighted] marks the club whose page this is: the eye should find its own row before it
  * reads a single position. The mark is a stronger card and a bolder name, not a second colour
- * scheme — a red or green row would mean "relegated" or "qualified", and this app does not
- * know those rules for most leagues.
+ * scheme. A match may additionally pass a result mark; its on-row text and the match-tab
+ * legend explicitly tie the tint to this fixture rather than qualification or relegation.
  */
 @Composable
 fun LeagueTableRow(
@@ -112,13 +115,32 @@ fun LeagueTableRow(
     modifier: Modifier = Modifier,
     highlighted: Boolean = false,
     onClick: (() -> Unit)? = null,
+    matchMark: MatchTableMark? = null,
 ) {
     val colors = FootballAiThemeExtra.colors
     val languageTag = LocalLanguageTag.current
+    val markColor = when (matchMark) {
+        MatchTableMark.WIN, MatchTableMark.LEADING -> colors.positive
+        MatchTableMark.LOSS, MatchTableMark.TRAILING -> colors.danger
+        MatchTableMark.DRAW, MatchTableMark.LEVEL -> colors.awaySeries
+        MatchTableMark.TEAM -> MaterialTheme.colorScheme.primary
+        null -> Color.Transparent
+    }
+    val markLabel = when (matchMark) {
+        MatchTableMark.WIN -> R.string.table_match_win
+        MatchTableMark.LOSS -> R.string.table_match_loss
+        MatchTableMark.DRAW -> R.string.table_match_draw
+        MatchTableMark.LEADING -> R.string.table_match_leading
+        MatchTableMark.TRAILING -> R.string.table_match_trailing
+        MatchTableMark.LEVEL -> R.string.table_match_level
+        MatchTableMark.TEAM -> R.string.table_match_team
+        null -> null
+    }
     SoftCard(
         modifier = modifier.fillMaxWidth(),
         onClick = onClick,
         containerColor = when {
+            matchMark != null -> markColor.copy(alpha = 0.16f).compositeOver(MaterialTheme.colorScheme.surface)
             highlighted -> colors.cardStrong
             row.rank <= 3 -> colors.cardStrong
             else -> colors.card
@@ -144,14 +166,19 @@ fun LeagueTableRow(
             )
             Spacer(Modifier.width(Spacing.sm))
             // The Persian name when the catalog has one, the published name otherwise.
-            Text(
-                text = NameLocalization.namePair(row.teamName, languageTag).first,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = if (highlighted) FontWeight.SemiBold else FontWeight.Normal,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
-            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = NameLocalization.namePair(row.teamName, languageTag).first,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = if (highlighted || matchMark != null) FontWeight.SemiBold else FontWeight.Normal,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                if (markLabel != null) {
+                    Text(stringResource(markLabel), style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurface, maxLines = 2)
+                }
+            }
             NumberCell(Formatters.integer(row.played, languageTag), 26)
             NumberCell(row.wins?.let { Formatters.integer(it, languageTag) } ?: DASH, 26)
             NumberCell(row.draws?.let { Formatters.integer(it, languageTag) } ?: DASH, 26)
@@ -196,6 +223,7 @@ fun LeagueTableBlock(
     /** The clubs whose page this table sits on: a match marks both of its teams. */
     highlightTeamIds: Set<String> = emptySet(),
     onTeamClick: ((String) -> Unit)? = null,
+    matchMarks: Map<String, MatchTableMark> = emptyMap(),
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
         LeagueTableHeader()
@@ -211,6 +239,7 @@ fun LeagueTableBlock(
                 row = row,
                 modifier = Modifier.padding(vertical = Spacing.xxs),
                 highlighted = row.teamId in highlightTeamIds,
+                matchMark = matchMarks[row.teamId],
                 onClick = onTeamClick?.takeIf { row.navigable }?.let { click -> { click(row.teamId) } },
             )
         }

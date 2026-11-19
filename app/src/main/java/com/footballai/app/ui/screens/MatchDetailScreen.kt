@@ -82,6 +82,9 @@ import com.footballai.app.core.Formatters
 import com.footballai.app.domain.model.MarketType
 import com.footballai.app.domain.model.MatchDetail
 import com.footballai.app.domain.model.MatchStatus
+import com.footballai.app.domain.model.MatchTableHighlight
+import com.footballai.app.domain.model.TableSeasonComparison
+import com.footballai.app.domain.model.compareTableSeason
 import com.footballai.app.domain.model.MatchTimeline
 import com.footballai.app.domain.model.TableVenue
 import com.footballai.app.domain.model.TeamLineup
@@ -401,8 +404,8 @@ fun MatchDetailScreen(
                     TAB_TABLE -> MatchTableTab(
                         header = matchHeader,
                         table = state.table,
-                        homeTeamId = detail.summary.home.id,
-                        awayTeamId = detail.summary.away.id,
+                        match = detail.summary,
+                        matchSeason = state.matchSeason,
                         onVenue = viewModel::setVenue,
                         onOpenFullTable = { onCompetitionClick(detail.summary.competitionId) },
                         onTeamClick = onTeamClick,
@@ -959,7 +962,7 @@ private data class MatchVerdict(
      * with no history is worth less than a 4-point gap from a calibrated one. It is shown
      * as a number and never turned into a confidence label.
      */
-    val separation: Double,
+    val separation: Int?,
 )
 
 private fun computeVerdict(prediction: PredictionView): MatchVerdict {
@@ -972,7 +975,7 @@ private fun computeVerdict(prediction: PredictionView): MatchVerdict {
     return MatchVerdict(
         outcome = top.first,
         probability = top.second,
-        separation = (top.second - ranked[1].second).coerceAtLeast(0.0),
+        separation = MatchAnalysisPresentation.roundedGap(top.second, ranked[1].second),
     )
 }
 
@@ -1048,14 +1051,13 @@ private fun PredictionVerdictCard(
                 // The chip reports the evidence recorded with the forecast, never the
                 // margin: a wide gap from a model with no history is not strong evidence.
                 ConfidenceChip(level = prediction.confidence?.level)
-                Text(
-                    text = stringResource(
-                        R.string.verdict_separation,
-                        Formatters.percent(verdict.separation, languageTag),
-                    ),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                verdict.separation?.let { gap ->
+                    Text(
+                        text = stringResource(R.string.verdict_separation, Formatters.integer(gap, languageTag)),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
             Spacer(Modifier.height(10.dp))
             Text(
@@ -1677,12 +1679,16 @@ private fun LiveTab(
 private fun MatchTableTab(
     header: @Composable () -> Unit,
     table: LeagueTableUiState,
-    homeTeamId: String,
-    awayTeamId: String,
+    match: MatchSummary,
+    matchSeason: Int?,
     onVenue: (TableVenue) -> Unit,
     onOpenFullTable: () -> Unit,
     onTeamClick: (String) -> Unit,
 ) {
+    val marks = MatchTableHighlight.forMatch(match.home.id, match.away.id, match.status, match.homeGoals, match.awayGoals)
+    val foundTeams = table.rows.count { it.teamId in marks }
+    val tableSeason = table.season?.takeIf { it > 0 }
+    val language = LocalLanguageTag.current
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = 24.dp),
@@ -1691,6 +1697,20 @@ private fun MatchTableTab(
         item {
             Column(modifier = Modifier.padding(horizontal = 16.dp)) {
                 if (table.isComputed) TableProvenanceNote(matches = table.matches)
+                val seasonNote = when (compareTableSeason(matchSeason, tableSeason)) {
+                    TableSeasonComparison.UNKNOWN -> stringResource(R.string.table_season_unknown)
+                    TableSeasonComparison.DIFFERENT -> stringResource(R.string.table_season_mismatch,
+                        Formatters.integer(requireNotNull(matchSeason), language), Formatters.integer(requireNotNull(tableSeason), language))
+                    TableSeasonComparison.SAME_UNVERIFIED -> stringResource(R.string.table_season_same_unverified,
+                        Formatters.integer(requireNotNull(tableSeason), language))
+                }
+                Text(seasonNote, style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 8.dp))
+                Text(stringResource(R.string.table_match_legend), style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 8.dp))
+                if (foundTeams < marks.size) Text(stringResource(R.string.table_match_teams_missing),
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 8.dp))
                 if (table.canSplitByVenue) VenueChips(selected = table.venue, onSelect = onVenue)
             }
         }
@@ -1698,7 +1718,7 @@ private fun MatchTableTab(
             LeagueTableBlock(
                 rows = table.rows,
                 modifier = Modifier.padding(horizontal = 16.dp),
-                highlightTeamIds = setOf(homeTeamId, awayTeamId),
+                matchMarks = marks,
                 onTeamClick = onTeamClick,
             )
         }

@@ -157,8 +157,10 @@ internal fun MatchCalendarDialog(
                                 }
                             }
                         }
-                        Text(resources.getString(R.string.calendar_data_hint), style = MaterialTheme.typography.bodySmall,
+                        Text(resources.getString(R.string.calendar_legend), style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 10.dp))
+                        Text(resources.getString(R.string.calendar_data_hint), style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
                     }
                     Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
                         horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {

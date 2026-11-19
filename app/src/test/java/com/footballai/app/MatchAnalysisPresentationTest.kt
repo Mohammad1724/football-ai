@@ -9,6 +9,13 @@ import kotlin.test.assertEquals
 
 class MatchAnalysisPresentationTest {
     @Test
+    fun `percentage point gap matches displayed rounded numbers`() {
+        assertEquals(91, MatchAnalysisPresentation.roundedGap(0.95, 0.04))
+        assertEquals(5, MatchAnalysisPresentation.roundedGap(0.394, 0.336))
+        assertEquals(null, MatchAnalysisPresentation.roundedGap(Double.NaN, 0.2))
+    }
+
+    @Test
     fun `finished match labels previous prediction without assuming its kind`() {
         assertEquals(R.string.prediction_past_title, MatchAnalysisPresentation.title(true))
         assertEquals(R.string.verdict_past_win, MatchAnalysisPresentation.verdict(true, VerdictOutcome.HOME))

@@ -101,7 +101,7 @@ fun CompetitionTableScreen(
                         )
                         state.season?.let { season ->
                             Text(
-                                text = seasonLabel(season),
+                                text = stringResource(R.string.table_season_identifier, Formatters.integer(season, languageTag)),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -270,7 +270,3 @@ private fun InfoRow(label: String, value: String) {
         Text(text = value, style = MaterialTheme.typography.labelLarge)
     }
 }
-
-/** A season is written as a single year or a span, the way the source numbers it. */
-private fun seasonLabel(season: Int): String =
-    if (season >= 2000) "${season - 1}/${season.toString().takeLast(2)}" else season.toString()

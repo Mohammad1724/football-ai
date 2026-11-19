@@ -60,6 +60,8 @@ data class MatchDetailUiState(
     val recentTen: RecentTenSnapshot? = null,
     /** The competition's own table, drawn on its tab with both clubs marked. */
     val table: LeagueTableUiState = LeagueTableUiState(),
+    /** The provider's recorded season identifier for this fixture, not an inferred calendar. */
+    val matchSeason: Int? = null,
 )
 
 /** What a reader wants to know about a team before trusting a percentage. */
@@ -380,7 +382,8 @@ class MatchDetailViewModel(
         val table = container.matchRepository.leagueTableUi(
             competitionId, _state.value.table.venue,
         )
-        _state.update { it.copy(table = table) }
+        val matchSeason = container.matchRepository.matchEntity(matchId)?.season?.takeIf { it > 0 }
+        _state.update { it.copy(table = table, matchSeason = matchSeason) }
     }
 
     /** Home, away or altogether — only for a table counted from this app's own results. */

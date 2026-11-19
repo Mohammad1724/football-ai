@@ -2,9 +2,14 @@ package com.footballai.app.ui.screens
 
 import com.footballai.app.R
 import com.footballai.app.domain.model.PredictionKind
+import kotlin.math.roundToInt
 
 /** Labels describe the displayed snapshot, never infer its kind from the match status. */
 internal object MatchAnalysisPresentation {
+    fun roundedGap(top: Double, next: Double): Int? =
+        if (top.isFinite() && next.isFinite() && top in 0.0..1.0 && next in 0.0..1.0)
+            ((top * 100).roundToInt() - (next * 100).roundToInt()).coerceAtLeast(0)
+        else null
     fun title(isFinished: Boolean): Int = if (isFinished) R.string.prediction_past_title else R.string.prediction_verdict_title
     fun context(kind: PredictionKind): Int = when (kind) {
         PredictionKind.PRE_MATCH -> R.string.prediction_context_prematch
