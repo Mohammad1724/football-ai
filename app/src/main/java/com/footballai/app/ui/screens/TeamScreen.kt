@@ -167,58 +167,15 @@ fun TeamScreen(
                                 primaryStyle = MaterialTheme.typography.headlineSmall,
                                 primaryMaxLines = 2,
                             )
-                            // The line that already said which competition this club plays in is
-                            // also the way into that competition's table.
-                            Row(
+                            // The competition name also opens its full table page.
+                            Text(
+                                text = profile.competitionName.ifBlank { stringResource(R.string.unknown_competition) },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = FootballAiThemeExtra.colors.iconMuted,
                                 modifier = Modifier
                                     .clip(Radii.smallShape)
                                     .clickable { onCompetitionClick(profile.competitionId) },
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Text(
-                                    text = profile.competitionName.ifBlank { stringResource(R.string.unknown_competition) },
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = FootballAiThemeExtra.colors.iconMuted,
-                                )
-                                Spacer(Modifier.width(4.dp))
-                                Icon(
-                                    imageVector = Icons.Outlined.TableChart,
-                                    contentDescription = stringResource(R.string.action_table),
-                                    tint = FootballAiThemeExtra.colors.iconMuted,
-                                    modifier = Modifier.size(14.dp),
-                                )
-                            }
-                        }
-                    }
-                }
-                item {
-                    SoftCard(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 4.dp),
-                        onClick = { selectedTab = 1 },
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(16.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.TableChart,
-                                contentDescription = null,
-                                tint = FootballAiThemeExtra.colors.iconMuted,
                             )
-                            Spacer(Modifier.width(12.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = stringResource(R.string.table_entry_title),
-                                    style = MaterialTheme.typography.titleSmall,
-                                )
-                                Text(
-                                    text = profile.competitionName.ifBlank { stringResource(R.string.unknown_competition) },
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
                         }
                     }
                 }
@@ -309,6 +266,10 @@ private fun TeamTableTab(
     onOpenFullTable: () -> Unit,
     onTeamClick: (String) -> Unit,
 ) {
+    val ownRow = table.rows.firstOrNull { it.teamId == profile.team.id }
+        ?: table.rows.filter {
+            com.footballai.app.data.remote.ClubNameMatcher.matches(profile.team.name, it.teamName)
+        }.singleOrNull()
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = 24.dp),
@@ -328,14 +289,23 @@ private fun TeamTableTab(
                     onRequest = onOpenFullTable,
                 )
             }
+        } else if (ownRow == null) {
+            item {
+                EmptyState(
+                    title = stringResource(R.string.table_team_missing_title),
+                    message = stringResource(R.string.table_team_missing_message),
+                    actionLabel = stringResource(R.string.table_open_full_page),
+                    onAction = onOpenFullTable,
+                )
+            }
         } else {
             item {
                 LeagueTableBlock(
                     rows = table.rows,
                     modifier = Modifier.padding(horizontal = Spacing.page),
-                    highlightTeamIds = setOf(profile.team.id),
+                    highlightTeamIds = setOf(ownRow.teamId),
                     // Tapping the club whose page this is would only push a copy of itself.
-                    onTeamClick = { teamId -> if (teamId != profile.team.id) onTeamClick(teamId) },
+                    onTeamClick = { teamId -> if (teamId != ownRow.teamId) onTeamClick(teamId) },
                 )
             }
             item {

@@ -38,8 +38,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.footballai.app.R
-import com.footballai.app.core.Formatters
-import com.footballai.app.domain.catalog.NameLocalization
 import com.footballai.app.domain.model.TableVenue
 import com.footballai.app.ui.LocalAppContainer
 import com.footballai.app.ui.LocalLanguageTag
@@ -54,7 +52,6 @@ import com.footballai.app.ui.components.SoftCard
 import com.footballai.app.ui.components.TableProvenanceNote
 import com.footballai.app.ui.components.VenueChips
 import com.footballai.app.ui.theme.Spacing
-import com.footballai.app.ui.viewmodel.CompetitionUiState
 import com.footballai.app.ui.viewmodel.CompetitionViewModel
 import com.footballai.app.ui.viewmodel.LeagueTableUiState
 
@@ -131,40 +128,6 @@ fun CompetitionScreen(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(bottom = 24.dp),
             ) {
-                // The table is the reason most readers open a competition, so it is one tap
-                // away at the top of the fixtures too — and still reachable when the list is
-                // empty.
-                item(key = "competition-table-entry") {
-                    SoftCard(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
-                        onClick = { selectedTab = 1 },
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(16.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.TableChart,
-                                contentDescription = null,
-                                tint = FootballAiThemeExtra.colors.iconMuted,
-                            )
-                            Spacer(Modifier.width(12.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = stringResource(R.string.table_entry_title),
-                                    style = MaterialTheme.typography.titleSmall,
-                                )
-                                Text(
-                                    text = secondPlaceLine(state),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                        }
-                    }
-                }
                 if (state.fixtures.isEmpty()) {
                     item(key = "competition-empty") {
                         EmptyState(
@@ -246,16 +209,4 @@ private fun CompetitionTableTab(
             }
         }
     }
-}
-
-/** The line under the table entry: what the tab will show, in as few words as possible. */
-@Composable
-private fun secondPlaceLine(state: CompetitionUiState): String {
-    val leader = state.table.rows.firstOrNull()
-        ?: return stringResource(R.string.table_entry_subtitle)
-    return stringResource(
-        R.string.table_entry_leader,
-        NameLocalization.namePair(leader.teamName, LocalLanguageTag.current).first,
-        Formatters.integer(leader.points, LocalLanguageTag.current),
-    )
 }

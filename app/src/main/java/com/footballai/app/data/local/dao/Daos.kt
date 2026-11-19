@@ -584,6 +584,9 @@ interface HistoricalDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(matches: List<HistoricalMatchEntity>): List<Long>
 
+    @Query("SELECT * FROM historical_matches WHERE competitionId = :competitionId AND kickoffEpochMs <= :asOfEpochMs ORDER BY kickoffEpochMs ASC")
+    suspend fun forTable(competitionId: String, asOfEpochMs: Long): List<HistoricalMatchEntity>
+
     @Query("SELECT * FROM historical_matches WHERE source = :source AND competitionId = :competitionId AND kickoffEpochMs <= :asOfEpochMs ORDER BY kickoffEpochMs ASC")
     suspend fun forCompetition(source: String, competitionId: String, asOfEpochMs: Long): List<HistoricalMatchEntity>
 

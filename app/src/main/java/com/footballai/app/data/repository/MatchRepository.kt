@@ -295,16 +295,39 @@ class MatchRepository(
         // results is used and the older ones are left out of the count.
         val resolved = asked ?: finished.mapNotNull { it.season }.maxOrNull()
         val counted = if (resolved == null) finished else finished.filter { it.season == resolved }
-        val results = counted.mapNotNull { match ->
+        val fixtureResults = counted.mapNotNull { match ->
             val home = match.homeGoals ?: return@mapNotNull null
             val away = match.awayGoals ?: return@mapNotNull null
-            com.footballai.app.domain.model.ComputedTable.Result(
-                homeTeamId = match.homeTeamId,
-                awayTeamId = match.awayTeamId,
-                homeGoals = home,
-                awayGoals = away,
+            com.footballai.app.domain.model.TableResults.DatedResult(
+                match.kickoffEpochMs,
+                com.footballai.app.domain.model.ComputedTable.Result(match.homeTeamId, match.awayTeamId, home, away),
             )
         }
+        // Legacy archive rows have no season field. Only include the CSV leagues with a
+        // known calendar, and only in the resolved season. Never mix unknown seasons.
+        val archive = if (resolved != null && competition.providerId == com.footballai.app.data.remote.FootballDataCoUkProvider.PROVIDER_ID) {
+            db.historicalDao().forTable(competitionId, clock.nowEpochMs()).filter {
+                it.source == competition.providerId &&
+                    com.footballai.app.domain.model.TableResults.archiveSeason(competition.providerKey, it.kickoffEpochMs) == resolved
+            }
+        } else emptyList()
+        fun canonical(id: String): String {
+            val key = id.substringAfterLast(':')
+            val mapped = TeamAliases.canonical(competition.providerKey, key) ?: return id
+            return id.substringBeforeLast(':') + ":" + mapped
+        }
+        val archiveNames = mutableMapOf<String, String>()
+        val archiveResults = archive.map { row ->
+            val home = canonical(row.homeTeamId)
+            val away = canonical(row.awayTeamId)
+            archiveNames.putIfAbsent(home, row.homeTeamName)
+            archiveNames.putIfAbsent(away, row.awayTeamName)
+            com.footballai.app.domain.model.TableResults.DatedResult(
+                row.kickoffEpochMs,
+                com.footballai.app.domain.model.ComputedTable.Result(home, away, row.homeGoals, row.awayGoals),
+            )
+        }
+        val results = com.footballai.app.domain.model.TableResults.merge(fixtureResults, archiveResults)
         val computed = com.footballai.app.domain.model.ComputedTable.rows(results, venue)
         if (computed.size < 2) return null
         val teams = db.teamDao().byIds(computed.map { it.teamId }).associateBy { it.id }
@@ -315,7 +338,7 @@ class MatchRepository(
                 competitionId = competitionId,
                 season = resolved ?: 0,
                 teamId = row.teamId,
-                teamName = team?.name ?: row.teamId,
+                teamName = team?.name ?: archiveNames[row.teamId] ?: row.teamId,
                 crestUrl = team?.crestUrl?.takeIf { it.isNotBlank() },
                 rank = index + 1,
                 points = row.points,

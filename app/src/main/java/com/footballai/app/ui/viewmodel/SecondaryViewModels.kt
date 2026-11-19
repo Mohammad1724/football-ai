@@ -37,20 +37,32 @@ class TeamViewModel(
     private val _state = MutableStateFlow(TeamUiState())
     val state: StateFlow<TeamUiState> = _state.asStateFlow()
 
+    private var loadGeneration = 0
+
     init {
         load()
     }
 
     fun load() {
+        val generation = ++loadGeneration
         viewModelScope.launch {
+            val venue = _state.value.table.venue
             val profile = container.matchRepository.teamProfile(teamId)
+            val competitionId = profile?.competitionId?.takeIf { it.isNotBlank() }
             // A club page shows the league it plays in: the table belongs to that competition,
             // not to the club, so it goes through the same reader as the table page.
-            val table = profile
-                ?.takeIf { it.competitionId.isNotBlank() }
-                ?.let { container.matchRepository.leagueTableUi(it.competitionId, _state.value.table.venue) }
-                ?: LeagueTableUiState(venue = _state.value.table.venue)
-            _state.update { TeamUiState(isLoading = false, profile = profile, table = table) }
+            val stored = competitionId
+                ?.let { container.matchRepository.leagueTableUi(it, venue) }
+                ?: LeagueTableUiState(venue = venue)
+            if (generation == loadGeneration) {
+                _state.update { TeamUiState(isLoading = false, profile = profile, table = stored) }
+            }
+            // The page is drawn from what the device holds; only then is the source asked for
+            // the league's own table, which is what turns a two-row count into a real table.
+            if (competitionId != null && stored.wouldImproveWithFetch) {
+                val fresh = container.leagueTableUi(competitionId, venue)
+                if (generation == loadGeneration) _state.update { it.copy(table = fresh) }
+            }
         }
     }
 
@@ -80,22 +92,30 @@ class CompetitionViewModel(
     private val _state = MutableStateFlow(CompetitionUiState())
     val state: StateFlow<CompetitionUiState> = _state.asStateFlow()
 
+    private var loadGeneration = 0
+
     init {
         load()
     }
 
     fun load() {
+        val generation = ++loadGeneration
         viewModelScope.launch {
+            val venue = _state.value.table.venue
             val competition = container.matchRepository.competition(competitionId)
             val fixtures = container.matchRepository.fixturesForCompetition(competitionId, 40)
-            val table = container.matchRepository.leagueTableUi(competitionId, _state.value.table.venue)
-            _state.update {
+            val stored = container.matchRepository.leagueTableUi(competitionId, venue)
+            if (generation == loadGeneration) _state.update {
                 CompetitionUiState(
                     isLoading = false,
                     competition = competition,
                     fixtures = fixtures,
-                    table = table,
+                    table = stored,
                 )
+            }
+            if (stored.wouldImproveWithFetch) {
+                val fresh = container.leagueTableUi(competitionId, venue)
+                if (generation == loadGeneration) _state.update { it.copy(table = fresh) }
             }
         }
     }

@@ -50,6 +50,8 @@
     <string name="empty_backtest_title">داده‌ای برای ارزیابی نیست</string>
     <string name="empty_competition_message">برای این لیگ همگام‌سازی انجام دهید.</string>
     <string name="action_open_table">نمایش جدول</string>
+    <string name="table_team_missing_title">تیم در این جدول پیدا نشد</string>
+    <string name="table_team_missing_message">جدول موجود شامل این تیم نیست؛ ممکن است ناقص یا مربوط به فصل دیگری باشد. جدول کامل را باز کنید یا بعداً دوباره امتحان کنید.</string>
     <string name="empty_table_title">هنوز جدولی نیامده</string>
     <string name="empty_table_message">جدول این لیگ برای این فصل دانلود نشده است. با باز شدن صفحه درخواست می‌شود؛ دکمهٔ زیر دوباره درخواست می‌کند.</string>
     <string name="empty_table_retry">دریافت جدول</string>

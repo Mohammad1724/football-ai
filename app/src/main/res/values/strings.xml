@@ -50,6 +50,8 @@
     <string name="empty_backtest_title">No history to evaluate</string>
     <string name="empty_competition_message">Run a fixture sync for this competition.</string>
     <string name="action_open_table">Show table</string>
+    <string name="table_team_missing_title">Team not found in this table</string>
+    <string name="table_team_missing_message">The available table does not contain this team. It may be incomplete or from another season. Open the full table or try again later.</string>
     <string name="empty_table_title">No table yet</string>
     <string name="empty_table_message">This league\'s table has not been downloaded for this season. It is requested when the page opens; the button asks again.</string>
     <string name="empty_table_retry">Fetch the table</string>

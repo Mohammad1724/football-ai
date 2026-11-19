@@ -51,7 +51,7 @@ class CompetitionTableViewModel(
         load(refresh = true)
     }
 
-    fun retry() = load(refresh = true)
+    fun retry() = load(refresh = true, force = true)
 
     /**
      * Switches the table between all matches, home matches and away matches.
@@ -66,7 +66,7 @@ class CompetitionTableViewModel(
         load(refresh = false)
     }
 
-    private fun load(refresh: Boolean) {
+    private fun load(refresh: Boolean, force: Boolean = false) {
         viewModelScope.launch {
             _state.update { it.copy(isLoading = true, error = null) }
             try {
@@ -77,7 +77,13 @@ class CompetitionTableViewModel(
                     // publishes a table, otherwise the same league's table from the one source
                     // that does. Asking is throttled inside the sync, so opening the page again
                     // does not spend a request every time.
-                    runCatching { container.syncRepository.refreshTableFor(competitionId) }
+                    try {
+                        container.syncRepository.refreshTableFor(competitionId, force = force)
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (_: Exception) {
+                        // Keep the locally stored table when the source cannot be reached.
+                    }
                     table = container.matchRepository.leagueTableUi(competitionId, _state.value.table.venue)
                 }
                 // A published table is the league's own answer; when there is none, a table
