@@ -7,6 +7,7 @@ import com.footballai.app.core.ErrorCode
 import com.footballai.app.core.Outcome
 import com.footballai.app.data.sync.SyncTrigger
 import com.footballai.app.domain.catalog.CompetitionOrder
+import com.footballai.app.core.MatchCalendarDates
 import com.footballai.app.domain.catalog.NameLocalization
 import com.footballai.app.di.AppContainer
 import com.footballai.app.domain.model.Competition
@@ -364,11 +365,11 @@ class MatchesViewModel(private val container: AppContainer) : ViewModel() {
 
     fun selectDate(epochMs: Long) {
         val offset = dayOffsetFor(container.clock.nowEpochMs(), epochMs)
-        if (offset in -3650..3650) selection.update { it.copy(dayOffset = offset) }
+        if (offset in -MatchCalendarDates.MAX_DAY_OFFSET..MatchCalendarDates.MAX_DAY_OFFSET) selection.update { it.copy(dayOffset = offset) }
     }
 
     fun selectDay(dayOffset: Int) {
-        if (dayOffset !in -3650..3650) return
+        if (dayOffset !in -MatchCalendarDates.MAX_DAY_OFFSET..MatchCalendarDates.MAX_DAY_OFFSET) return
         selection.update { it.copy(dayOffset = dayOffset) }
     }
 

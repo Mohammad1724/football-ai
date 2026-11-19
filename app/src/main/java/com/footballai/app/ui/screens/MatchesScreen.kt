@@ -43,8 +43,6 @@ import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Surface
 import androidx.compose.material3.FilterChip
@@ -55,9 +53,7 @@ import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -111,9 +107,7 @@ import com.footballai.app.ui.viewmodel.MatchesUiState
 import com.footballai.app.ui.viewmodel.MatchSearchFilter
 import com.footballai.app.ui.viewmodel.MatchesViewModel
 import java.time.Instant
-import java.time.LocalDate
 import java.time.ZoneId
-import java.time.ZoneOffset
 import kotlin.math.abs
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -337,39 +331,6 @@ fun MatchesScreen(
             },
         )
     }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun MatchCalendarDialog(
-    selectedDayOffset: Int,
-    onSelectDate: (Long) -> Unit,
-    onToday: () -> Unit,
-    onDismiss: () -> Unit,
-) {
-    val zone = ZoneId.systemDefault()
-    val selectedDate = LocalDate.now(zone).plusDays(selectedDayOffset.toLong())
-    val pickerState = rememberDatePickerState(
-        initialSelectedDateMillis = selectedDate.atTime(12, 0).toInstant(ZoneOffset.UTC).toEpochMilli(),
-    )
-    DatePickerDialog(
-        onDismissRequest = onDismiss,
-        confirmButton = {
-            TextButton(onClick = {
-                pickerState.selectedDateMillis?.let { millis ->
-                    val utcDate = Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).toLocalDate()
-                    onSelectDate(utcDate.atStartOfDay(zone).toInstant().toEpochMilli())
-                }
-                onDismiss()
-            }) { Text(stringResource(R.string.action_done)) }
-        },
-        dismissButton = {
-            TextButton(onClick = {
-                onToday()
-                onDismiss()
-            }) { Text(stringResource(R.string.filter_today)) }
-        },
-    ) { DatePicker(state = pickerState, showModeToggle = false) }
 }
 
 /**
