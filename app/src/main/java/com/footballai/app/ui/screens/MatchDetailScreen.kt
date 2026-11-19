@@ -354,6 +354,8 @@ fun MatchDetailScreen(
                             header = matchHeader,
                             homeForm = state.homeForm,
                             awayForm = state.awayForm,
+                            homeTeam = detail.summary.home,
+                            awayTeam = detail.summary.away,
                             prediction = state.prediction,
                             isPredicting = state.isPredicting,
                             error = state.lastError?.let { errorLabel(it) },
@@ -605,6 +607,8 @@ private fun AnalysisTab(
     header: @Composable () -> Unit,
     homeForm: TeamFormSnapshot?,
     awayForm: TeamFormSnapshot?,
+    homeTeam: TeamRef,
+    awayTeam: TeamRef,
     prediction: PredictionView?,
     isPredicting: Boolean,
     error: String?,
@@ -724,6 +728,8 @@ private fun AnalysisTab(
             PredictionVerdictCard(
                 prediction = prediction,
                 isFinished = isFinished,
+                homeTeam = homeTeam,
+                awayTeam = awayTeam,
                 homeTeamName = homeName,
                 awayTeamName = awayName,
                 languageTag = languageTag,
@@ -734,8 +740,8 @@ private fun AnalysisTab(
             TeamFormCard(
                 home = homeForm,
                 away = awayForm,
-                homeName = homeName,
-                awayName = awayName,
+                homeTeam = homeTeam,
+                awayTeam = awayTeam,
                 languageTag = languageTag,
             )
         }
@@ -779,6 +785,8 @@ private fun AnalysisTab(
                     languageTag = languageTag,
                     homeLabel = homeName,
                     awayLabel = awayName,
+                    homeTeam = homeTeam,
+                    awayTeam = awayTeam,
                 )
                 Spacer(Modifier.height(12.dp))
                 Row(
@@ -984,6 +992,8 @@ private fun computeVerdict(prediction: PredictionView): MatchVerdict {
 private fun PredictionVerdictCard(
     prediction: PredictionView,
     isFinished: Boolean,
+    homeTeam: TeamRef,
+    awayTeam: TeamRef,
     homeTeamName: String,
     awayTeamName: String,
     languageTag: String,
@@ -1029,13 +1039,19 @@ private fun PredictionVerdictCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
-                    text = outcomeLabel,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = outcomeColor,
-                    modifier = Modifier.weight(1f),
-                )
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(text = outcomeLabel, style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold, color = outcomeColor)
+                    val team = when (verdict.outcome) {
+                        VerdictOutcome.HOME -> homeTeam
+                        VerdictOutcome.AWAY -> awayTeam
+                        VerdictOutcome.DRAW -> null
+                    }
+                    val secondary = if (languageTag.startsWith("fa", ignoreCase = true))
+                        team?.let { NameLocalization.namePair(it.name, languageTag, it.shortName).second } else null
+                    if (secondary != null) Text("\u200E" + secondary, style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                }
                 Text(
                     text = Formatters.percent(verdict.probability, languageTag),
                     style = MaterialTheme.typography.headlineSmall,
@@ -1288,8 +1304,8 @@ private fun EvidenceSection(prediction: PredictionView, languageTag: String) {
 private fun TeamFormCard(
     home: TeamFormSnapshot?,
     away: TeamFormSnapshot?,
-    homeName: String,
-    awayName: String,
+    homeTeam: TeamRef,
+    awayTeam: TeamRef,
     languageTag: String,
 ) {
     if (home == null && away == null) return
@@ -1314,15 +1330,13 @@ private fun TeamFormCard(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Spacer(Modifier.weight(1.25f))
-                listOf(homeName, awayName).forEach { name ->
-                    Text(
-                        text = name,
-                        style = MaterialTheme.typography.labelMedium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.weight(1f),
-                    )
+                listOf(homeTeam, awayTeam).forEach { team ->
+                    Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                        TeamNameLines(team = team, languageTag = languageTag,
+                            primaryStyle = MaterialTheme.typography.labelMedium.copy(textAlign = TextAlign.Center),
+                            secondaryStyle = MaterialTheme.typography.labelSmall.copy(textAlign = TextAlign.Center),
+                            primaryMaxLines = 2, secondaryMaxLines = 2)
+                    }
                 }
             }
             Spacer(Modifier.height(6.dp))
@@ -1897,19 +1911,15 @@ private fun HeadToHeadTab(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
-                        Text(
-                            text = NameLocalization.displayName(match.home.name, languageTag, match.home.shortName),
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
+                        TeamNameLines(team = match.home, languageTag = languageTag, modifier = Modifier.weight(1f),
+                            primaryStyle = MaterialTheme.typography.bodyMedium, primaryMaxLines = 2, secondaryMaxLines = 2)
                         Text(
                             text = Formatters.scoreOrNull(match.homeGoals, match.awayGoals, languageTag) ?: "—",
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.Bold,
                         )
-                        Text(
-                            text = NameLocalization.displayName(match.away.name, languageTag, match.away.shortName),
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
+                        TeamNameLines(team = match.away, languageTag = languageTag, modifier = Modifier.weight(1f),
+                            primaryStyle = MaterialTheme.typography.bodyMedium, primaryMaxLines = 2, secondaryMaxLines = 2)
                     }
                 }
             }
@@ -2096,6 +2106,8 @@ private fun RecentTenSummaryCard(
                                 best.opponent.shortName,
                             ),
                         ),
+                        secondary = if (languageTag.startsWith("fa", ignoreCase = true))
+                            NameLocalization.namePair(best.opponent.name, languageTag, best.opponent.shortName).second else null,
                     )
                 }
             }
@@ -2105,7 +2117,7 @@ private fun RecentTenSummaryCard(
 
 /** One label and one value, on a line the eye can follow across rows. */
 @Composable
-private fun RecentTenStat(label: String, value: String) {
+private fun RecentTenStat(label: String, value: String, secondary: String? = null) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -2118,13 +2130,13 @@ private fun RecentTenStat(label: String, value: String) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.weight(1f),
         )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Medium,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
+        Column(horizontalAlignment = Alignment.End) {
+            Text(text = value, style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            if (secondary != null) Text("\u200E" + secondary,
+                style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2, overflow = TextOverflow.Ellipsis)
+        }
     }
 }
 
@@ -2327,10 +2339,10 @@ private fun LineupsTab(
             }
         }.forEach { lineup ->
             val team = if (lineup.teamId == away.id) away else home
-            val teamName = NameLocalization.displayName(team.name, languageTag, team.shortName)
             item {
                 LineupTeamHeader(
-                    teamName = teamName,
+                    team = team,
+                    languageTag = languageTag,
                     formation = lineup.formation,
                     starters = lineup.players.count { it.isStarter },
                 )
@@ -2387,9 +2399,11 @@ private fun LineupsTab(
 }
 
 @Composable
-private fun LineupTeamHeader(teamName: String, formation: String?, starters: Int) {
+private fun LineupTeamHeader(team: TeamRef, languageTag: String, formation: String?, starters: Int) {
     Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 4.dp)) {
-        Text(text = teamName, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+        TeamNameLines(team = team, languageTag = languageTag,
+            primaryStyle = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+            primaryMaxLines = 2, secondaryMaxLines = 2)
         Text(
             text = listOfNotNull(
                 formation?.takeIf { it.isNotBlank() },

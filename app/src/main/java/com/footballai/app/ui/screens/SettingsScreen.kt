@@ -57,7 +57,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.footballai.app.R
-import com.footballai.app.domain.catalog.NameLocalization
+import com.footballai.app.domain.model.TeamRef
+import com.footballai.app.ui.components.TeamNameLines
 import com.footballai.app.core.Formatters
 import com.footballai.app.data.settings.AppLanguage
 import com.footballai.app.data.settings.ThemeMode
@@ -169,13 +170,8 @@ fun SettingsScreen(onOpenDataSources: () -> Unit, onOpenCompetitionOrder: () -> 
                 items(state.followedPlayers, key = { it.entry }) { player ->
                     FollowedPlayerRow(
                         name = player.name,
-                        club = player.teamName?.let { teamName ->
-                            com.footballai.app.domain.catalog.NameLocalization.displayName(
-                                teamName,
-                                languageTag,
-                                player.teamShortName,
-                            )
-                        },
+                        club = player.teamName?.let { TeamRef(id = "", name = it, shortName = player.teamShortName) },
+                        languageTag = languageTag,
                         onRemove = { viewModel.unfollowPlayer(player.entry) },
                     )
                 }
@@ -482,7 +478,7 @@ private fun ToggleRow(
 /** A followed team, with the one action that matters: stop following it. */
 @Composable
 private fun FollowedTeamRow(name: String, onRemove: () -> Unit) {
-    val persian = NameLocalization.persianTeamName(name)
+    val languageTag = LocalLanguageTag.current
     SoftCard(modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.page, vertical = 3.dp)) {
         Row(
             modifier = Modifier
@@ -497,21 +493,9 @@ private fun FollowedTeamRow(name: String, onRemove: () -> Unit) {
                 modifier = Modifier.size(18.dp),
             )
             Spacer(Modifier.width(10.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = persian ?: name,
-                    style = MaterialTheme.typography.bodyLarge,
-                    maxLines = 1,
-                )
-                if (persian != null && persian != name) {
-                    Text(
-                        text = "\u200E" + name,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                    )
-                }
-            }
+            TeamNameLines(team = TeamRef(id = "", name = name), languageTag = languageTag,
+                modifier = Modifier.weight(1f), primaryStyle = MaterialTheme.typography.bodyLarge,
+                primaryMaxLines = 2, secondaryMaxLines = 2)
             IconButton(onClick = onRemove) {
                 Icon(
                     imageVector = Icons.Filled.Close,
@@ -672,7 +656,7 @@ private fun SyncPillButton(label: String, filled: Boolean, onClick: () -> Unit) 
  * the table simply stays blank instead of being guessed.
  */
 @Composable
-private fun FollowedPlayerRow(name: String, club: String?, onRemove: () -> Unit) {
+private fun FollowedPlayerRow(name: String, club: TeamRef?, languageTag: String, onRemove: () -> Unit) {
     SoftCard(modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.page, vertical = 3.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
@@ -685,14 +669,10 @@ private fun FollowedPlayerRow(name: String, club: String?, onRemove: () -> Unit)
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                if (!club.isNullOrBlank()) {
-                    Text(
-                        text = club,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
+                if (club != null) {
+                    TeamNameLines(team = club, languageTag = languageTag,
+                        primaryStyle = MaterialTheme.typography.labelMedium,
+                        primaryMaxLines = 2, secondaryMaxLines = 2)
                 }
             }
             IconButton(onClick = onRemove) {

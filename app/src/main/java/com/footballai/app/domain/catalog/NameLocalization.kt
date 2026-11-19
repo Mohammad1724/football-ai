@@ -164,7 +164,14 @@ object NameLocalization {
         val persianScreen = languageTag.lowercase(Locale.ROOT).startsWith("fa")
         return when {
             persian == null -> name to null
-            persianScreen -> persian to name.takeIf { it != persian }
+            // The source is not necessarily English (or even Latin). Never present an
+            // Arabic, Cyrillic, etc. source spelling as the requested Latin subtitle.
+            persianScreen -> persian to name.takeIf { original ->
+                original != persian && original.any { it.isLetter() } &&
+                    original.filter { it.isLetter() }.all {
+                        Character.UnicodeScript.of(it.code) == Character.UnicodeScript.LATIN
+                    }
+            }
             else -> name to persian
         }
     }
@@ -196,7 +203,14 @@ object NameLocalization {
         val persianScreen = languageTag.lowercase(Locale.ROOT).startsWith("fa")
         return when {
             persian == null -> name to null
-            persianScreen -> persian to name.takeIf { it != persian }
+            // The source is not necessarily English (or even Latin). Never present an
+            // Arabic, Cyrillic, etc. source spelling as the requested Latin subtitle.
+            persianScreen -> persian to name.takeIf { original ->
+                original != persian && original.any { it.isLetter() } &&
+                    original.filter { it.isLetter() }.all {
+                        Character.UnicodeScript.of(it.code) == Character.UnicodeScript.LATIN
+                    }
+            }
             else -> name to persian
         }
     }

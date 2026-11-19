@@ -22,13 +22,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.footballai.app.R
 import com.footballai.app.core.Formatters
-import com.footballai.app.domain.catalog.NameLocalization
 import com.footballai.app.domain.model.TableVenue
 import com.footballai.app.domain.model.MatchTableMark
 import com.footballai.app.domain.model.TeamRef
@@ -106,8 +106,8 @@ fun LeagueTableHeader(modifier: Modifier = Modifier) {
  *
  * [highlighted] marks the club whose page this is: the eye should find its own row before it
  * reads a single position. The mark is a stronger card and a bolder name, not a second colour
- * scheme. A match may additionally pass a result mark; its on-row text and the match-tab
- * legend explicitly tie the tint to this fixture rather than qualification or relegation.
+ * scheme. A match may additionally pass a result mark, announced to accessibility services;
+ * the match-tab legend ties the tint to the fixture rather than qualification.
  */
 @Composable
 fun LeagueTableRow(
@@ -136,8 +136,9 @@ fun LeagueTableRow(
         MatchTableMark.TEAM -> R.string.table_match_team
         null -> null
     }
+    val matchState = markLabel?.let { stringResource(it) }
     SoftCard(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth().semantics { if (matchState != null) stateDescription = matchState },
         onClick = onClick,
         containerColor = when {
             matchMark != null -> markColor.copy(alpha = 0.16f).compositeOver(MaterialTheme.colorScheme.surface)
@@ -165,20 +166,16 @@ fun LeagueTableRow(
                 size = 22,
             )
             Spacer(Modifier.width(Spacing.sm))
-            // The Persian name when the catalog has one, the published name otherwise.
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = NameLocalization.namePair(row.teamName, languageTag).first,
-                    style = MaterialTheme.typography.bodyMedium,
+            TeamNameLines(
+                team = TeamRef(id = row.teamId, name = row.teamName, crestUrl = row.crestUrl),
+                languageTag = languageTag,
+                modifier = Modifier.weight(1f),
+                primaryStyle = MaterialTheme.typography.bodyMedium.copy(
                     fontWeight = if (highlighted || matchMark != null) FontWeight.SemiBold else FontWeight.Normal,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                if (markLabel != null) {
-                    Text(stringResource(markLabel), style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurface, maxLines = 2)
-                }
-            }
+                ),
+                primaryMaxLines = 3,
+                secondaryMaxLines = 3,
+            )
             NumberCell(Formatters.integer(row.played, languageTag), 26)
             NumberCell(row.wins?.let { Formatters.integer(it, languageTag) } ?: DASH, 26)
             NumberCell(row.draws?.let { Formatters.integer(it, languageTag) } ?: DASH, 26)

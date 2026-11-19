@@ -48,7 +48,6 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.footballai.app.R
 import com.footballai.app.core.Formatters
-import com.footballai.app.domain.catalog.NameLocalization
 import com.footballai.app.domain.model.PredictionWithMatch
 import com.footballai.app.ui.LocalAppContainer
 import com.footballai.app.ui.LocalLanguageTag
@@ -301,8 +300,9 @@ private fun PredictionHistoryCard(item: PredictionWithMatch, languageTag: String
             Spacer(Modifier.height(8.dp))
             com.footballai.app.ui.components.PreMatchVerdict(
                 prediction = prediction,
-                home = NameLocalization.displayName(match.home.name, languageTag, match.home.shortName),
-                away = NameLocalization.displayName(match.away.name, languageTag, match.away.shortName),
+                home = match.home,
+                away = match.away,
+                languageTag = languageTag,
             )
             Spacer(Modifier.height(8.dp))
             ProbabilityBar(

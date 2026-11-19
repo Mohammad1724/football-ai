@@ -61,6 +61,7 @@ import com.footballai.app.domain.model.MatchSummary
 import com.footballai.app.domain.model.TeamRef
 import com.footballai.app.ui.LocalLanguageTag
 import com.footballai.app.ui.components.TeamBadge
+import com.footballai.app.ui.components.TeamNameLines
 import com.footballai.app.ui.viewmodel.MatchSearchFilter
 import com.footballai.app.ui.viewmodel.MatchesUiState
 
@@ -263,8 +264,9 @@ private fun SearchMatchRow(match: MatchSummary, languageTag: String, resources: 
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             TeamBadge(team, size = 24)
                             Spacer(Modifier.width(8.dp))
-                            Text(NameLocalization.displayName(team.name, languageTag, team.shortName),
-                                style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            TeamNameLines(team = team, languageTag = languageTag,
+                                primaryStyle = MaterialTheme.typography.bodyMedium,
+                                primaryMaxLines = 2, secondaryMaxLines = 2)
                         }
                     }
                 }

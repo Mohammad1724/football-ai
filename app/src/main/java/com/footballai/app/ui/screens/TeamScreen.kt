@@ -106,11 +106,10 @@ fun TeamScreen(
                 },
                 title = {
                     // The bar follows the same rule as every other team name on the screen.
-                    Text(
-                        profile?.let {
-                            NameLocalization.displayName(it.team.name, languageTag, it.team.shortName)
-                        } ?: stringResource(R.string.title_team),
-                    )
+                    if (profile == null) Text(stringResource(R.string.title_team))
+                    else TeamNameLines(team = profile.team, languageTag = languageTag,
+                        primaryStyle = MaterialTheme.typography.titleSmall,
+                        primaryMaxLines = 1, secondaryMaxLines = 1)
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
             )

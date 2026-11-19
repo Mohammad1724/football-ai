@@ -479,6 +479,8 @@ fun ProbabilityBar(
     homeLabel: String? = null,
     awayLabel: String? = null,
     showLegend: Boolean = true,
+    homeTeam: TeamRef? = null,
+    awayTeam: TeamRef? = null,
 ) {
     val colors = FootballAiThemeExtra.colors
     // `coerceIn` passes NaN straight through, and a NaN fraction makes Compose throw
@@ -514,6 +516,7 @@ fun ProbabilityBar(
                 LegendItem(
                     color = colors.homeSeries,
                     label = homeLabel ?: androidx.compose.ui.res.stringResource(R.string.selection_home),
+                    team = homeTeam, languageTag = languageTag,
                     value = Formatters.percent(homeWin, languageTag),
                     modifier = Modifier.weight(1f),
                 )
@@ -526,6 +529,7 @@ fun ProbabilityBar(
                 LegendItem(
                     color = colors.awaySeries,
                     label = awayLabel ?: androidx.compose.ui.res.stringResource(R.string.selection_away),
+                    team = awayTeam, languageTag = languageTag,
                     value = Formatters.percent(awayWin, languageTag),
                     modifier = Modifier.weight(1f),
                 )
@@ -535,7 +539,8 @@ fun ProbabilityBar(
 }
 
 @Composable
-private fun LegendItem(color: Color, label: String, value: String, modifier: Modifier = Modifier) {
+private fun LegendItem(color: Color, label: String, value: String, modifier: Modifier = Modifier,
+    team: TeamRef? = null, languageTag: String = "en") {
     Column(modifier = modifier) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
@@ -545,12 +550,13 @@ private fun LegendItem(color: Color, label: String, value: String, modifier: Mod
                     .background(color),
             )
             Spacer(Modifier.width(6.dp))
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-            )
+            if (team == null) {
+                Text(text = label, style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+            } else {
+                TeamNameLines(team = team, languageTag = languageTag, modifier = Modifier.weight(1f),
+                    primaryStyle = MaterialTheme.typography.labelSmall, primaryMaxLines = 2, secondaryMaxLines = 2)
+            }
         }
         Text(
             text = value,
