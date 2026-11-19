@@ -193,7 +193,8 @@ private fun NumberCell(value: String, width: Int, bold: Boolean = false) {
 fun LeagueTableBlock(
     rows: List<TableRow>,
     modifier: Modifier = Modifier,
-    highlightTeamId: String? = null,
+    /** The clubs whose page this table sits on: a match marks both of its teams. */
+    highlightTeamIds: Set<String> = emptySet(),
     onTeamClick: ((String) -> Unit)? = null,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
@@ -209,7 +210,7 @@ fun LeagueTableBlock(
             LeagueTableRow(
                 row = row,
                 modifier = Modifier.padding(vertical = Spacing.xxs),
-                highlighted = highlightTeamId != null && row.teamId == highlightTeamId,
+                highlighted = row.teamId in highlightTeamIds,
                 onClick = onTeamClick?.takeIf { row.navigable }?.let { click -> { click(row.teamId) } },
             )
         }

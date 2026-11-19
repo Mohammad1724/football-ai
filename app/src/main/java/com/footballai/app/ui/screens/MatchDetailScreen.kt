@@ -29,6 +29,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.outlined.StarBorder
+import androidx.compose.material.icons.outlined.TableChart
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -80,6 +81,7 @@ import com.footballai.app.domain.model.MarketType
 import com.footballai.app.domain.model.MatchDetail
 import com.footballai.app.domain.model.MatchStatus
 import com.footballai.app.domain.model.MatchTimeline
+import com.footballai.app.domain.model.TableVenue
 import com.footballai.app.domain.model.TeamLineup
 import com.footballai.app.domain.model.MatchStatisticPair
 import com.footballai.app.domain.model.PredictionView
@@ -107,6 +109,10 @@ import com.footballai.app.ui.components.StatComparisonRow
 import com.footballai.app.ui.components.StatusChip
 import com.footballai.app.ui.components.TeamBadge
 import com.footballai.app.ui.components.HalfTimeRow
+import com.footballai.app.ui.components.LeagueTableBlock
+import com.footballai.app.ui.components.TableProvenanceNote
+import com.footballai.app.ui.components.VenueChips
+import com.footballai.app.ui.components.SoftCard
 import com.footballai.app.ui.components.TeamMonogram
 import com.footballai.app.ui.components.TimelineRow
 import com.footballai.app.ui.components.TeamNameLines
@@ -123,6 +129,7 @@ import com.footballai.app.ui.viewmodel.RecentTenSnapshot
 import com.footballai.app.ui.viewmodel.RecentTenSummary
 import com.footballai.app.ui.viewmodel.RecentTenTeam
 import com.footballai.app.ui.viewmodel.TeamFormSnapshot
+import com.footballai.app.ui.viewmodel.LeagueTableUiState
 import com.footballai.app.ui.viewmodel.MatchDetailViewModel
 import kotlin.math.roundToInt
 
@@ -136,6 +143,7 @@ import kotlin.math.roundToInt
 private const val TAB_ANALYSIS = "analysis"
 private const val TAB_LIVE = "live"
 private const val TAB_TIMELINE = "timeline"
+private const val TAB_TABLE = "table"
 private const val TAB_STATISTICS = "statistics"
 private const val TAB_HEAD_TO_HEAD = "head_to_head"
 private const val TAB_LINEUPS = "lineups"
@@ -189,6 +197,9 @@ fun MatchDetailScreen(
     // A timeline is offered when there is one or when the source said it publishes events;
     // a league whose provider sends none gets no tab that could only ever be empty.
     val hasTimeline = detail != null && (detail.events.isNotEmpty() || detail.summary.hasEvents)
+    // Unlike the table page, this tab is not shown empty: a match page's job is the match,
+    // and the table is an extra only when there is one to show.
+    val hasTableTab = state.table.rows.isNotEmpty()
     val hasHeadToHead = state.headToHead.isNotEmpty()
     // The ten-match tab is the detail behind the form card, so it appears only when there
     // is a history to detail: three finished matches is the floor below which the page
@@ -198,6 +209,7 @@ fun MatchDetailScreen(
         add(TAB_ANALYSIS)
         if (hasLiveTabNow) add(TAB_LIVE)
         if (hasTimeline) add(TAB_TIMELINE)
+        if (hasTableTab) add(TAB_TABLE)
         if (hasStatistics) add(TAB_STATISTICS)
         if (hasHeadToHead) add(TAB_HEAD_TO_HEAD)
         if (recentTen != null) add(TAB_RECENT_TEN)
@@ -208,6 +220,7 @@ fun MatchDetailScreen(
             when (key) {
                 TAB_LIVE -> R.string.tab_live
                 TAB_TIMELINE -> R.string.tab_timeline
+                TAB_TABLE -> R.string.tab_table
                 TAB_STATISTICS -> R.string.tab_statistics
                 TAB_HEAD_TO_HEAD -> R.string.tab_head_to_head
                 TAB_RECENT_TEN -> R.string.tab_recent_ten
@@ -379,6 +392,16 @@ fun MatchDetailScreen(
                         header = matchHeader,
                         detail = detail,
                         languageTag = languageTag,
+                    )
+
+                    TAB_TABLE -> MatchTableTab(
+                        header = matchHeader,
+                        table = state.table,
+                        homeTeamId = detail.summary.home.id,
+                        awayTeamId = detail.summary.away.id,
+                        onVenue = viewModel::setVenue,
+                        onOpenFullTable = { onCompetitionClick(detail.summary.competitionId) },
+                        onTeamClick = onTeamClick,
                     )
 
                     TAB_STATISTICS -> StatisticsTab(
@@ -1622,6 +1645,70 @@ private fun LiveTab(
             }
         }
         item { Spacer(Modifier.height(24.dp)) }
+    }
+}
+
+/**
+ * Where these two clubs stand, inside the match page.
+ *
+ * Both of the match's teams are marked in the table: the reader came here to read this fixture
+ * in the context of the league, and finding two rows in twenty is the whole question. A table
+ * counted from stored results says so, and can be read at home, away or altogether.
+ */
+@Composable
+private fun MatchTableTab(
+    header: @Composable () -> Unit,
+    table: LeagueTableUiState,
+    homeTeamId: String,
+    awayTeamId: String,
+    onVenue: (TableVenue) -> Unit,
+    onOpenFullTable: () -> Unit,
+    onTeamClick: (String) -> Unit,
+) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(bottom = 24.dp),
+    ) {
+        item { header() }
+        item {
+            Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+                if (table.isComputed) TableProvenanceNote(matches = table.matches)
+                if (table.canSplitByVenue) VenueChips(selected = table.venue, onSelect = onVenue)
+            }
+        }
+        item {
+            LeagueTableBlock(
+                rows = table.rows,
+                modifier = Modifier.padding(horizontal = 16.dp),
+                highlightTeamIds = setOf(homeTeamId, awayTeamId),
+                onTeamClick = onTeamClick,
+            )
+        }
+        item {
+            SoftCard(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 16.dp),
+                onClick = onOpenFullTable,
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.TableChart,
+                        contentDescription = null,
+                        tint = FootballAiThemeExtra.colors.iconMuted,
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    Text(
+                        text = stringResource(R.string.table_open_full_page),
+                        style = MaterialTheme.typography.titleSmall,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
+        }
     }
 }
 

@@ -333,7 +333,7 @@ private fun TeamTableTab(
                 LeagueTableBlock(
                     rows = table.rows,
                     modifier = Modifier.padding(horizontal = Spacing.page),
-                    highlightTeamId = profile.team.id,
+                    highlightTeamIds = setOf(profile.team.id),
                     // Tapping the club whose page this is would only push a copy of itself.
                     onTeamClick = { teamId -> if (teamId != profile.team.id) onTeamClick(teamId) },
                 )

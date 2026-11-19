@@ -13,6 +13,7 @@ import com.footballai.app.domain.model.MatchDetail
 import com.footballai.app.domain.model.MatchSummary
 import com.footballai.app.domain.model.PredictionKind
 import com.footballai.app.domain.model.PredictionView
+import com.footballai.app.domain.model.TableVenue
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -57,6 +58,8 @@ data class MatchDetailUiState(
     val awayForm: TeamFormSnapshot? = null,
     /** The rows behind the «۱۰ بازی اخیر» tab; null when neither team has a history. */
     val recentTen: RecentTenSnapshot? = null,
+    /** The competition's own table, drawn on its tab with both clubs marked. */
+    val table: LeagueTableUiState = LeagueTableUiState(),
 )
 
 /** What a reader wants to know about a team before trusting a percentage. */
@@ -178,6 +181,7 @@ class MatchDetailViewModel(
                     )
                     _state.update { it.copy(headToHead = headToHead) }
                     refreshHistory(detail)
+                    loadTable(detail.summary.competitionId)
                 }
                 if (refreshFromNetwork) {
                     val entity = container.matchRepository.matchEntity(matchId)
@@ -366,6 +370,27 @@ class MatchDetailViewModel(
     }
 
     /**
+     * Reads the competition's table for the «جدول» tab.
+     *
+     * Cheap on purpose: the rows were either published and stored or counted from the results
+     * already on the device, so opening a match never waits for a download to draw a table.
+     */
+    private suspend fun loadTable(competitionId: String) {
+        if (competitionId.isBlank()) return
+        val table = container.matchRepository.leagueTableUi(
+            competitionId, _state.value.table.venue,
+        )
+        _state.update { it.copy(table = table) }
+    }
+
+    /** Home, away or altogether — only for a table counted from this app's own results. */
+    fun setVenue(venue: TableVenue) {
+        if (venue == _state.value.table.venue) return
+        _state.update { it.copy(table = it.table.copy(venue = venue)) }
+        viewModelScope.launch { guarded { loadTable(_state.value.detail?.summary?.competitionId ?: "") } }
+    }
+
+    /**
      * Fetches the league table for this match's competition when the two ranks are unknown.
      *
      * The table used to be downloaded only for competitions the user follows, so the
@@ -383,14 +408,15 @@ class MatchDetailViewModel(
         tableFetchTried = true
         val competition = container.matchRepository.competitionEntity(detail.summary.competitionId)
             ?: return
+        // The competition's own source when it publishes a table, otherwise the same league's
+        // table from the one source that does — and the attempt is remembered, so a league
+        // without a published table is not asked again on every visit.
         val written = runCatching {
-            container.syncRepository.refreshStandings(
-                providerId = competition.providerId,
-                competitionKeys = listOf(competition.providerKey),
-            )
+            container.syncRepository.refreshTableFor(detail.summary.competitionId)
         }.getOrDefault(0)
         if (written <= 0) return
         refreshHistory(detail)
+        loadTable(detail.summary.competitionId)
     }
 
     /**
