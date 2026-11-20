@@ -34,6 +34,7 @@ class AutoSyncSpeedTest {
         every { providers.info(any()) } returns null
         every { providers.activeInfo(any()) } returns null
         coEvery { sync.syncFixtures(any(), any(), any(), any(), any(), any()) } returns Outcome.Success(SyncSummary(fixtures = 4))
+        coEvery { sync.syncIranCompetitions() } returns Outcome.Success(SyncSummary())
         coEvery { predictions.resolveFinishedPredictions() } returns 0
         coEvery { sync.refreshStandings(any(), any(), any()) } coAnswers { hold.await(); 0 }
         coEvery { sync.backfillCrests(any(), any(), any(), any()) } returns 0
@@ -94,6 +95,7 @@ class AutoSyncSpeedTest {
         every { providers.info(any()) } returns null
         every { providers.activeInfo(any()) } returns null
         coEvery { sync.syncFixtures(any(), any(), any(), any(), any(), any()) } returns Outcome.Success(SyncSummary(fixtures = 4))
+        coEvery { sync.syncIranCompetitions() } returns Outcome.Success(SyncSummary())
         coEvery { predictions.resolveFinishedPredictions() } throws IllegalStateException("grading failed")
         coEvery { sync.refreshStandings(any(), any(), any()) } returns 0
         coEvery { sync.backfillCrests(any(), any(), any(), any()) } returns 0

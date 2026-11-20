@@ -48,6 +48,7 @@ class DailyAnalysisTest {
             every { history.availableCompetitions() } returns listOf(CsvCompetition("E0", "Premier League", "England"))
             coEvery { sync.syncCompetitions(source) } returns Outcome.Success(1)
             coEvery { sync.syncFixtures(any(), any(), any(), any(), any(), any()) } returns Outcome.Success(SyncSummary(fixtures = 1))
+            coEvery { sync.syncIranCompetitions() } returns Outcome.Success(SyncSummary())
             coEvery { sync.importCsvHistory(any(), any()) } returns Outcome.Success(SyncSummary(historical = 100))
             coEvery { matches.scheduledBetween(any(), any()) } returns listOf(fixture)
             coEvery { matches.pendingResults(any(), any()) } returns emptyList()
@@ -70,6 +71,18 @@ class DailyAnalysisTest {
         coVerify { e.sync.syncFixtures(e.source, listOf("E0"), 0, 10, false, any()) }
         coVerify { e.sync.importCsvHistory(listOf("E0"), listOf(2026, 2025, 2024)) }
         coVerify(exactly = 0) { e.sync.syncLive(any()) }
+    }
+
+    @Test fun `Iranian fixtures use their own history and can be forecast in daily mode`() = runTest {
+        val e = Env()
+        val iran = e.fixture.copy(id = "varzesh3:match:123", providerId = "varzesh3",
+            competitionId = "varzesh3:league:24", homeTeamId = "varzesh3:team:7", awayTeamId = "varzesh3:team:13")
+        coEvery { e.matches.scheduledBetween(any(), any()) } returns listOf(iran)
+        coEvery { e.sync.syncIranCompetitions() } returns Outcome.Success(SyncSummary(fixtures = 1))
+        val report = e.repo.run()
+        assertEquals(1, report.predicted)
+        coVerify { e.ratings.matchCount("varzesh3", "varzesh3:league:24") }
+        coVerify { e.predictions.predict(iran.id, any()) }
     }
 
     @Test fun `insufficient team history never generates a neutral fallback forecast`() = runTest {
