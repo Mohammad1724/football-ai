@@ -582,7 +582,7 @@
     <string name="table_match_leading">Leading · live</string>
     <string name="table_match_trailing">Trailing · live</string>
     <string name="table_match_level">Level · live</string>
-    <string name="table_match_legend">Highlighted rows refer to this match and its displayed score, not league qualification.</string>
+    <string name="table_match_legend">A neutral outline marks this match’s teams. Colours refer only to this match, not league qualification or position.</string>
     <string name="table_match_teams_missing">One or both match teams could not be matched to a table row.</string>
     <string name="table_season_identifier">Stored season ID: %1$s</string>
     <string name="table_season_unknown">The match or table season ID is unknown; the table may be for another season.</string>
@@ -771,7 +771,7 @@
     <string name="lineup_starters">Starters</string>
     <string name="lineup_bench">Bench</string>
     <string name="prediction_history_loaded">%1$s displayable records loaded · %2$s stored on this device</string>
-    <string name="prediction_history_scope">Newest records are loaded first. Filter counts are matches among loaded records; a match may appear in multiple filters. Some stored records may be unavailable to display.</string>
+    <string name="prediction_history_scope">Newest records load first. Filter counts apply only to loaded records and may overlap. Some records cannot be displayed. Probabilities are not guarantees. The match page shows the latest analysis.</string>
     <string name="prediction_report_show">Show latest daily analysis report</string>
     <string name="prediction_report_hide">Hide daily analysis report</string>
     <string name="prediction_filter_empty_title">No matches in this filter</string>
@@ -784,8 +784,8 @@
     <string name="prediction_record_time">Saved: %1$s</string>
     <string name="prediction_highest_correct">Highest probability matched the result</string>
     <string name="prediction_highest_wrong">Highest probability did not match the result</string>
-    <string name="prediction_show_versions">Details and saved versions (%1$s)</string>
-    <string name="prediction_hide_versions">Hide details and saved versions (%1$s)</string>
+    <string name="prediction_show_versions">Details (%1$s)</string>
+    <string name="prediction_hide_versions">Hide details (%1$s)</string>
     <string name="prediction_versions_scope">Select a loaded version to show its own probabilities above. Older versions may require loading more history.</string>
     <string name="prediction_version_row">%1$s · %2$s · %3$s</string>
     <string name="prediction_model_version">Model version: %1$s</string>
@@ -804,4 +804,15 @@
     <string name="prediction_source">Source ID: %1$s</string>
     <string name="prediction_selected_version">Selected: %1$s</string>
     <string name="prediction_loading_more">Loading history…</string>
+    <string name="prediction_score_by_side">Score — home %1$s, away %2$s</string>
+    <string name="prediction_final_score_by_side">Evaluated score — home %1$s, away %2$s</string>
+    <string name="prediction_brier_only">Brier score: %1$s</string>
+    <string name="prediction_open_match_short">Match analysis</string>
+    <string name="prediction_reason_not_finished">The match has not finished.</string>
+    <string name="prediction_reason_scope">Regulation-time score is not verified by the source.</string>
+    <string name="prediction_reason_old_model">This older model version is not automatically evaluated.</string>
+    <string name="prediction_reason_late">Saved at or after the stored kickoff; not graded as pre-match.</string>
+    <string name="prediction_reason_missing_score">A final score is missing.</string>
+    <string name="prediction_reason_pending">Evaluation has not yet been saved; try refreshing.</string>
+    <string name="prediction_record_unknown">Unknown forecast type</string>
 </resources>

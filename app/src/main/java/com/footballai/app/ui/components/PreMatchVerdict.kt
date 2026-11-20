@@ -12,7 +12,7 @@ import com.footballai.app.domain.model.TeamRef
 import com.footballai.app.domain.catalog.NameLocalization
 
 @Composable
-fun PreMatchVerdict(prediction: PredictionView, home: TeamRef, away: TeamRef, languageTag: String) {
+fun PreMatchVerdict(prediction: PredictionView, home: TeamRef, away: TeamRef, languageTag: String, showNote: Boolean = true) {
     val pick = DailyAnalysisPolicy.pick(prediction.homeWin, prediction.draw, prediction.awayWin, prediction.quality.level)
     val label = when (pick) {
         "HOME" -> stringResource(R.string.daily_pick_team, NameLocalization.displayName(home.name, languageTag, home.shortName))
@@ -29,7 +29,7 @@ fun PreMatchVerdict(prediction: PredictionView, home: TeamRef, away: TeamRef, la
             Text("\u200E" + secondary, style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        Text(stringResource(R.string.daily_pick_note_short), style = MaterialTheme.typography.bodySmall,
+        if (showNote) Text(stringResource(R.string.daily_pick_note_short), style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }

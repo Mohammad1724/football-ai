@@ -99,9 +99,15 @@ class MatchRepository(
      * fixture; both are read and merged, and a match present in both appears once.
      */
     suspend fun headToHead(matchId: String, home: TeamRef, away: TeamRef, limit: Int = 6): List<MatchSummary> {
-        val now = clock.nowEpochMs()
-        val stored = decorate(db.matchDao().headToHead(matchId, home.id, away.id, limit))
-        val archivedRows = db.historicalDao().between(aliasIds(home), aliasIds(away), now, limit)
+        val current = db.matchDao().byId(matchId) ?: return emptyList()
+        if (current.kickoffEpochMs <= 0L) return emptyList()
+        // Previous meetings only: never use the opened fixture, future fixtures or
+        // results later than a historical match being inspected.
+        val cutoff = minOf(current.kickoffEpochMs, clock.nowEpochMs())
+        val stored = decorate(db.matchDao().headToHead(matchId, home.id, away.id, cutoff, limit + 10))
+            .filterNot { sameArchiveDay(it.kickoffEpochMs, current.kickoffEpochMs) }
+        val archivedRows = db.historicalDao().between(aliasIds(home), aliasIds(away), cutoff - 1, limit + 1)
+            .filterNot { sameArchiveDay(it.kickoffEpochMs, current.kickoffEpochMs) }
         val archivedRefs = teamRefs(archivedRows.flatMap { row -> listOf(row.homeTeamId, row.awayTeamId) })
         val archived = archivedRows
             .map { row -> row.toSummaryRow() }
@@ -654,4 +660,11 @@ class MatchRepository(
 
     suspend fun pruneOldData(nowEpochMs: Long): Int =
         db.matchDao().pruneOldMatches(nowEpochMs - 400L * TimeConstants.DAY_MS)
+}
+
+/** Archive kickoffs may be synthetic; suppress the opened match's whole archive day. */
+internal fun sameArchiveDay(first: Long, second: Long): Boolean {
+    val zone = java.time.ZoneId.of("Europe/London")
+    return java.time.Instant.ofEpochMilli(first).atZone(zone).toLocalDate() ==
+        java.time.Instant.ofEpochMilli(second).atZone(zone).toLocalDate()
 }

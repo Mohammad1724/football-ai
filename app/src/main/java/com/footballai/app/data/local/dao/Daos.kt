@@ -297,12 +297,16 @@ interface MatchDao {
     @Query(
         """
         SELECT * FROM matches
-        WHERE id = :matchId OR (homeTeamId IN (:teamA, :teamB) AND awayTeamId IN (:teamA, :teamB))
+        WHERE id != :matchId AND status = 'FINISHED'
+          AND homeGoals IS NOT NULL AND awayGoals IS NOT NULL
+          AND kickoffEpochMs < :beforeEpochMs
+          AND ((homeTeamId = :teamA AND awayTeamId = :teamB)
+            OR (homeTeamId = :teamB AND awayTeamId = :teamA))
         ORDER BY kickoffEpochMs DESC
         LIMIT :limit
         """
     )
-    suspend fun headToHead(matchId: String, teamA: String, teamB: String, limit: Int): List<MatchEntity>
+    suspend fun headToHead(matchId: String, teamA: String, teamB: String, beforeEpochMs: Long, limit: Int): List<MatchEntity>
 
     @Query("SELECT COUNT(*) FROM matches")
     suspend fun count(): Int

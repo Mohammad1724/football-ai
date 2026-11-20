@@ -1,6 +1,7 @@
 package com.footballai.app.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -35,6 +36,7 @@ import com.footballai.app.domain.model.TeamRef
 import com.footballai.app.ui.LocalLanguageTag
 import com.footballai.app.ui.theme.FootballAiThemeExtra
 import com.footballai.app.ui.theme.Spacing
+import com.footballai.app.ui.theme.Radii
 
 /** One line of a league table, as the table draws it. */
 data class TableRow(
@@ -123,7 +125,7 @@ fun LeagueTableRow(
         MatchTableMark.WIN, MatchTableMark.LEADING -> colors.positive
         MatchTableMark.LOSS, MatchTableMark.TRAILING -> colors.danger
         MatchTableMark.DRAW, MatchTableMark.LEVEL -> colors.awaySeries
-        MatchTableMark.TEAM -> MaterialTheme.colorScheme.primary
+        MatchTableMark.TEAM -> MaterialTheme.colorScheme.onSurfaceVariant
         null -> Color.Transparent
     }
     val markLabel = when (matchMark) {
@@ -138,9 +140,14 @@ fun LeagueTableRow(
     }
     val matchState = markLabel?.let { stringResource(it) }
     SoftCard(
-        modifier = modifier.fillMaxWidth().semantics { if (matchState != null) stateDescription = matchState },
+        modifier = modifier.fillMaxWidth()
+            .then(if (matchMark == MatchTableMark.TEAM)
+                Modifier.border(1.dp, MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f), Radii.cardShape)
+                else Modifier)
+            .semantics { if (matchState != null) stateDescription = matchState },
         onClick = onClick,
         containerColor = when {
+            matchMark == MatchTableMark.TEAM -> colors.card
             matchMark != null -> markColor.copy(alpha = 0.16f).compositeOver(MaterialTheme.colorScheme.surface)
             highlighted -> colors.cardStrong
             row.rank <= 3 -> colors.cardStrong

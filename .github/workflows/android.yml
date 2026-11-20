@@ -39,6 +39,9 @@ jobs:
       - name: Crest queue SQLite regression tests
         run: python3 scripts/check_crest_queue.py
 
+      - name: Head-to-head SQLite regression tests
+        run: python3 scripts/check_head_to_head.py
+
       - name: Engine unit tests
         run: |
           set -o pipefail

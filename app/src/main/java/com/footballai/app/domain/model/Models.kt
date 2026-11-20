@@ -362,6 +362,10 @@ data class PredictionView(
 data class PredictionWithMatch(
     val prediction: PredictionView,
     val match: MatchSummary,
+    /** Source result scope is required to explain why automatic grading is blocked. */
+    val scoreScope: String? = null,
+    /** Preserve unknown historical types rather than pretending they are pre-match. */
+    val storedKind: String? = null,
 )
 
 enum class DataFreshness { FRESH, AGING, STALE, UNKNOWN }

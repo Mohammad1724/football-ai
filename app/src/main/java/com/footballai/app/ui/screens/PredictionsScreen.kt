@@ -51,6 +51,10 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.footballai.app.R
 import com.footballai.app.core.Formatters
 import com.footballai.app.domain.model.PredictionWithMatch
+import com.footballai.app.domain.model.EvaluationBlock
+import com.footballai.app.domain.model.evaluationBlock
+import com.footballai.app.data.repository.PredictionRepository
+import com.footballai.app.domain.catalog.NameLocalization
 import com.footballai.app.ui.LocalAppContainer
 import com.footballai.app.ui.LocalLanguageTag
 import com.footballai.app.ui.localizedString
@@ -125,13 +129,18 @@ fun PredictionsScreen(onMatchClick: (String) -> Unit) {
                 LoadingState()
                 return@Column
             }
-            Text(
-                text = stringResource(R.string.prediction_history_loaded,
+            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                Text(text = stringResource(R.string.prediction_history_loaded,
                     Formatters.integer(state.loadedCount, languageTag), Formatters.integer(state.storedCount, languageTag)),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-            )
+                    style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f))
+                if (state.loadedLimit < state.storedCount) {
+                    TextButton(onClick = viewModel::loadMore, enabled = !state.loadingMore) {
+                        Text(stringResource(if (state.loadingMore) R.string.prediction_loading_more else R.string.prediction_load_more))
+                    }
+                }
+            }
             PredictionFilterRow(state.filter, state.upcomingCount, state.liveCount, state.waitingCount,
                 state.resolvedCount, viewModel::setFilter)
             SwipeRefresh(
@@ -242,42 +251,54 @@ private fun PredictionGroupCard(
     val prediction = selected.prediction
     Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 5.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-        Column(modifier = Modifier.padding(14.dp)) {
+        Column(modifier = Modifier.padding(12.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically) {
-                Text(match.competitionName, modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelMedium,
+                Text(NameLocalization.competitionNamePair(match.competitionName, match.competitionId, languageTag).first,
+                    modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)
                 StatusChip(text = recordStatusLabel(selected, now), color = MaterialTheme.colorScheme.primary)
             }
             Spacer(Modifier.height(6.dp))
-            PredictionTeamLine(match.home, languageTag)
-            Spacer(Modifier.height(4.dp))
-            PredictionTeamLine(match.away, languageTag)
-            Text(stringResource(R.string.prediction_source, match.id.substringBefore(':')),
-                style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(stringResource(R.string.prediction_kickoff, Formatters.kickoffDateTime(match.kickoffEpochMs, languageTag)),
-                style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            if (match.status.hasScore && match.homeGoals != null && match.awayGoals != null) {
-                Text(stringResource(R.string.prediction_match_score,
-                    Formatters.scoreOrNull(match.homeGoals, match.awayGoals, languageTag) ?: "—"),
-                    style = MaterialTheme.typography.labelMedium)
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(stringResource(R.string.selection_home), style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    PredictionTeamLine(match.home, languageTag)
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(stringResource(R.string.selection_away), style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    PredictionTeamLine(match.away, languageTag)
+                }
             }
-            Text(recordKindLabel(selected), style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
-            Text(stringResource(R.string.prediction_record_time, Formatters.kickoffDateTime(prediction.createdAtEpochMs, languageTag)),
-                style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.height(6.dp))
-            com.footballai.app.ui.components.PreMatchVerdict(prediction, match.home, match.away, languageTag)
-            Spacer(Modifier.height(6.dp))
+            Text(stringResource(R.string.prediction_kickoff, Formatters.kickoffDateTime(match.kickoffEpochMs, languageTag)),
+                style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp))
+            if (match.status.hasScore && match.homeGoals != null && match.awayGoals != null) {
+                ScoreBySide(match.homeGoals, match.awayGoals, languageTag, final = false)
+            }
+            Text(recordKindLabel(selected), style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
+            if (match.status.isFinished && prediction.resolution == null) {
+                Text(evaluationReason(selected), style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            com.footballai.app.ui.components.PreMatchVerdict(prediction, match.home, match.away, languageTag, showNote = false)
+            Spacer(Modifier.height(4.dp))
             ProbabilityBar(homeWin = prediction.homeWin, draw = prediction.draw, awayWin = prediction.awayWin,
                 languageTag = languageTag)
             prediction.resolution?.let { result ->
                 Text(stringResource(if (result.outcomeCorrect) R.string.prediction_highest_correct else R.string.prediction_highest_wrong),
-                    style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 6.dp))
+                    style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 3.dp))
             }
-            TextButton(onClick = { expanded = !expanded }) {
-                Text(stringResource(if (expanded) R.string.prediction_hide_versions else R.string.prediction_show_versions,
-                    Formatters.integer(group.versions.size, languageTag)))
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically) {
+                TextButton(onClick = { expanded = !expanded }, modifier = Modifier.weight(1f)) {
+                    Text(stringResource(if (expanded) R.string.prediction_hide_versions else R.string.prediction_show_versions,
+                        Formatters.integer(group.versions.size, languageTag)))
+                }
+                TextButton(onClick = onOpenMatch) { Text(stringResource(R.string.prediction_open_match_short)) }
             }
             if (expanded) {
                 Text(stringResource(R.string.prediction_versions_scope), style = MaterialTheme.typography.bodySmall,
@@ -290,16 +311,50 @@ private fun PredictionGroupCard(
                         Text(if (version.prediction.id == prediction.id) stringResource(R.string.prediction_selected_version, row) else row)
                     }
                 }
+                Text(stringResource(R.string.prediction_record_time, Formatters.kickoffDateTime(prediction.createdAtEpochMs, languageTag)),
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(R.string.prediction_source, match.id.substringBefore(':')),
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(stringResource(R.string.prediction_model_version, prediction.modelVersion),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                prediction.resolution?.let { result ->
-                    Text(localizedString(R.string.prediction_resolved_body, result.actualHomeGoals, result.actualAwayGoals,
-                        Formatters.decimal(result.brier, languageTag, 3)), style = MaterialTheme.typography.bodySmall)
+                if (match.status.isFinished && prediction.resolution == null) {
+                    Text(evaluationReason(selected), style = MaterialTheme.typography.bodySmall)
                 }
+                prediction.resolution?.let { result ->
+                    ScoreBySide(result.actualHomeGoals, result.actualAwayGoals, languageTag, final = true)
+                    Text(stringResource(R.string.prediction_brier_only, Formatters.decimal(result.brier, languageTag, 3)),
+                        style = MaterialTheme.typography.bodySmall)
+                }
+                Text(stringResource(R.string.prediction_open_match_latest), style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            TextButton(onClick = onOpenMatch) { Text(stringResource(R.string.prediction_open_match_latest)) }
         }
     }
+}
+
+@Composable
+private fun ScoreBySide(home: Int, away: Int, languageTag: String, final: Boolean) {
+    Text(stringResource(if (final) R.string.prediction_final_score_by_side else R.string.prediction_score_by_side,
+        Formatters.integer(home, languageTag), Formatters.integer(away, languageTag)),
+        style = MaterialTheme.typography.labelMedium)
+}
+
+@Composable
+private fun evaluationReason(item: PredictionWithMatch): String {
+    val match = item.match
+    val prediction = item.prediction
+    val reason = evaluationBlock(match.status, item.scoreScope, prediction.modelVersion, PredictionRepository.MODEL_VERSION,
+        if ((item.storedKind ?: prediction.kind.name) == "PRE_MATCH") com.footballai.app.domain.model.PredictionKind.PRE_MATCH
+        else com.footballai.app.domain.model.PredictionKind.LIVE,
+        prediction.createdAtEpochMs, match.kickoffEpochMs, match.homeGoals, match.awayGoals)
+    return stringResource(when (reason) {
+        EvaluationBlock.MATCH_NOT_FINISHED -> R.string.prediction_reason_not_finished
+        EvaluationBlock.UNVERIFIED_REGULATION -> R.string.prediction_reason_scope
+        EvaluationBlock.OLD_MODEL -> R.string.prediction_reason_old_model
+        EvaluationBlock.LATE_PRE_MATCH -> R.string.prediction_reason_late
+        EvaluationBlock.MISSING_SCORE -> R.string.prediction_reason_missing_score
+        EvaluationBlock.NONE -> R.string.prediction_reason_pending
+    })
 }
 
 @Composable
@@ -318,6 +373,7 @@ private fun recordStatusLabel(item: PredictionWithMatch, now: Long): String = st
 
 @Composable
 private fun recordKindLabel(item: PredictionWithMatch): String = stringResource(when {
+    item.storedKind != null && item.storedKind !in setOf("PRE_MATCH", "LIVE") -> R.string.prediction_record_unknown
     item.prediction.kind == com.footballai.app.domain.model.PredictionKind.LIVE -> R.string.prediction_record_live
     isLatePreMatch(item) -> R.string.prediction_record_late
     else -> R.string.prediction_record_prematch
@@ -333,6 +389,7 @@ private fun PredictionTeamLine(team: com.footballai.app.domain.model.TeamRef, la
             team = team,
             languageTag = languageTag,
             primaryStyle = MaterialTheme.typography.titleSmall,
+            primaryMaxLines = 2, secondaryMaxLines = 2,
         )
     }
 }

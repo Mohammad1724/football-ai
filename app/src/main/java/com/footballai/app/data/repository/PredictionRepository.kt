@@ -23,6 +23,8 @@ import com.footballai.app.domain.model.MarketRow
 import com.footballai.app.domain.model.MarketType
 import com.footballai.app.domain.model.MatchOdds
 import com.footballai.app.domain.model.PredictionKind
+import com.footballai.app.domain.model.EvaluationBlock
+import com.footballai.app.domain.model.evaluationBlock
 import com.footballai.app.domain.model.PredictionResolution
 import com.footballai.app.domain.model.PredictionView
 import com.footballai.app.domain.model.PredictionWithMatch
@@ -381,11 +383,13 @@ class PredictionRepository(
                 toView(entity)?.let { views.add(it) }
             }
             // Stay below SQLite bind limits even when the user loads more history.
-            val matches = views.map { it.matchId }.distinct().chunked(200).flatMap { ids ->
-                matchRepository.decorate(db.matchDao().byIds(ids))
-            }.associateBy { it.id }
+            val entitiesById = views.map { it.matchId }.distinct().chunked(200)
+                .flatMap { ids -> db.matchDao().byIds(ids) }.associateBy { it.id }
+            val matches = entitiesById.values.toList().chunked(200)
+                .flatMap { matchRepository.decorate(it) }.associateBy { it.id }
+            val rawKinds = entities.associate { it.id to it.kind }
             views.mapNotNull { view ->
-                matches[view.matchId]?.let { PredictionWithMatch(view, it) }
+                matches[view.matchId]?.let { PredictionWithMatch(view, it, entitiesById[view.matchId]?.scoreScope, rawKinds[view.id]) }
             }
         }.flowOn(Dispatchers.IO)
 
@@ -410,9 +414,9 @@ class PredictionRepository(
         for (prediction in unresolved) {
             val match = db.matchDao().byId(prediction.matchId) ?: continue
             val status = parseStatus(match.status)
-            if (!status.isFinished || match.scoreScope != "REGULATION") continue
-            if (prediction.modelVersion != MODEL_VERSION) continue
-            if (prediction.kind == PredictionKind.PRE_MATCH.name && prediction.createdAtEpochMs >= match.kickoffEpochMs) continue
+            val kind = if (prediction.kind == PredictionKind.PRE_MATCH.name) PredictionKind.PRE_MATCH else PredictionKind.LIVE
+            if (evaluationBlock(status, match.scoreScope, prediction.modelVersion, MODEL_VERSION, kind,
+                    prediction.createdAtEpochMs, match.kickoffEpochMs, match.homeGoals, match.awayGoals) != EvaluationBlock.NONE) continue
             val homeGoals = match.homeGoals ?: continue
             val awayGoals = match.awayGoals ?: continue
             val actual = when {

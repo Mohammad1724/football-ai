@@ -582,7 +582,7 @@
     <string name="table_match_leading">جلو · بازی زنده</string>
     <string name="table_match_trailing">عقب · بازی زنده</string>
     <string name="table_match_level">برابر · بازی زنده</string>
-    <string name="table_match_legend">رنگ ردیف‌ها به نتیجه نمایش‌داده‌شده همین بازی مربوط است، نه سهمیه یا جایگاه جدول.</string>
+    <string name="table_match_legend">کادر خنثی تیم این مسابقه را نشان می‌دهد. رنگ‌ها فقط به نتیجه همین بازی مربوط‌اند، نه سهمیه یا جایگاه جدول.</string>
     <string name="table_match_teams_missing">یک یا هر دو تیم این مسابقه در ردیف‌های جدول شناسایی نشدند.</string>
     <string name="table_season_identifier">شناسه فصل ثبت‌شده: %1$s</string>
     <string name="table_season_unknown">شناسه فصل بازی یا جدول نامشخص است؛ ممکن است جدول متعلق به فصل دیگری باشد.</string>
@@ -770,7 +770,7 @@
     <string name="lineup_starters">ترکیب اصلی</string>
     <string name="lineup_bench">نیمکت</string>
     <string name="prediction_history_loaded">%1$s رکورد قابل‌نمایش بارگذاری‌شده · %2$s رکورد ذخیره‌شده در دستگاه</string>
-    <string name="prediction_history_scope">ابتدا جدیدترین رکوردها بارگذاری می‌شوند. تعداد فیلترها مسابقه‌های همین رکوردهاست؛ یک مسابقه ممکن است در چند فیلتر باشد. برخی رکوردهای ذخیره‌شده ممکن است قابل‌نمایش نباشند.</string>
+    <string name="prediction_history_scope">جدیدترین رکوردها ابتدا نمایش داده می‌شوند و تعداد فیلترها فقط مربوط به همین رکوردهاست. یک بازی ممکن است در چند فیلتر باشد؛ برخی رکوردها ممکن است قابل‌نمایش نباشند. احتمال‌ها تضمین نتیجه نیستند. صفحه مسابقه آخرین تحلیل را نشان می‌دهد.</string>
     <string name="prediction_report_show">نمایش گزارش آخرین تحلیل روزانه</string>
     <string name="prediction_report_hide">بستن گزارش تحلیل روزانه</string>
     <string name="prediction_filter_empty_title">مسابقه‌ای در این فیلتر نیست</string>
@@ -783,8 +783,8 @@
     <string name="prediction_record_time">زمان ثبت: %1$s</string>
     <string name="prediction_highest_correct">بیشترین احتمال با نتیجه منطبق بود</string>
     <string name="prediction_highest_wrong">بیشترین احتمال با نتیجه منطبق نبود</string>
-    <string name="prediction_show_versions">جزئیات و نسخه‌های ذخیره‌شده (%1$s)</string>
-    <string name="prediction_hide_versions">بستن جزئیات و نسخه‌ها (%1$s)</string>
+    <string name="prediction_show_versions">جزئیات (%1$s)</string>
+    <string name="prediction_hide_versions">بستن جزئیات (%1$s)</string>
     <string name="prediction_versions_scope">با انتخاب هر نسخه، احتمال‌های همان نسخه در بالا نمایش داده می‌شود. نسخه‌های قدیمی‌تر ممکن است به بارگذاری تاریخچه بیشتر نیاز داشته باشند.</string>
     <string name="prediction_version_row">%1$s · %2$s · %3$s</string>
     <string name="prediction_model_version">نسخه مدل: %1$s</string>
@@ -803,4 +803,15 @@
     <string name="prediction_source">شناسه منبع: %1$s</string>
     <string name="prediction_selected_version">انتخاب‌شده: %1$s</string>
     <string name="prediction_loading_more">در حال بارگذاری تاریخچه…</string>
+    <string name="prediction_score_by_side">نتیجه — میزبان %1$s، مهمان %2$s</string>
+    <string name="prediction_final_score_by_side">نتیجه ارزیابی‌شده — میزبان %1$s، مهمان %2$s</string>
+    <string name="prediction_brier_only">امتیاز بریر: %1$s</string>
+    <string name="prediction_open_match_short">تحلیل مسابقه</string>
+    <string name="prediction_reason_not_finished">بازی هنوز پایان نیافته است.</string>
+    <string name="prediction_reason_scope">نتیجه زمان قانونی از سوی منبع تأیید نشده است.</string>
+    <string name="prediction_reason_old_model">این نسخه قدیمی مدل به‌طور خودکار ارزیابی نمی‌شود.</string>
+    <string name="prediction_reason_late">پس از زمان شروع ثبت‌شده است؛ به‌عنوان پیش‌بازی ارزیابی نمی‌شود.</string>
+    <string name="prediction_reason_missing_score">نتیجه نهایی کامل در دسترس نیست.</string>
+    <string name="prediction_reason_pending">ارزیابی هنوز ذخیره نشده است؛ دوباره به‌روزرسانی کنید.</string>
+    <string name="prediction_record_unknown">نوع پیش‌بینی نامشخص است</string>
 </resources>
