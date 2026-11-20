@@ -250,9 +250,9 @@
     <string name="prediction_resolved_body">Final score %1$d-%2$d · Brier %3$s</string>
     <string name="prediction_result">Chance of each result</string>
     <string name="prediction_verdict_title">Our guess</string>
-    <string name="verdict_home_win">%1$s to win</string>
-    <string name="verdict_away_win">%1$s to win</string>
-    <string name="verdict_draw">A draw</string>
+    <string name="verdict_home_win">%1$s win is most likely</string>
+    <string name="verdict_away_win">%1$s win is most likely</string>
+    <string name="verdict_draw">A draw is most likely</string>
     <string name="confidence_high">High trust</string>
     <string name="confidence_medium">Moderate trust</string>
     <string name="confidence_low">Low trust</string>
@@ -815,4 +815,23 @@
     <string name="prediction_reason_missing_score">A final score is missing.</string>
     <string name="prediction_reason_pending">Evaluation has not yet been saved; try refreshing.</string>
     <string name="prediction_record_unknown">Unknown forecast type</string>
+    <string name="analysis_no_clear_leader">No clear leading outcome at the displayed precision</string>
+    <string name="analysis_probabilities_invalid">The result probabilities are unavailable or invalid</string>
+    <string name="analysis_confidence_unknown">Confidence: unavailable</string>
+    <string name="analysis_confidence_explained">Confidence describes the evidence, not the chance of the result. No outcome is guaranteed.</string>
+    <string name="analysis_snapshot_stale">This prediction may be out of date.</string>
+    <string name="analysis_why_heading">Why this prediction?</string>
+    <string name="analysis_why_subtitle">Key factors and estimated goals</string>
+    <string name="analysis_evidence_heading">Confidence and data</string>
+    <string name="analysis_evidence_subtitle">Evidence, limitations and model details</string>
+    <string name="analysis_outcomes_heading">Likely scores and markets</string>
+    <string name="analysis_outcomes_subtitle">Explore other possible outcomes</string>
+    <string name="analysis_section_open">Expanded</string>
+    <string name="analysis_section_closed">Collapsed</string>
+    <string name="analysis_form_title">Recent form</string>
+    <string name="analysis_form_summary">%1$s matches: %2$s wins, %3$s draws, %4$s losses</string>
+    <string name="analysis_form_unavailable">Not enough match data</string>
+    <string name="analysis_form_details">Show form details</string>
+    <string name="analysis_form_hide">Hide form details</string>
+    <string name="analysis_recent_matches">See recent matches</string>
 </resources>

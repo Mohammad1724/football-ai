@@ -6,8 +6,23 @@ import com.footballai.app.ui.screens.MatchAnalysisPresentation
 import com.footballai.app.ui.screens.VerdictOutcome
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 class MatchAnalysisPresentationTest {
+    @Test
+    fun `headline recognises each leader without inventing one for ties or invalid distributions`() {
+        assertEquals(VerdictOutcome.HOME, MatchAnalysisPresentation.leadingOutcome(0.95, 0.04, 0.01))
+        assertEquals(VerdictOutcome.DRAW, MatchAnalysisPresentation.leadingOutcome(0.20, 0.50, 0.30))
+        assertEquals(VerdictOutcome.AWAY, MatchAnalysisPresentation.leadingOutcome(0.20, 0.30, 0.50))
+        assertEquals(null, MatchAnalysisPresentation.leadingOutcome(0.40, 0.40, 0.20))
+        assertEquals(null, MatchAnalysisPresentation.leadingOutcome(0.404, 0.403, 0.193))
+        assertEquals(null, MatchAnalysisPresentation.leadingOutcome(Double.NaN, 0.5, 0.5))
+        assertFalse(MatchAnalysisPresentation.validProbabilities(0.9, 0.9, 0.1))
+        assertFalse(MatchAnalysisPresentation.validProbabilities(-0.1, 0.6, 0.5))
+        assertTrue(MatchAnalysisPresentation.validProbabilities(0.95, 0.04, 0.01))
+    }
+
     @Test
     fun `percentage point gap matches displayed rounded numbers`() {
         assertEquals(91, MatchAnalysisPresentation.roundedGap(0.95, 0.04))

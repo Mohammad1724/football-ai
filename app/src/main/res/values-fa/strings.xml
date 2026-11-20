@@ -250,9 +250,9 @@
     <string name="prediction_resolved_body">نتیجه نهایی %1$d-%2$d · بریر %3$s</string>
     <string name="prediction_result">شانس هر نتیجه</string>
     <string name="prediction_verdict_title">حدس ما</string>
-    <string name="verdict_home_win">%1$s برنده می‌شود</string>
-    <string name="verdict_away_win">%1$s برنده می‌شود</string>
-    <string name="verdict_draw">مساوی می‌شود</string>
+    <string name="verdict_home_win">برد %1$s بیشترین احتمال را دارد</string>
+    <string name="verdict_away_win">برد %1$s بیشترین احتمال را دارد</string>
+    <string name="verdict_draw">مساوی بیشترین احتمال را دارد</string>
     <string name="confidence_high">اطمینان زیاد</string>
     <string name="confidence_medium">اطمینان متوسط</string>
     <string name="confidence_low">اطمینان کم</string>
@@ -814,4 +814,23 @@
     <string name="prediction_reason_missing_score">نتیجه نهایی کامل در دسترس نیست.</string>
     <string name="prediction_reason_pending">ارزیابی هنوز ذخیره نشده است؛ دوباره به‌روزرسانی کنید.</string>
     <string name="prediction_record_unknown">نوع پیش‌بینی نامشخص است</string>
+    <string name="analysis_no_clear_leader">با این دقت نمایش، نتیجهٔ مشخصی پیشتاز نیست</string>
+    <string name="analysis_probabilities_invalid">احتمال‌های نتیجه در دسترس یا معتبر نیستند</string>
+    <string name="analysis_confidence_unknown">اطمینان: نامشخص</string>
+    <string name="analysis_confidence_explained">اطمینان به شواهد مربوط است، نه احتمال نتیجه؛ هیچ نتیجه‌ای تضمین‌شده نیست.</string>
+    <string name="analysis_snapshot_stale">این پیش‌بینی ممکن است قدیمی باشد.</string>
+    <string name="analysis_why_heading">چرا این پیش‌بینی؟</string>
+    <string name="analysis_why_subtitle">عوامل مهم و گل‌های تخمینی</string>
+    <string name="analysis_evidence_heading">اعتبار و داده‌ها</string>
+    <string name="analysis_evidence_subtitle">شواهد، محدودیت‌ها و جزئیات مدل</string>
+    <string name="analysis_outcomes_heading">نتایج محتمل و بازارها</string>
+    <string name="analysis_outcomes_subtitle">بررسی حالت‌های دیگر بازی</string>
+    <string name="analysis_section_open">باز</string>
+    <string name="analysis_section_closed">بسته</string>
+    <string name="analysis_form_title">فرم اخیر</string>
+    <string name="analysis_form_summary">%1$s بازی: %2$s برد، %3$s مساوی، %4$s باخت</string>
+    <string name="analysis_form_unavailable">دادهٔ کافی از بازی‌ها نیست</string>
+    <string name="analysis_form_details">نمایش جزئیات فرم</string>
+    <string name="analysis_form_hide">بستن جزئیات فرم</string>
+    <string name="analysis_recent_matches">دیدن بازی‌های اخیر</string>
 </resources>

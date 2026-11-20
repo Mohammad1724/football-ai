@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -28,6 +29,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material.icons.outlined.TableChart
 import androidx.compose.material.icons.filled.Star
@@ -69,6 +72,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.Role
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -307,6 +313,14 @@ fun MatchDetailScreen(
                 )
             }
 
+            val analysisHeader: @Composable () -> Unit = {
+                MatchHeader(
+                    detail = detail, languageTag = languageTag, onTeamClick = onTeamClick,
+                    onCompetitionClick = onCompetitionClick, favouriteTeams = state.favouriteTeams,
+                    onToggleFavourite = viewModel::toggleFavourite, compact = true,
+                )
+            }
+
             // Six or seven tabs do not fit one phone width: past five the row scrolls, so a
             // label is never squeezed into an ellipsis. Below that the fixed row is calmer.
             val tabContent: @Composable () -> Unit = {
@@ -352,7 +366,7 @@ fun MatchDetailScreen(
                         modifier = Modifier.fillMaxSize(),
                     ) {
                         AnalysisTab(
-                            header = matchHeader,
+                            header = analysisHeader,
                             homeForm = state.homeForm,
                             awayForm = state.awayForm,
                             homeTeam = detail.summary.home,
@@ -380,6 +394,7 @@ fun MatchDetailScreen(
                                 !detail.summary.status.isFinished &&
                                 (detail.summary.status.isLive || detail.summary.status == com.footballai.app.domain.model.MatchStatus.SCHEDULED),
                             onPredict = { viewModel.predict(forcePersist = true) },
+                            onRecentMatches = if (recentTen != null) ({ selectedTabKey = TAB_RECENT_TEN }) else null,
                             needsNationalHistory = missingArchive,
                             isImportingHistory = state.isImportingHistory,
                             onImportNationalHistory = viewModel::importNationalHistory,
@@ -468,6 +483,7 @@ private fun MatchHeader(
     onCompetitionClick: (String) -> Unit,
     favouriteTeams: Set<String>,
     onToggleFavourite: (String, Boolean) -> Unit,
+    compact: Boolean = false,
 ) {
     val summary = detail.summary
     val colors = FootballAiThemeExtra.colors
@@ -478,7 +494,7 @@ private fun MatchHeader(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(if (compact) 12.dp else 16.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -504,7 +520,7 @@ private fun MatchHeader(
                     color = if (summary.status.isLive) colors.live else MaterialTheme.colorScheme.primary,
                 )
             }
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(if (compact) 6.dp else 14.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -517,6 +533,7 @@ private fun MatchHeader(
                     modifier = Modifier.weight(1f),
                     isFavourite = favouriteTeams.contains(NameLocalization.favouriteKey(summary.home.name, summary.home.shortName)),
                     onToggleFavourite = { onToggleFavourite(summary.home.name, it) },
+                    compact = compact,
                 )
                 Column(modifier = Modifier.weight(1.25f), horizontalAlignment = Alignment.CenterHorizontally) {
                     if (summary.status.hasScore) {
@@ -545,6 +562,7 @@ private fun MatchHeader(
                     alignEnd = true,
                     isFavourite = favouriteTeams.contains(NameLocalization.favouriteKey(summary.away.name, summary.away.shortName)),
                     onToggleFavourite = { onToggleFavourite(summary.away.name, it) },
+                    compact = compact,
                 )
             }
             if (!detail.venue.isNullOrBlank()) {
@@ -569,6 +587,7 @@ private fun TeamColumn(
     alignEnd: Boolean = false,
     isFavourite: Boolean = false,
     onToggleFavourite: (Boolean) -> Unit = {},
+    compact: Boolean = false,
 ) {
     Column(
         modifier = modifier.clickable { onClick(team.id) },
@@ -576,8 +595,8 @@ private fun TeamColumn(
     ) {
         Text(role, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(4.dp))
-        TeamBadge(team, size = 40)
-        Spacer(Modifier.height(6.dp))
+        TeamBadge(team, size = if (compact) 30 else 40)
+        Spacer(Modifier.height(if (compact) 2.dp else 6.dp))
         TeamNameLines(
             team = team,
             languageTag = languageTag,
@@ -619,6 +638,7 @@ private fun AnalysisTab(
     awayName: String,
     canPredict: Boolean,
     onPredict: () -> Unit,
+    onRecentMatches: (() -> Unit)?,
     needsNationalHistory: Boolean,
     isImportingHistory: Boolean,
     onImportNationalHistory: () -> Unit,
@@ -628,7 +648,10 @@ private fun AnalysisTab(
     predictionWarning: String?,
     languageTag: String,
 ) {
-    var showAdvanced by rememberSaveable(prediction?.id) { mutableStateOf(false) }
+    var showForm by rememberSaveable(prediction?.id) { mutableStateOf(false) }
+    var showWhy by rememberSaveable(prediction?.id) { mutableStateOf(false) }
+    var showEvidence by rememberSaveable(prediction?.id) { mutableStateOf(false) }
+    var showOutcomes by rememberSaveable(prediction?.id) { mutableStateOf(false) }
     var glossary by remember { mutableStateOf<PredictionGlossary?>(null) }
     LazyColumn(modifier = Modifier.fillMaxSize()) {
         item { header() }
@@ -727,132 +750,48 @@ private fun AnalysisTab(
 
         item {
             PredictionVerdictCard(
-                prediction = prediction,
-                isFinished = isFinished,
-                homeTeam = homeTeam,
-                awayTeam = awayTeam,
-                homeTeamName = homeName,
-                awayTeamName = awayName,
-                languageTag = languageTag,
+                prediction = prediction, isFinished = isFinished,
+                homeTeam = homeTeam, awayTeam = awayTeam,
+                homeTeamName = homeName, awayTeamName = awayName, languageTag = languageTag,
             )
         }
 
-        item {
-            TeamFormCard(
-                home = homeForm,
-                away = awayForm,
-                homeTeam = homeTeam,
-                awayTeam = awayTeam,
-                languageTag = languageTag,
-            )
-        }
-
-        item {
-            WhyThisNumberCard(
-                prediction = prediction,
-                homeTeamName = homeName,
-                awayTeamName = awayName,
-                languageTag = languageTag,
-            )
-        }
-
-        item {
-            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = stringResource(R.string.prediction_result),
-                        style = MaterialTheme.typography.titleMedium,
-                    )
-                    Box(modifier = Modifier.clickable { glossary = PredictionGlossary.DATA_COVERAGE }) {
-                        QualityBadge(
-                            level = prediction.quality.level,
-                            completeness = prediction.quality.completeness,
-                            languageTag = languageTag,
-                        )
-                    }
-                }
-                Text(stringResource(R.string.analysis_data_vs_confidence),
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 4.dp))
-                Spacer(Modifier.height(10.dp))
-                ProbabilityBar(
-                    homeWin = prediction.homeWin,
-                    draw = prediction.draw,
-                    awayWin = prediction.awayWin,
-                    languageTag = languageTag,
-                    homeLabel = homeName,
-                    awayLabel = awayName,
-                    homeTeam = homeTeam,
-                    awayTeam = awayTeam,
-                )
-                Spacer(Modifier.height(12.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    ExpectedGoals(label = stringResource(if (prediction.kind == PredictionKind.LIVE) R.string.remaining_home_goals else R.string.expected_home_goals), value = prediction.expectedHomeGoals, languageTag = languageTag)
-                    ExpectedGoals(label = stringResource(if (prediction.kind == PredictionKind.LIVE) R.string.remaining_away_goals else R.string.expected_away_goals), value = prediction.expectedAwayGoals, languageTag = languageTag)
-                    ExpectedGoals(label = stringResource(if (prediction.kind == PredictionKind.LIVE) R.string.remaining_total_goals else R.string.expected_total_goals), value = prediction.expectedHomeGoals + prediction.expectedAwayGoals, languageTag = languageTag)
-                }
-                TextButton(onClick = { glossary = PredictionGlossary.EXPECTED_GOALS }) {
-                    Text(stringResource(R.string.expected_goals_help))
-                }
-                val liveSnapshot = prediction.live
-                if (liveSnapshot != null) {
-                    Spacer(Modifier.height(6.dp))
-                    Text(
-                        text = stringResource(
-                            R.string.live_remaining_goals,
-                            Formatters.decimal(liveSnapshot.remainingHomeExpectedGoals, languageTag),
-                            Formatters.decimal(liveSnapshot.remainingAwayExpectedGoals, languageTag),
-                        ),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-        }
-
-        item {
-            EvidenceSection(prediction = prediction, languageTag = languageTag)
-        }
-
-        if (prediction.topScores.isNotEmpty()) {
+        if (homeForm != null || awayForm != null) {
             item {
-                SectionHeader(title = stringResource(R.string.section_likely_scores),
-                    subtitle = stringResource(R.string.score_home_away_order))
-                androidx.compose.foundation.lazy.LazyRow(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    items(prediction.topScores.take(4).size) { index ->
-                        ScoreChip(score = prediction.topScores[index], languageTag = languageTag, highlight = index == 0)
+                CompactFormCard(homeForm, awayForm, homeTeam, awayTeam, languageTag,
+                    onRecentMatches = onRecentMatches,
+                    onDetails = { showForm = !showForm }, detailsOpen = showForm)
+            }
+            if (showForm) item {
+                TeamFormCard(homeForm, awayForm, homeTeam, awayTeam, languageTag)
+            }
+        }
+
+        item { AnalysisDisclosureRow(
+            title = stringResource(R.string.analysis_why_heading),
+            subtitle = stringResource(R.string.analysis_why_subtitle),
+            expanded = showWhy, onClick = { showWhy = !showWhy },
+        ) }
+        if (showWhy) {
+            item {
+                WhyThisNumberCard(prediction, homeName, awayName, languageTag)
+                Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        ExpectedGoals(stringResource(if (prediction.kind == PredictionKind.LIVE) R.string.remaining_home_goals else R.string.expected_home_goals), prediction.expectedHomeGoals, languageTag)
+                        ExpectedGoals(stringResource(if (prediction.kind == PredictionKind.LIVE) R.string.remaining_away_goals else R.string.expected_away_goals), prediction.expectedAwayGoals, languageTag)
+                        ExpectedGoals(stringResource(if (prediction.kind == PredictionKind.LIVE) R.string.remaining_total_goals else R.string.expected_total_goals), prediction.expectedHomeGoals + prediction.expectedAwayGoals, languageTag)
+                    }
+                    TextButton(onClick = { glossary = PredictionGlossary.EXPECTED_GOALS }) {
+                        Text(stringResource(R.string.expected_goals_help))
+                    }
+                    prediction.live?.let { live ->
+                        Text(stringResource(R.string.live_remaining_goals,
+                            Formatters.decimal(live.remainingHomeExpectedGoals, languageTag),
+                            Formatters.decimal(live.remainingAwayExpectedGoals, languageTag)),
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
-            item { Spacer(Modifier.height(8.dp)) }
-        }
-
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
-                horizontalArrangement = Arrangement.Center,
-            ) {
-                TextButton(onClick = { showAdvanced = !showAdvanced }) {
-                    Text(stringResource(if (showAdvanced) R.string.hide_advanced_analysis else R.string.show_advanced_analysis))
-                }
-            }
-        }
-
-        if (showAdvanced) {
-        item { MarketSection(prediction = prediction, languageTag = languageTag) }
-
         item {
             SectionHeader(
                 title = stringResource(R.string.section_explanation),
@@ -880,6 +819,24 @@ private fun AnalysisTab(
             }
         }
 
+        }
+
+        item { AnalysisDisclosureRow(
+            title = stringResource(R.string.analysis_evidence_heading),
+            subtitle = stringResource(R.string.analysis_evidence_subtitle),
+            expanded = showEvidence, onClick = { showEvidence = !showEvidence },
+        ) }
+        if (showEvidence) {
+            item {
+                Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                    Box(modifier = Modifier.clickable { glossary = PredictionGlossary.DATA_COVERAGE }) {
+                        QualityBadge(prediction.quality.level, prediction.quality.completeness, languageTag)
+                    }
+                    Text(stringResource(R.string.analysis_data_vs_confidence),
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            item { EvidenceSection(prediction, languageTag) }
         if (prediction.quality.missing.isNotEmpty() || prediction.quality.notes.isNotEmpty()) {
             item {
                 Spacer(Modifier.height(8.dp))
@@ -923,21 +880,38 @@ private fun AnalysisTab(
                 containerColor = MaterialTheme.colorScheme.surfaceVariant,
             )
         }
-        }
-        item {
-            Spacer(Modifier.height(8.dp))
-            InfoCard(
+            item { InfoCard(
                 title = stringResource(R.string.disclaimer_title),
                 body = stringResource(R.string.disclaimer_body),
                 containerColor = MaterialTheme.colorScheme.surfaceVariant,
-            )
+            ) }
         }
-        if (!isFinished) {
+
+        item { AnalysisDisclosureRow(
+            title = stringResource(R.string.analysis_outcomes_heading),
+            subtitle = stringResource(R.string.analysis_outcomes_subtitle),
+            expanded = showOutcomes, onClick = { showOutcomes = !showOutcomes },
+        ) }
+        if (showOutcomes) {
+            if (prediction.topScores.isNotEmpty()) {
+                item {
+                    SectionHeader(title = stringResource(R.string.section_likely_scores),
+                        subtitle = stringResource(R.string.score_home_away_order))
+                    androidx.compose.foundation.lazy.LazyRow(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        items(prediction.topScores.take(4).size) { index ->
+                            ScoreChip(score = prediction.topScores[index], languageTag = languageTag, highlight = index == 0)
+                        }
+                    }
+                }
+            }
+            item { MarketSection(prediction = prediction, languageTag = languageTag) }
+        }
+        if (canPredict) {
             item {
-                TextButton(
-                    onClick = onPredict,
-                    modifier = Modifier.padding(horizontal = 8.dp),
-                ) {
+                TextButton(onClick = onPredict, enabled = !isPredicting, modifier = Modifier.padding(horizontal = 8.dp)) {
                     Text(stringResource(R.string.action_recalculate))
                 }
             }
@@ -959,36 +933,7 @@ private fun AnalysisTab(
     }
 }
 
-/** The model's top pick, how far ahead it is, and the evidence standing behind it. */
-
-private data class MatchVerdict(
-    val outcome: VerdictOutcome,
-    val probability: Double,
-    /**
-     * How far the top outcome is ahead of the runner-up.
-     *
-     * This is a description of the distribution, not evidence: a 12-point gap from a model
-     * with no history is worth less than a 4-point gap from a calibrated one. It is shown
-     * as a number and never turned into a confidence label.
-     */
-    val separation: Int?,
-)
-
-private fun computeVerdict(prediction: PredictionView): MatchVerdict {
-    val ranked = listOf(
-        VerdictOutcome.HOME to prediction.homeWin,
-        VerdictOutcome.DRAW to prediction.draw,
-        VerdictOutcome.AWAY to prediction.awayWin,
-    ).sortedByDescending { it.second }
-    val top = ranked[0]
-    return MatchVerdict(
-        outcome = top.first,
-        probability = top.second,
-        separation = MatchAnalysisPresentation.roundedGap(top.second, ranked[1].second),
-    )
-}
-
-/** Headline model pick above the complete 1X2 probability breakdown. */
+/** One clear result distribution: probability is not the same thing as confidence. */
 @Composable
 private fun PredictionVerdictCard(
     prediction: PredictionView,
@@ -999,89 +944,119 @@ private fun PredictionVerdictCard(
     awayTeamName: String,
     languageTag: String,
 ) {
-    val colors = FootballAiThemeExtra.colors
-    val verdict = remember(prediction) { computeVerdict(prediction) }
-    val outcomeColor = when (verdict.outcome) {
-        VerdictOutcome.HOME -> colors.homeSeries
-        VerdictOutcome.DRAW -> colors.drawSeries
-        VerdictOutcome.AWAY -> colors.awaySeries
-    }
-    val outcomeLabel = when (verdict.outcome) {
+    val leading = MatchAnalysisPresentation.leadingOutcome(prediction.homeWin, prediction.draw, prediction.awayWin)
+    val valid = MatchAnalysisPresentation.validProbabilities(prediction.homeWin, prediction.draw, prediction.awayWin)
+    val outcomeLabel = when (leading) {
         VerdictOutcome.HOME -> stringResource(MatchAnalysisPresentation.verdict(isFinished, VerdictOutcome.HOME), homeTeamName)
         VerdictOutcome.DRAW -> stringResource(MatchAnalysisPresentation.verdict(isFinished, VerdictOutcome.DRAW))
         VerdictOutcome.AWAY -> stringResource(MatchAnalysisPresentation.verdict(isFinished, VerdictOutcome.AWAY), awayTeamName)
+        null -> stringResource(if (valid) R.string.analysis_no_clear_leader else R.string.analysis_probabilities_invalid)
     }
-
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        colors = CardDefaults.cardColors(containerColor = outcomeColor.copy(alpha = 0.12f)),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f)),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = stringResource(MatchAnalysisPresentation.title(isFinished)),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                text = stringResource(
-                    MatchAnalysisPresentation.context(prediction.kind),
-                    Formatters.dateOnly(prediction.createdAtEpochMs, languageTag),
-                    Formatters.timeOnly(prediction.createdAtEpochMs, languageTag),
-                ),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(Modifier.height(6.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(text = outcomeLabel, style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold, color = outcomeColor)
-                    val team = when (verdict.outcome) {
-                        VerdictOutcome.HOME -> homeTeam
-                        VerdictOutcome.AWAY -> awayTeam
-                        VerdictOutcome.DRAW -> null
-                    }
-                    val secondary = if (languageTag.startsWith("fa", ignoreCase = true))
-                        team?.let { NameLocalization.namePair(it.name, languageTag, it.shortName).second } else null
-                    if (secondary != null) Text("\u200E" + secondary, style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                }
-                Text(
-                    text = Formatters.percent(verdict.probability, languageTag),
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = outcomeColor,
-                )
-            }
+        Column(modifier = Modifier.fillMaxWidth().padding(14.dp)) {
+            Text(stringResource(MatchAnalysisPresentation.title(isFinished)),
+                style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(MatchAnalysisPresentation.context(prediction.kind),
+                Formatters.dateOnly(prediction.createdAtEpochMs, languageTag),
+                Formatters.timeOnly(prediction.createdAtEpochMs, languageTag)),
+                style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(8.dp))
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                // The chip reports the evidence recorded with the forecast, never the
-                // margin: a wide gap from a model with no history is not strong evidence.
-                ConfidenceChip(level = prediction.confidence?.level)
-                verdict.separation?.let { gap ->
-                    Text(
-                        text = stringResource(R.string.verdict_separation, Formatters.integer(gap, languageTag)),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
+            Text(outcomeLabel, style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+            val leadingTeam = when (leading) {
+                VerdictOutcome.HOME -> homeTeam
+                VerdictOutcome.AWAY -> awayTeam
+                else -> null
+            }
+            val secondary = if (languageTag.startsWith("fa", ignoreCase = true))
+                leadingTeam?.let { NameLocalization.namePair(it.name, languageTag, it.shortName).second } else null
+            if (secondary != null) Text("\u200E" + secondary, style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            if (valid) {
+                Spacer(Modifier.height(12.dp))
+                ProbabilityBar(prediction.homeWin, prediction.draw, prediction.awayWin, languageTag,
+                    homeLabel = homeTeamName, awayLabel = awayTeamName, homeTeam = homeTeam, awayTeam = awayTeam)
             }
             Spacer(Modifier.height(10.dp))
-            Text(
-                text = stringResource(R.string.verdict_disclaimer),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (prediction.confidence?.level.isNullOrBlank()) {
+                    Text(stringResource(R.string.analysis_confidence_unknown), style = MaterialTheme.typography.labelMedium)
+                } else {
+                    ConfidenceChip(level = prediction.confidence?.level)
+                }
+            }
+            Text(stringResource(R.string.analysis_confidence_explained), style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 5.dp))
+            if (prediction.isStale) {
+                Text(stringResource(R.string.analysis_snapshot_stale), style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 5.dp))
+            }
+        }
+    }
+}
+
+/** A disclosure is a full-width, accessible control; content only appears when requested. */
+@Composable
+private fun AnalysisDisclosureRow(title: String, subtitle: String, expanded: Boolean, onClick: () -> Unit) {
+    val state = stringResource(if (expanded) R.string.analysis_section_open else R.string.analysis_section_closed)
+    Card(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+    ) {
+        Row(modifier = Modifier.fillMaxWidth().heightIn(min = 60.dp)
+            .semantics { stateDescription = state }
+            .clickable(role = Role.Button, onClick = onClick).padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Spacer(Modifier.width(8.dp))
+            Icon(if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+        }
+    }
+}
+
+/** Present each team's actual sample size; form is current, not a saved model input. */
+@Composable
+private fun CompactFormCard(
+    home: TeamFormSnapshot?, away: TeamFormSnapshot?, homeTeam: TeamRef, awayTeam: TeamRef,
+    languageTag: String, onRecentMatches: (() -> Unit)?, onDetails: () -> Unit, detailsOpen: Boolean,
+) {
+    Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)) {
+        Column(modifier = Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, top = 12.dp, bottom = 4.dp)) {
+            Text(stringResource(R.string.analysis_form_title), style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold)
+            listOf(homeTeam to home, awayTeam to away).forEach { (team, form) ->
+                Row(modifier = Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    TeamNameLines(team = team, languageTag = languageTag, modifier = Modifier.weight(1f),
+                        primaryStyle = MaterialTheme.typography.labelMedium, primaryMaxLines = 2, secondaryMaxLines = 2)
+                    Spacer(Modifier.width(8.dp))
+                    Text(if (form == null || form.played == 0) stringResource(R.string.analysis_form_unavailable)
+                        else stringResource(R.string.analysis_form_summary,
+                            Formatters.integer(form.played, languageTag), Formatters.integer(form.wins, languageTag),
+                            Formatters.integer(form.draws, languageTag), Formatters.integer(form.losses, languageTag)),
+                        modifier = Modifier.weight(1.3f), style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            Text(stringResource(R.string.form_current_data_note), style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 7.dp))
+            // Two separate actions, each with its own touch target and no hidden tab promise.
+            TextButton(onClick = onDetails) {
+                Text(stringResource(if (detailsOpen) R.string.analysis_form_hide else R.string.analysis_form_details))
+            }
+            if (onRecentMatches != null) TextButton(onClick = onRecentMatches) {
+                Text(stringResource(R.string.analysis_recent_matches))
+            }
         }
     }
 }
@@ -1198,11 +1173,7 @@ private fun plainReasons(prediction: PredictionView): List<PlainReason> {
 private fun EvidenceSection(prediction: PredictionView, languageTag: String) {
     val confidence = prediction.confidence
     val calibration = prediction.calibration
-    // The chip and two short lines answer the question the heading asks. Everything that
-    // explains the method itself — gaps, calibration, the 90-minute rule — waits behind
-    // one button: a reader who wants it asks for it, and a reader who does not is no
-    // longer scrolling through five paragraphs to reach the rest of the page.
-    var detailsOpen by rememberSaveable(prediction.id) { mutableStateOf(false) }
+    // The parent disclosure keeps the complete evidence available without a second toggle.
     Spacer(Modifier.height(12.dp))
     SectionHeader(title = stringResource(R.string.evidence_title))
     Column(modifier = Modifier.padding(horizontal = 16.dp)) {
@@ -1228,14 +1199,6 @@ private fun EvidenceSection(prediction: PredictionView, languageTag: String) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        TextButton(onClick = { detailsOpen = !detailsOpen }) {
-            Text(
-                stringResource(
-                    if (detailsOpen) R.string.evidence_details_hide else R.string.evidence_details_show,
-                ),
-            )
-        }
-        if (!detailsOpen) return@Column
         if (confidence != null) {
             if (confidence.gaps.isNotEmpty()) {
                 Spacer(Modifier.height(8.dp))

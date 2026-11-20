@@ -6,6 +6,18 @@ import kotlin.math.roundToInt
 
 /** Labels describe the displayed snapshot, never infer its kind from the match status. */
 internal object MatchAnalysisPresentation {
+    /** A headline must never invent a winner for invalid or equally rounded numbers. */
+    fun leadingOutcome(home: Double, draw: Double, away: Double): VerdictOutcome? {
+        val values = listOf(home, draw, away)
+        if (values.any { !it.isFinite() || it !in 0.0..1.0 } || values.sum() !in 0.98..1.02) return null
+        val ranked = listOf(VerdictOutcome.HOME to home, VerdictOutcome.DRAW to draw, VerdictOutcome.AWAY to away)
+            .sortedByDescending { it.second }
+        if ((ranked[0].second * 100).roundToInt() == (ranked[1].second * 100).roundToInt()) return null
+        return ranked[0].first
+    }
+    fun validProbabilities(home: Double, draw: Double, away: Double): Boolean =
+        listOf(home, draw, away).all { it.isFinite() && it in 0.0..1.0 } && home + draw + away in 0.98..1.02
+
     fun roundedGap(top: Double, next: Double): Int? =
         if (top.isFinite() && next.isFinite() && top in 0.0..1.0 && next in 0.0..1.0)
             ((top * 100).roundToInt() - (next * 100).roundToInt()).coerceAtLeast(0)
