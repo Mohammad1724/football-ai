@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -129,14 +130,20 @@ class CompetitionViewModel(
 
 // ------------------------------------------------------------------ Predictions
 
-enum class PredictionListFilter { UPCOMING, RESOLVED, ALL }
+enum class PredictionListFilter { UPCOMING, LIVE, WAITING, RESOLVED, ALL }
 
 data class PredictionsUiState(
     val isLoading: Boolean = true,
-    val items: List<PredictionWithMatch> = emptyList(),
+    internal val items: List<PredictionGroup> = emptyList(),
     val filter: PredictionListFilter = PredictionListFilter.UPCOMING,
     val upcomingCount: Int = 0,
+    val liveCount: Int = 0,
+    val waitingCount: Int = 0,
     val resolvedCount: Int = 0,
+    val loadedCount: Int = 0,
+    val storedCount: Int = 0,
+    val loadedLimit: Int = 100,
+    val loadingMore: Boolean = false,
     val resolving: Boolean = false,
     val resolvedNow: Int? = 0,
     /** True while the screen's refresh gesture is running a full sync. */
@@ -163,28 +170,30 @@ class PredictionsViewModel(private val container: AppContainer) : ViewModel() {
     private val _state = MutableStateFlow(PredictionsUiState(nowEpochMs = container.clock.nowEpochMs()))
     val state: StateFlow<PredictionsUiState> = _state.asStateFlow()
     private var latestItems: List<PredictionWithMatch> = emptyList()
+    private val historyLimit = MutableStateFlow(100)
+
+    private fun updateHistory(state: PredictionsUiState, now: Long): PredictionsUiState {
+        val groups = predictionGroups(latestItems)
+        fun count(filter: PredictionListFilter) = groups.count { group -> group.versions.any { filter.includes(it, now) } }
+        return state.copy(
+            items = filterPredictionGroups(groups, state.filter, now),
+            upcomingCount = count(PredictionListFilter.UPCOMING), liveCount = count(PredictionListFilter.LIVE),
+            waitingCount = count(PredictionListFilter.WAITING), resolvedCount = count(PredictionListFilter.RESOLVED),
+            loadedCount = latestItems.size, nowEpochMs = now, isLoading = false,
+        )
+    }
 
     init {
         viewModelScope.launch {
-            combine(container.predictionRepository.observeRecent(500), container.settingsRepository.settings) { items, settings ->
-                if (settings.dailyAnalysisEnabled) items.filter {
-                    it.match.id.startsWith("football-data-co-uk:") && it.prediction.kind == com.footballai.app.domain.model.PredictionKind.PRE_MATCH &&
-                        it.prediction.modelVersion == com.footballai.app.data.repository.PredictionRepository.MODEL_VERSION
-                } else items
-            }.catch { error ->
-                if (error is kotlinx.coroutines.CancellationException) throw error
-                // A stored row that cannot be read must not close the whole tab.
-                _state.update { it.copy(isLoading = false) }
-            }.collect { items ->
-                latestItems = items
-                _state.update { state ->
-                    state.copy(
-                        items = filterItems(items, state.filter),
-                        upcomingCount = items.count { it.prediction.resolution == null },
-                        resolvedCount = items.count { it.prediction.resolution != null },
-                        isLoading = false,
-                    )
-                }
+            historyLimit.collectLatest { limit ->
+                combine(container.predictionRepository.observeRecent(limit), container.predictionRepository.observeStoredCount()) { items, count -> items to count }
+                    .catch { error ->
+                        if (error is kotlinx.coroutines.CancellationException) throw error
+                        _state.update { it.copy(isLoading = false, loadingMore = false, lastError = AppError(com.footballai.app.core.ErrorCode.UNKNOWN)) }
+                    }.collect { (items, count) ->
+                        latestItems = items
+                        _state.update { state -> updateHistory(state.copy(storedCount = count, loadedLimit = limit, loadingMore = false), container.clock.nowEpochMs()) }
+                    }
             }
         }
         // The forecast work belongs on the forecasts tab: this is the run that produced
@@ -223,14 +232,21 @@ class PredictionsViewModel(private val container: AppContainer) : ViewModel() {
         viewModelScope.launch {
             while (true) {
                 kotlinx.coroutines.delay(30_000L)
-                _state.update { it.copy(nowEpochMs = container.clock.nowEpochMs()) }
+                _state.update { updateHistory(it, container.clock.nowEpochMs()) }
             }
         }
         resolve()
     }
 
     fun setFilter(filter: PredictionListFilter) {
-        _state.update { it.copy(filter = filter, items = filterItems(latestItems, filter)) }
+        _state.update { updateHistory(it.copy(filter = filter), container.clock.nowEpochMs()) }
+    }
+
+    fun loadMore() {
+        if (!_state.value.loadingMore && historyLimit.value < _state.value.storedCount) {
+            _state.update { it.copy(loadingMore = true) }
+            historyLimit.value += 100
+        }
     }
 
     fun resolve() {
@@ -275,18 +291,7 @@ class PredictionsViewModel(private val container: AppContainer) : ViewModel() {
         }
     }
 
-    companion object {
-        internal fun filterItems(
-            items: List<PredictionWithMatch>,
-            filter: PredictionListFilter,
-        ): List<PredictionWithMatch> = when (filter) {
-            PredictionListFilter.UPCOMING -> items.filter { it.prediction.resolution == null }
-                .sortedBy { it.match.kickoffEpochMs }
-            PredictionListFilter.RESOLVED -> items.filter { it.prediction.resolution != null }
-                .sortedByDescending { it.match.kickoffEpochMs }
-            PredictionListFilter.ALL -> items.sortedByDescending { it.match.kickoffEpochMs }
-        }
-    }
+
 }
 
 // ------------------------------------------------------------------ Performance

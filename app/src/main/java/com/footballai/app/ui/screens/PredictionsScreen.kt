@@ -29,12 +29,14 @@ import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -64,6 +66,11 @@ import com.footballai.app.ui.components.TeamBadge
 import com.footballai.app.ui.components.TeamNameLines
 import com.footballai.app.ui.theme.FootballAiThemeExtra
 import com.footballai.app.ui.viewmodel.PredictionListFilter
+import com.footballai.app.ui.viewmodel.PredictionGroup
+import com.footballai.app.ui.viewmodel.PredictionRecordStatus
+import com.footballai.app.ui.viewmodel.predictionRecordStatus
+import com.footballai.app.ui.viewmodel.isLatePreMatch
+import com.footballai.app.ui.viewmodel.includes
 import com.footballai.app.ui.viewmodel.PredictionsViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -119,17 +126,14 @@ fun PredictionsScreen(onMatchClick: (String) -> Unit) {
                 return@Column
             }
             Text(
-                text = stringResource(R.string.predictions_intro_short),
+                text = stringResource(R.string.prediction_history_loaded,
+                    Formatters.integer(state.loadedCount, languageTag), Formatters.integer(state.storedCount, languageTag)),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
             )
-            PredictionFilterRow(
-                selected = state.filter,
-                upcomingCount = state.upcomingCount,
-                resolvedCount = state.resolvedCount,
-                onSelect = viewModel::setFilter,
-            )
+            PredictionFilterRow(state.filter, state.upcomingCount, state.liveCount, state.waitingCount,
+                state.resolvedCount, viewModel::setFilter)
             SwipeRefresh(
                 isRefreshing = state.refreshing,
                 onRefresh = viewModel::refresh,
@@ -137,61 +141,49 @@ fun PredictionsScreen(onMatchClick: (String) -> Unit) {
                 enabled = state.isOnline,
                 modifier = Modifier.weight(1f),
             ) {
-                if (state.items.isEmpty()) {
-                    // A static screen still needs a scroll for the pull gesture to reach it.
-                    ScrollableRefreshContent {
-                        // A run that found nothing must still say so; hiding the report
-                        // exactly when the list is empty hid the only proof the button worked.
-                        state.dailyReport?.let { report ->
-                            DailyReportCard(report = report, languageTag = languageTag)
-                        }
-                        EmptyState(
-                            title = stringResource(
-                                if (state.filter == PredictionListFilter.UPCOMING) R.string.empty_upcoming_predictions_title
-                                else R.string.empty_predictions_title,
-                            ),
-                            message = stringResource(
-                                if (state.filter == PredictionListFilter.UPCOMING && state.resolvedCount > 0) {
-                                    R.string.empty_upcoming_predictions_message
-                                } else {
-                                    R.string.empty_predictions_message
-                                },
-                            ),
-                        )
-                        Text(
-                            text = stringResource(R.string.pull_refresh_hint),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                        )
+                LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 36.dp)) {
+                    state.dailyReport?.let { report ->
+                        item(key = "report") { CollapsibleDailyReport(report, languageTag) }
                     }
-                } else {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        // Keeps the last forecast off the floating pill bar.
-                        contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 24.dp),
-                    ) {
-                        // What the daily analysis did, where the forecasts it made live.
-                        state.dailyReport?.let { report ->
-                            item { DailyReportCard(report = report, languageTag = languageTag) }
+                    item(key = "scope") {
+                        Text(stringResource(R.string.prediction_history_scope),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
+                    }
+                    if (state.items.isEmpty()) {
+                        item(key = "empty") {
+                            EmptyState(title = stringResource(R.string.prediction_filter_empty_title),
+                                message = stringResource(R.string.prediction_filter_empty_message))
                         }
-                        items(state.items, key = { it.prediction.id }) { item ->
-                            // A finished match resolving moves the rows under the finger;
-                            // animating the placement keeps that movement readable.
-                            Box(modifier = Modifier.animateItemPlacement()) {
-                                PredictionHistoryCard(
-                                    item = item,
-                                    languageTag = languageTag,
-                                    onClick = { onMatchClick(item.match.id) },
-                                )
+                    }
+                    items(state.items, key = { it.matchId }) { group ->
+                        PredictionGroupCard(group, state.filter, state.nowEpochMs, languageTag,
+                            onOpenMatch = { onMatchClick(group.matchId) })
+                    }
+                    if (state.loadedLimit < state.storedCount) {
+                        item(key = "more") {
+                            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                                TextButton(onClick = viewModel::loadMore, enabled = !state.loadingMore) {
+                                    Text(stringResource(if (state.loadingMore) R.string.prediction_loading_more else R.string.prediction_load_more))
+                                }
                             }
                         }
-                        item { Spacer(Modifier.height(24.dp)) }
                     }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun CollapsibleDailyReport(report: com.footballai.app.data.repository.DailyAnalysisReport, languageTag: String) {
+    var expanded by rememberSaveable { mutableStateOf(false) }
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+        TextButton(onClick = { expanded = !expanded }) {
+            Text(stringResource(if (expanded) R.string.prediction_report_hide else R.string.prediction_report_show))
+        }
+        if (expanded) DailyReportCard(report, languageTag)
     }
 }
 
@@ -217,127 +209,119 @@ private fun DailyReportCard(
 
 @Composable
 private fun PredictionFilterRow(
-    selected: PredictionListFilter,
-    upcomingCount: Int,
-    resolvedCount: Int,
+    selected: PredictionListFilter, upcoming: Int, live: Int, waiting: Int, resolved: Int,
     onSelect: (PredictionListFilter) -> Unit,
 ) {
     val languageTag = LocalLanguageTag.current
-    LazyRow(
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        item {
-            FilterChip(
-                selected = selected == PredictionListFilter.UPCOMING,
-                onClick = { onSelect(PredictionListFilter.UPCOMING) },
-                label = { Text(stringResource(R.string.predictions_upcoming_filter, Formatters.integer(upcomingCount, languageTag))) },
-            )
+    val filters = listOf(
+        Triple(PredictionListFilter.UPCOMING, R.string.predictions_upcoming_filter, upcoming),
+        Triple(PredictionListFilter.LIVE, R.string.prediction_live_filter, live),
+        Triple(PredictionListFilter.WAITING, R.string.prediction_waiting_filter, waiting),
+        Triple(PredictionListFilter.RESOLVED, R.string.predictions_resolved_filter, resolved),
+    )
+    LazyRow(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        items(filters) { (filter, label, count) ->
+            FilterChip(selected = selected == filter, onClick = { onSelect(filter) },
+                label = { Text(stringResource(label, Formatters.integer(count, languageTag))) })
         }
-        item {
-            FilterChip(
-                selected = selected == PredictionListFilter.RESOLVED,
-                onClick = { onSelect(PredictionListFilter.RESOLVED) },
-                label = { Text(stringResource(R.string.predictions_resolved_filter, Formatters.integer(resolvedCount, languageTag))) },
-            )
-        }
-        item {
-            FilterChip(
-                selected = selected == PredictionListFilter.ALL,
-                onClick = { onSelect(PredictionListFilter.ALL) },
-                label = { Text(stringResource(R.string.search_all)) },
-            )
+        item { FilterChip(selected = selected == PredictionListFilter.ALL,
+            onClick = { onSelect(PredictionListFilter.ALL) }, label = { Text(stringResource(R.string.search_all)) }) }
+    }
+}
+
+@Composable
+private fun PredictionGroupCard(
+    group: PredictionGroup, filter: PredictionListFilter, now: Long, languageTag: String, onOpenMatch: () -> Unit,
+) {
+    var expanded by rememberSaveable(group.matchId, filter) { mutableStateOf(false) }
+    var selectedId by rememberSaveable(group.matchId, filter) { mutableStateOf<String?>(null) }
+    val selected = group.versions.firstOrNull { it.prediction.id == selectedId }
+        ?: group.versions.firstOrNull { filter.includes(it, now) } ?: group.latest
+    val match = selected.match
+    val prediction = selected.prediction
+    Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 5.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically) {
+                Text(match.competitionName, modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)
+                StatusChip(text = recordStatusLabel(selected, now), color = MaterialTheme.colorScheme.primary)
+            }
+            Spacer(Modifier.height(6.dp))
+            PredictionTeamLine(match.home, languageTag)
+            Spacer(Modifier.height(4.dp))
+            PredictionTeamLine(match.away, languageTag)
+            Text(stringResource(R.string.prediction_source, match.id.substringBefore(':')),
+                style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(R.string.prediction_kickoff, Formatters.kickoffDateTime(match.kickoffEpochMs, languageTag)),
+                style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (match.status.hasScore && match.homeGoals != null && match.awayGoals != null) {
+                Text(stringResource(R.string.prediction_match_score,
+                    Formatters.scoreOrNull(match.homeGoals, match.awayGoals, languageTag) ?: "—"),
+                    style = MaterialTheme.typography.labelMedium)
+            }
+            Text(recordKindLabel(selected), style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
+            Text(stringResource(R.string.prediction_record_time, Formatters.kickoffDateTime(prediction.createdAtEpochMs, languageTag)),
+                style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(6.dp))
+            com.footballai.app.ui.components.PreMatchVerdict(prediction, match.home, match.away, languageTag)
+            Spacer(Modifier.height(6.dp))
+            ProbabilityBar(homeWin = prediction.homeWin, draw = prediction.draw, awayWin = prediction.awayWin,
+                languageTag = languageTag)
+            prediction.resolution?.let { result ->
+                Text(stringResource(if (result.outcomeCorrect) R.string.prediction_highest_correct else R.string.prediction_highest_wrong),
+                    style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 6.dp))
+            }
+            TextButton(onClick = { expanded = !expanded }) {
+                Text(stringResource(if (expanded) R.string.prediction_hide_versions else R.string.prediction_show_versions,
+                    Formatters.integer(group.versions.size, languageTag)))
+            }
+            if (expanded) {
+                Text(stringResource(R.string.prediction_versions_scope), style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                group.versions.forEach { version ->
+                    TextButton(onClick = { selectedId = version.prediction.id }) {
+                        val row = stringResource(R.string.prediction_version_row,
+                            recordKindLabel(version), Formatters.kickoffDateTime(version.prediction.createdAtEpochMs, languageTag),
+                            recordStatusLabel(version, now))
+                        Text(if (version.prediction.id == prediction.id) stringResource(R.string.prediction_selected_version, row) else row)
+                    }
+                }
+                Text(stringResource(R.string.prediction_model_version, prediction.modelVersion),
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                prediction.resolution?.let { result ->
+                    Text(localizedString(R.string.prediction_resolved_body, result.actualHomeGoals, result.actualAwayGoals,
+                        Formatters.decimal(result.brier, languageTag, 3)), style = MaterialTheme.typography.bodySmall)
+                }
+            }
+            TextButton(onClick = onOpenMatch) { Text(stringResource(R.string.prediction_open_match_latest)) }
         }
     }
 }
 
 @Composable
-private fun PredictionHistoryCard(item: PredictionWithMatch, languageTag: String, onClick: () -> Unit) {
-    val prediction = item.prediction
-    val match = item.match
-    val colors = FootballAiThemeExtra.colors
-    Card(
-        onClick = onClick,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 5.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-    ) {
-        Column(modifier = Modifier.padding(14.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    PredictionTeamLine(match.home, languageTag)
-                    Spacer(Modifier.height(4.dp))
-                    PredictionTeamLine(match.away, languageTag)
-                }
-                val resolution = prediction.resolution
-                when {
-                    resolution != null -> StatusChip(
-                        text = if (resolution.outcomeCorrect) {
-                            stringResource(R.string.outcome_correct)
-                        } else {
-                            stringResource(R.string.outcome_wrong)
-                        },
-                        color = if (resolution.outcomeCorrect) colors.positive else colors.danger,
-                    )
-                    else -> StatusChip(
-                        text = stringResource(R.string.outcome_pending),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-            Spacer(Modifier.height(4.dp))
-            Text(
-                text = Formatters.kickoffDateTime(match.kickoffEpochMs, languageTag),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(Modifier.height(8.dp))
-            com.footballai.app.ui.components.PreMatchVerdict(
-                prediction = prediction,
-                home = match.home,
-                away = match.away,
-                languageTag = languageTag,
-            )
-            Spacer(Modifier.height(8.dp))
-            ProbabilityBar(
-                homeWin = prediction.homeWin,
-                draw = prediction.draw,
-                awayWin = prediction.awayWin,
-                languageTag = languageTag,
-                showLegend = true,
-            )
-            Spacer(Modifier.height(6.dp))
-            val resolution = prediction.resolution
-            if (resolution != null) {
-                Text(
-                    text = localizedString(
-                        R.string.prediction_resolved_body,
-                        resolution.actualHomeGoals,
-                        resolution.actualAwayGoals,
-                        Formatters.decimal(resolution.brier, languageTag, 3),
-                    ),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            } else {
-                Text(
-                    text = stringResource(
-                        R.string.prediction_pending_body,
-                        Formatters.kickoffDateTime(prediction.createdAtEpochMs, languageTag),
-                    ),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
+private fun recordStatusLabel(item: PredictionWithMatch, now: Long): String = stringResource(when (predictionRecordStatus(item, now)) {
+    PredictionRecordStatus.UPCOMING -> R.string.prediction_status_upcoming
+    PredictionRecordStatus.LIVE -> R.string.prediction_status_live
+    PredictionRecordStatus.RESOLVED -> R.string.prediction_status_evaluated
+    PredictionRecordStatus.WAITING -> when (item.match.status) {
+        com.footballai.app.domain.model.MatchStatus.FINISHED -> R.string.prediction_status_finished_ungraded
+        com.footballai.app.domain.model.MatchStatus.POSTPONED -> R.string.prediction_status_postponed
+        com.footballai.app.domain.model.MatchStatus.CANCELLED -> R.string.prediction_status_cancelled
+        com.footballai.app.domain.model.MatchStatus.SUSPENDED -> R.string.prediction_status_suspended
+        else -> R.string.prediction_status_unconfirmed
     }
-}
+})
+
+@Composable
+private fun recordKindLabel(item: PredictionWithMatch): String = stringResource(when {
+    item.prediction.kind == com.footballai.app.domain.model.PredictionKind.LIVE -> R.string.prediction_record_live
+    isLatePreMatch(item) -> R.string.prediction_record_late
+    else -> R.string.prediction_record_prematch
+})
 
 /** One team inside a prediction card: badge, Persian name, published name. */
 @Composable

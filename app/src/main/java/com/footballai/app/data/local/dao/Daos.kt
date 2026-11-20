@@ -502,7 +502,9 @@ interface PredictionDao {
     @Query("SELECT * FROM prediction_markets WHERE predictionId = :predictionId ORDER BY sortOrder ASC")
     suspend fun markets(predictionId: String): List<PredictionMarketEntity>
 
-    @Query("SELECT * FROM predictions ORDER BY createdAtEpochMs DESC LIMIT :limit")
+    // Include matches in Room's invalidation set: the match can finish without any
+    // prediction row changing, and the history must then update its status.
+    @Query("SELECT p.* FROM predictions p LEFT JOIN matches m ON m.id = p.matchId ORDER BY p.createdAtEpochMs DESC, p.id DESC LIMIT :limit")
     fun observeRecent(limit: Int): Flow<List<PredictionEntity>>
 
     @Query("SELECT COUNT(*) FROM predictions")

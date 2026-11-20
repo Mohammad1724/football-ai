@@ -45,6 +45,7 @@ import kotlinx.coroutines.withContext
 import com.footballai.app.domain.model.MatchStatus
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.flowOn
 import kotlin.math.abs
 import kotlin.math.ln
 
@@ -379,13 +380,16 @@ class PredictionRepository(
             for (entity in entities) {
                 toView(entity)?.let { views.add(it) }
             }
-            val matches = matchRepository.decorate(
-                db.matchDao().byIds(views.map { it.matchId }.distinct()),
-            ).associateBy { it.id }
+            // Stay below SQLite bind limits even when the user loads more history.
+            val matches = views.map { it.matchId }.distinct().chunked(200).flatMap { ids ->
+                matchRepository.decorate(db.matchDao().byIds(ids))
+            }.associateBy { it.id }
             views.mapNotNull { view ->
                 matches[view.matchId]?.let { PredictionWithMatch(view, it) }
             }
-        }
+        }.flowOn(Dispatchers.IO)
+
+    fun observeStoredCount(): Flow<Int> = db.predictionDao().observeCount()
 
     suspend fun resolvedViews(limit: Int = 100): List<PredictionView> {
         val result = ArrayList<PredictionView>(limit)
