@@ -118,6 +118,7 @@ import com.footballai.app.ui.components.HalfTimeRow
 import com.footballai.app.ui.components.HomeAwayScore
 import com.footballai.app.ui.components.LeagueTableBlock
 import com.footballai.app.ui.components.TableProvenanceNote
+import com.footballai.app.ui.components.PublishedTableCaution
 import com.footballai.app.ui.components.VenueChips
 import com.footballai.app.ui.components.SoftCard
 import com.footballai.app.ui.components.TeamMonogram
@@ -1711,6 +1712,7 @@ private fun MatchTableTab(
         item {
             Column(modifier = Modifier.padding(horizontal = 16.dp)) {
                 if (table.isComputed) TableProvenanceNote(matches = table.matches)
+                else if (!table.isEmpty) PublishedTableCaution()
                 val seasonNote = when (compareTableSeason(matchSeason, tableSeason)) {
                     TableSeasonComparison.UNKNOWN -> stringResource(R.string.table_season_unknown)
                     TableSeasonComparison.DIFFERENT -> stringResource(R.string.table_season_mismatch,

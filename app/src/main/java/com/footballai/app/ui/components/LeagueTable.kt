@@ -327,6 +327,17 @@ fun TableProvenanceNote(matches: Int) {
     }
 }
 
+/** A published table can be a source group or a cached season, not a verified complete table. */
+@Composable
+fun PublishedTableCaution() {
+    Text(
+        text = stringResource(R.string.table_published_caution),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.sm),
+    )
+}
+
 /**
  * What a table page says when there are no rows.
  *

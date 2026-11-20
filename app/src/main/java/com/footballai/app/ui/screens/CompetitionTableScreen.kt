@@ -49,6 +49,7 @@ import com.footballai.app.ui.components.LoadingState
 import com.footballai.app.ui.components.SoftBackButton
 import com.footballai.app.ui.components.SoftCard
 import com.footballai.app.ui.components.TableProvenanceNote
+import com.footballai.app.ui.components.PublishedTableCaution
 import com.footballai.app.ui.components.LeagueTableEmpty
 import com.footballai.app.ui.components.LeagueTableHeader
 import com.footballai.app.ui.components.LeagueTableRow
@@ -149,6 +150,9 @@ fun CompetitionTableScreen(
                         item(key = "table-computed") {
                             TableProvenanceNote(matches = state.computedMatches)
                         }
+                    }
+                    if (!state.isComputed && state.rows.isNotEmpty()) {
+                        item(key = "table-published-caution") { PublishedTableCaution() }
                     }
                     state.leagueStats?.let { stats ->
                         item(key = "league-stats") { LeagueStatsCard(stats) }

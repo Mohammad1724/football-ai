@@ -39,6 +39,9 @@ data class CompetitionTableState(
  * table is read from what the sync already stored and, when nothing is stored, one refresh
  * is asked for — never a table from a different competition, and never a guessed season.
  */
+internal fun shouldRefreshCompetitionTable(refresh: Boolean, force: Boolean, table: LeagueTableUiState): Boolean =
+    refresh && (force || table.isEmpty || table.isComputed)
+
 class CompetitionTableViewModel(
     private val container: AppContainer,
     private val competitionId: String,
@@ -72,7 +75,7 @@ class CompetitionTableViewModel(
             try {
                 val competition = container.matchRepository.competitionEntity(competitionId)
                 var table = container.matchRepository.leagueTableUi(competitionId, _state.value.table.venue)
-                if (refresh && (table.isEmpty || table.isComputed) && competition != null) {
+                if (shouldRefreshCompetitionTable(refresh, force, table) && competition != null) {
                     // Nothing published: ask once — from the competition's own source when it
                     // publishes a table, otherwise the same league's table from the one source
                     // that does. Asking is throttled inside the sync, so opening the page again

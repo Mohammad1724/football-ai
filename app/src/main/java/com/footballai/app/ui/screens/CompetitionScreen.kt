@@ -51,6 +51,7 @@ import com.footballai.app.ui.components.LeagueTableBlock
 import com.footballai.app.ui.components.LeagueTableEmpty
 import com.footballai.app.ui.components.SoftCard
 import com.footballai.app.ui.components.TableProvenanceNote
+import com.footballai.app.ui.components.PublishedTableCaution
 import com.footballai.app.ui.components.VenueChips
 import com.footballai.app.ui.theme.Spacing
 import com.footballai.app.ui.viewmodel.CompetitionViewModel
@@ -170,6 +171,7 @@ private fun CompetitionTableTab(
         item {
             Column(modifier = Modifier.padding(horizontal = Spacing.page, vertical = Spacing.sm)) {
                 if (table.isComputed) TableProvenanceNote(matches = table.matches)
+                else if (!table.isEmpty) PublishedTableCaution()
                 if (table.canSplitByVenue) VenueChips(selected = table.venue, onSelect = onVenue)
             }
         }

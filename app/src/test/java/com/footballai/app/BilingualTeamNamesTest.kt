@@ -56,6 +56,44 @@ class BilingualTeamNamesTest {
     }
 
     @Test
+    fun `additional leagues in the screenshots are bilingual without guessing unknowns`() {
+        val names = mapOf(
+            "FC Tokyo" to "اف‌سی توکیو", "Kashiwa Reysol" to "کاشیوا ریسول",
+            "Sanfrecce Hiroshima" to "سانفریچه هیروشیما", "Machida Zelvia" to "ماچیدا زلویا",
+            "Vissel Kobe" to "ویسل کوبه", "Kashima Antlers" to "کاشیما آنتلرز",
+            "Yokohama F. Marinos" to "یوکوهاما مارینوس", "Kawasaki Frontale" to "کاوازاکی فرونتاله",
+            "Urawa Red Diamonds" to "اوراوا رد دایموندز", "Fagiano Okayama" to "فاژیانو اوکایاما",
+            "Cerezo Osaka" to "سرزو اوساکا", "Kyoto Sanga" to "کیوتو سانگا",
+            "Wellington Phoenix" to "ولینگتون فونیکس", "Sydney FC" to "سیدنی", "Brisbane Roar FC" to "بریزبن روار",
+            "Melbourne City FC" to "ملبورن سیتی", "Perth Glory FC" to "پرت گلوری",
+            "Western Sydney Wanderers FC" to "وسترن سیدنی واندررز", "Macarthur FC" to "مک‌آرتور",
+            "Auckland FC" to "اوکلند", "Melbourne Victory" to "ملبورن ویکتوری", "Newcastle Jets" to "نیوکاسل جتس",
+            "Central Coast Mariners FC" to "سنترال کوست مارینرز", "Adelaide United" to "آدلاید یونایتد",
+            "Viking" to "وایکینگ", "Lillestrom" to "لیلستروم", "Tromso" to "ترومسو", "Valerenga" to "والرنگا",
+            "Sarpsborg 08" to "سارپسبرگ ۰۸", "KFUM Oslo" to "کی‌اف‌یو‌ام اسلو", "Hamarkameratene" to "هام‌کام",
+            "Fredrikstad" to "فردریکستاد", "Sandefjord" to "ساندفیورد",
+            "Cercle Brugge KSV" to "سرکل بروژ", "KVC Westerlo" to "وسترلو",
+            "Korona Kielce" to "کرونا کیلتسه", "Piast Gliwice" to "پیاست گلیویتسه",
+            "Slask Wroclaw" to "شلونسک وروتسواف", "Pogon Szczecin" to "پوگون شچچین",
+            "Puszcza" to "پوشچا", "Chrobry Glogow" to "خروبری گووگوف", "LKS Lodz" to "ال‌کااس ووچ",
+            "Legnica" to "لگنیتسا", "Swit Szczecin" to "شویت شچچین", "Chojniczanka" to "خوینیتشانکا",
+            "Zawisza" to "زاویشا", "Leczna" to "وِنچنا", "Podhale Nowy Targ" to "پودهاله نووی تارگ", "Tychy" to "تیخی",
+            "Ol. Grudziadz" to "المپیا گرودزیوندز", "Penybont" to "پنی‌بونت", "Haverfordwest" to "هاورفوردوست",
+            "Cardiff MU" to "کاردیف متروپولیتن", "Bala Town" to "بالا تاون",
+            "Newport City" to "نیوپورت سیتی", "Caerau Ely" to "کایرائو الی", "Llanelli" to "لانلی",
+            "Caerphilly" to "کایرفیلی", "Carmarthen Town" to "کارمارتن تاون", "Pontypridd" to "پونتی‌پریث",
+            "Trethomas Bluebirds" to "ترتوماس بلوبردز", "Pure Swansea" to "پیور سوانزی",
+        )
+        names.forEach { (source, persian) ->
+            assertEquals(persian to source, NameLocalization.namePair(source, "fa"), source)
+            assertEquals(source, NameLocalization.namePair(source, "en").first, source)
+        }
+        assertNull(NameLocalization.persianTeamName("Sydney FC II"))
+        assertNull(NameLocalization.persianTeamName("Newport City Women"))
+        assertNull(NameLocalization.persianTeamName("S. Wola"))
+    }
+
+    @Test
     fun `unknown and reserve clubs do not acquire an invented name`() {
         assertEquals("Imaginary United" to null, NameLocalization.namePair("Imaginary United", "fa"))
         assertNull(NameLocalization.persianTeamName("Bayern Munich II"))

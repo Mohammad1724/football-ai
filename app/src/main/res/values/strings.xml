@@ -57,6 +57,7 @@
     <string name="empty_table_retry">Fetch the table</string>
     <string name="empty_table_knockout_title">A knockout has no table</string>
     <string name="empty_table_knockout_message">There are no positions in a knockout competition. Its matches are in the fixtures list, and each one opens with its own analysis.</string>
+    <string name="table_published_caution">This table may show only part of the competition or a different season; its completeness and source season are not verified.</string>
     <string name="table_computed_note">Counted from %1$s finished matches stored in the app, not from the league\'s published table.</string>
     <string name="action_table">Table</string>
     <string name="table_venue_all">All matches</string>

@@ -57,6 +57,7 @@
     <string name="empty_table_retry">دریافت جدول</string>
     <string name="empty_table_knockout_title">رقابت حذفی جدول ندارد</string>
     <string name="empty_table_knockout_message">در رقابت حذفی جایگاهی وجود ندارد. بازی‌های آن در فهرست مسابقات است و هر بازی تحلیل خودش را دارد.</string>
+    <string name="table_published_caution">جدول دریافتی ممکن است فقط بخشی از رقابت یا مربوط به فصل دیگری باشد؛ کامل‌بودن و فصل منبع تأیید نشده است.</string>
     <string name="table_computed_note">این جدول از %1$s بازی تمام‌شدهٔ ذخیره‌شده در اپ ساخته شده است، نه از جدول رسمی لیگ.</string>
     <string name="action_table">جدول</string>
     <string name="table_venue_all">تمام مسابقات</string>
