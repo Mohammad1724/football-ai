@@ -23,6 +23,7 @@ class ProviderRegistry(
     private val espnOpenProvider: EspnOpenProvider,
     private val credentialStore: CredentialStore,
     private val settingsRepository: SettingsRepository,
+    private val varzesh3Provider: com.footballai.app.data.remote.Varzesh3Provider,
 ) {
 
     /**
@@ -31,7 +32,7 @@ class ProviderRegistry(
      * women's fixtures.
      */
     val fixtureProviders: List<FootballDataProvider> =
-        listOf(apiFootballProvider, footballDataOrgProvider, espnOpenProvider, historicalProvider)
+        listOf(apiFootballProvider, footballDataOrgProvider, espnOpenProvider, historicalProvider, varzesh3Provider)
 
     val historical: HistoricalDataProvider get() = historicalProvider
 

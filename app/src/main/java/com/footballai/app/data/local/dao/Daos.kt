@@ -665,6 +665,9 @@ data class HistoricalSummaryRow(
 
 @Dao
 interface StandingDao {
+    @Query("DELETE FROM standings WHERE competitionId = :competitionId AND season = :season")
+    suspend fun deleteSeason(competitionId: String, season: Int)
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(rows: List<StandingEntity>)
 

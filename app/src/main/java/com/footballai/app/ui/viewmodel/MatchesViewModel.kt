@@ -212,7 +212,8 @@ class MatchesViewModel(private val container: AppContainer) : ViewModel() {
                 MatchScope(
                     selection = selected,
                     dailyAnalysis = settings.dailyAnalysisEnabled,
-                    sourceName = container.providerRegistry.activeInfo(settings)?.displayName.orEmpty(),
+                    sourceName = container.providerRegistry.activeInfo(settings)?.displayName.orEmpty() +
+                        if (settings.dailyAnalysisEnabled) " + Varzesh3" else "",
                     competitionOrder = settings.competitionOrder,
                     favouriteTeams = settings.favouriteTeams,
                 )
@@ -229,7 +230,7 @@ class MatchesViewModel(private val container: AppContainer) : ViewModel() {
                         // The user's own order wins over the app's alphabetical guess.
                         val availableCompetitions = CompetitionOrder.sorted(
                             if (dailyAnalysis) {
-                                competitions.filter { it.providerId == "football-data-co-uk" }
+                                competitions.filter { it.providerId == "football-data-co-uk" || it.providerId == "varzesh3" }
                             } else {
                                 competitions
                             },
@@ -242,7 +243,7 @@ class MatchesViewModel(private val container: AppContainer) : ViewModel() {
                         val filters = MatchFilters(selected.competitionId, selected.followedOnly,
                             selected.liveOnly, selected.kind, selected.gender)
                         val visible = matches.filter { match ->
-                            (!dailyAnalysis || match.id.startsWith("football-data-co-uk:")) &&
+                            (!dailyAnalysis || (match.id.startsWith("football-data-co-uk:") || match.id.startsWith("varzesh3:"))) &&
                                 filters.accepts(match, followedIds)
                         }.sortedWith(
                             compareBy(
@@ -270,7 +271,7 @@ class MatchesViewModel(private val container: AppContainer) : ViewModel() {
                             dailyAnalysis,
                             scope.sourceName,
                             favouriteMatches,
-                            matches.count { !dailyAnalysis || it.id.startsWith("football-data-co-uk:") },
+                            matches.count { !dailyAnalysis || (it.id.startsWith("football-data-co-uk:") || it.id.startsWith("varzesh3:")) },
                         )
                     }
                 }.collect { data ->
@@ -479,12 +480,12 @@ class MatchesViewModel(private val container: AppContainer) : ViewModel() {
         ): MatchSearchResults {
             val query = NameLocalization.normalize(rawQuery)
             if (query.isEmpty()) return MatchSearchResults()
-            val matches = allMatches.filter { !dailyAnalysis || it.id.startsWith("football-data-co-uk:") }
+            val matches = allMatches.filter { !dailyAnalysis || (it.id.startsWith("football-data-co-uk:") || it.id.startsWith("varzesh3:")) }
             fun contains(value: String?) = value != null && NameLocalization.normalize(value).contains(query)
             fun competitionMatches(id: String, name: String) =
                 contains(name) || contains(NameLocalization.persianCompetitionName(id, name))
             val competitions = allCompetitions.filter { competition ->
-                (!dailyAnalysis || competition.providerId == "football-data-co-uk") &&
+                (!dailyAnalysis || (competition.providerId == "football-data-co-uk" || competition.providerId == "varzesh3")) &&
                     (competitionMatches(competition.id, competition.name) || contains(competition.country))
             }.take(20)
             val teams = matches.flatMap { listOf(it.home, it.away) }

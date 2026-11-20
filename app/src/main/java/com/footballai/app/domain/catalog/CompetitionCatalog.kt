@@ -197,7 +197,12 @@ object CompetitionCatalog {
      * league in the football-data.co.uk CSV catalogue. Keys are therefore scoped by
      * provider id, and an unscoped entry belongs to football-data.org.
      */
-    private val byProviderKey: Map<String, Entry> = (providerKeys + espnOpenKeys)
+    private val iranKeys = listOf(
+        Entry("varzesh3", "6", "Iran Pro League", CompetitionType.CLUB_LEAGUE, Gender.MEN, "Iran", "لیگ برتر ایران"),
+        Entry("varzesh3", "24", "Azadegan League", CompetitionType.CLUB_LEAGUE, Gender.MEN, "Iran", "لیگ آزادگان"),
+    )
+
+    private val byProviderKey: Map<String, Entry> = (providerKeys + espnOpenKeys + iranKeys)
         .filter { it.providerKey != null }
         .associateBy { (it.providerId ?: DEFAULT_KEY_PROVIDER) + "|" + it.providerKey!! }
 

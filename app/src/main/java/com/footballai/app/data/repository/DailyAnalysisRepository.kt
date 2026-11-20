@@ -130,12 +130,21 @@ class DailyAnalysisRepository(
                     db.syncMetaDao().put(SyncMetaEntity(FULL_PASS_KEY, "done", now))
                 }
 
+                // The Iranian feed supplements, rather than replaces, the daily source.
+                when (val iran = timed(timing, "iran") { sync.syncIranCompetitions() }) {
+                    is Outcome.Failure -> errors += "Varzesh3: ${iran.error.code}"
+                    is Outcome.Success -> {
+                        report = report.copy(coveredLeagues = report.coveredLeagues + 2,
+                            fixturesReceived = report.fixturesReceived + iran.value.fixtures)
+                        errors += iran.value.errors
+                    }
+                }
                 val end = DailyAnalysisPolicy.endOfHorizon(now, zone)
                 val candidates = db.matchDao().scheduledBetween(now + 1, end)
-                    .filter { it.providerId == source && it.lastSyncedAt >= now }
+                    .filter { (it.providerId == source || it.providerId == com.footballai.app.data.remote.Varzesh3Provider.PROVIDER_ID) && it.lastSyncedAt >= now }
                 report = report.copy(candidates = candidates.size)
 
-                val candidateSeasons = csvSeasons(candidates, source).filter { it !in pendingSeasons }
+                val candidateSeasons = csvSeasons(candidates.filter { it.providerId == source }, source).filter { it !in pendingSeasons }
                 total += candidateSeasons.size + candidates.size
                 onProgress(progressDone.get(), total)
                 errors.recordErrors(timed(timing, "history") { importAll(candidateSeasons, now) { step() } })
@@ -146,8 +155,8 @@ class DailyAnalysisRepository(
                             report = report.copy(alreadySaved = report.alreadySaved + 1)
                         } else {
                             val asOf = clock.nowEpochMs()
-                            val strengths = ratings.strengths(source, match.competitionId, match.homeTeamId, match.awayTeamId, asOf)
-                            val count = ratings.matchCount(source, match.competitionId)
+                            val strengths = ratings.strengths(match.providerId, match.competitionId, match.homeTeamId, match.awayTeamId, asOf)
+                            val count = ratings.matchCount(match.providerId, match.competitionId)
                             if (!DailyAnalysisPolicy.hasEnoughHistory(count, strengths.first.matchesUsed, strengths.second.matchesUsed)) {
                                 report = report.copy(insufficientHistory = report.insufficientHistory + 1)
                             } else {

@@ -91,6 +91,7 @@ class AppContainer(context: Context) {
         espnOpenProvider = espnProvider,
         credentialStore = credentialStore,
         settingsRepository = settingsRepository,
+        varzesh3Provider = com.footballai.app.data.remote.Varzesh3Provider(apiClient, clock),
     )
 
     val quotaGuardProvider: QuotaGuard get() = quotaGuard

@@ -96,7 +96,14 @@ class AutoSyncCoordinator(
     // best effort if Android stops the process. A later sync will schedule it again.
     private val maintenance = OptionalSyncMaintenance(
         scope = maintenanceScope,
-        standings = { provider, keys -> syncRepository.refreshStandings(provider, keys); Unit },
+        standings = { provider, keys ->
+            syncRepository.refreshStandings(provider, keys)
+            if (provider != com.footballai.app.data.remote.Varzesh3Provider.PROVIDER_ID) {
+                syncRepository.refreshStandings(com.footballai.app.data.remote.Varzesh3Provider.PROVIDER_ID,
+                    com.footballai.app.data.remote.Varzesh3Provider.KEYS)
+            }
+            Unit
+        },
         crests = { syncRepository.backfillCrests(); Unit },
     )
 
@@ -245,7 +252,9 @@ class AutoSyncCoordinator(
             val id = providerId ?: return fail(AppError(ErrorCode.MISSING_API_KEY), now)
             return when (
                 val result = timing.measure("fixtures") {
-                    syncRepository.syncFixtures(
+                    if (id == com.footballai.app.data.remote.Varzesh3Provider.PROVIDER_ID) {
+                        syncRepository.syncIranCompetitions()
+                    } else syncRepository.syncFixtures(
                         providerId = id,
                         daysBack = DAYS_BACK,
                         daysAhead = DAYS_AHEAD,
@@ -255,11 +264,19 @@ class AutoSyncCoordinator(
             ) {
                 is Outcome.Failure -> fail(result.error, now)
                 is Outcome.Success -> {
+                    val iran = if (id == com.footballai.app.data.remote.Varzesh3Provider.PROVIDER_ID) null
+                        else timing.measure("iran") { syncRepository.syncIranCompetitions() }
+                    val iranWarnings = when (iran) {
+                        is Outcome.Failure -> listOf("Varzesh3: ${iran.error.code}")
+                        is Outcome.Success -> iran.value.errors
+                        null -> emptyList()
+                    }
+                    val iranCount = (iran as? Outcome.Success)?.value?.fixtures ?: 0
                     val resolved = timing.measure("grading") { resolvePredictions() }
-                    val warnings = result.value.errors + if (resolved == null) listOf("PREDICTION_RESOLUTION_FAILED") else emptyList()
+                    val warnings = result.value.errors + iranWarnings + if (resolved == null) listOf("PREDICTION_RESOLUTION_FAILED") else emptyList()
                     maintenance.schedule(id, settings.followedCompetitionKeys.toList())
                     val run = SyncRun(
-                        added = result.value.fixtures,
+                        added = result.value.fixtures + iranCount,
                         warnings = warnings,
                         fallbackProviderId = result.value.fallbackProviderId,
                         dailyReport = null,

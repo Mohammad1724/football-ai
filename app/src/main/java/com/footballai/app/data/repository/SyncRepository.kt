@@ -278,6 +278,41 @@ class SyncRepository(
         return summary.copy(errors = errors.toList())
     }
 
+    /** Refreshes the Iranian leagues alongside the selected source, never replacing it. */
+    suspend fun syncIranCompetitions(): Outcome<SyncSummary> {
+        val id = com.footballai.app.data.remote.Varzesh3Provider.PROVIDER_ID
+        val provider = registry.provider(id) ?: return Outcome.Failure(AppError(ErrorCode.NOT_FOUND))
+        when (val competitions = syncCompetitions(id)) {
+            is Outcome.Failure -> return competitions
+            is Outcome.Success -> Unit
+        }
+        val main = when (val fixtures = syncFixtures(id, com.footballai.app.data.remote.Varzesh3Provider.KEYS,
+            daysBack = 420, daysAhead = 14, allowFallback = false)) {
+            is Outcome.Failure -> return fixtures
+            is Outcome.Success -> fixtures.value
+        }
+        var extra = SyncSummary()
+        val now = clock.nowEpochMs()
+        val from = now - HISTORY_LOOKBACK_DAYS * TimeConstants.DAY_MS
+        for (key in com.footballai.app.data.remote.Varzesh3Provider.KEYS) {
+            val competition = db.competitionDao().byId(Ids.competition(id, key)) ?: continue
+            val year = competition.season ?: continue
+            val marker = "varzesh3-history:$key:${year - 1}"
+            if (db.syncMetaDao().get(marker) == "ready") continue
+            when (val history = provider.matches(key, year - 1, from, now)) {
+                is Outcome.Failure -> extra += SyncSummary(errors = listOf("Varzesh3/$key history: ${history.error.syncDescription()}"))
+                is Outcome.Success -> {
+                    val written = persistMatches(id, key, history.value, now)
+                    extra += SyncSummary(historical = written)
+                    db.syncMetaDao().put(SyncMetaEntity(marker, "ready", now))
+                }
+            }
+        }
+        val appended = appendFinishedMatches(id)
+        ratingsRepository.invalidate()
+        return Outcome.Success(main + extra + SyncSummary(historical = appended))
+    }
+
     suspend fun syncLive(providerId: String): Outcome<SyncSummary> {
         val provider = registry.provider(providerId)
             ?: return Outcome.Failure(AppError(ErrorCode.NOT_FOUND, detail = "Unknown provider $providerId"))
@@ -611,7 +646,14 @@ class SyncRepository(
                         goalsAgainst = row.goalsAgainst,
                     )
                 }
-                if (rows.isNotEmpty()) db.standingDao().insertAll(rows)
+                if (rows.isNotEmpty()) {
+                    if (providerId == com.footballai.app.data.remote.Varzesh3Provider.PROVIDER_ID) {
+                        db.withTransaction {
+                            db.standingDao().deleteSeason(competitionId, season)
+                            db.standingDao().insertAll(rows)
+                        }
+                    } else db.standingDao().insertAll(rows)
+                }
                 Outcome.Success(rows.size)
             }
         }
