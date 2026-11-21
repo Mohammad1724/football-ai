@@ -62,6 +62,8 @@ data class StoredPredictionStats(
     val logLoss: Double,
     val accuracy: Double,
     val audit: StoredForecastAudit = StoredForecastAudit(),
+    val paired: PairedForecastAudit = PairedForecastAudit(),
+    val lateSnapshots: Int = 0,
 ) {
     companion object {
         val EMPTY = StoredPredictionStats(0, 0, Double.NaN, Double.NaN, Double.NaN)
@@ -196,7 +198,8 @@ class PerformanceRepository(
 
     suspend fun storedPredictionStats(): StoredPredictionStats = withContext(Dispatchers.IO) {
         val resolved = db.predictionDao().evaluatedPreMatch(PredictionRepository.MODEL_VERSION)
-        if (resolved.isEmpty()) return@withContext StoredPredictionStats.EMPTY
+        val lateSnapshots = db.predictionDao().lateForecastCount(PredictionRepository.MODEL_VERSION)
+        if (resolved.isEmpty()) return@withContext StoredPredictionStats.EMPTY.copy(lateSnapshots = lateSnapshots)
         val matches = resolved.map { it.matchId }.distinct().chunked(400)
             .flatMap { db.matchDao().byIds(it) }.associateBy { it.id }
         val competitions = matches.values.map { it.competitionId }.distinct().chunked(400)
@@ -213,7 +216,22 @@ class PerformanceRepository(
                 competitionName = competitions[match.competitionId]?.name ?: match.competitionId,
             ).takeIf { it.valid() }
         }
-        if (observations.isEmpty()) return@withContext StoredPredictionStats.EMPTY
+        if (observations.isEmpty()) return@withContext StoredPredictionStats.EMPTY.copy(lateSnapshots = lateSnapshots)
+        val pairs = resolved.mapNotNull { entity ->
+            val match = matches[entity.matchId] ?: return@mapNotNull null
+            val late = db.predictionDao().lateForecast(entity.id) ?: return@mapNotNull null
+            if (late.kickoffEpochMs != match.kickoffEpochMs) return@mapNotNull null
+            val home = entity.actualHomeGoals ?: return@mapNotNull null
+            val away = entity.actualAwayGoals ?: return@mapNotNull null
+            val early = StoredForecastObservation(entity.homeWin, entity.draw, entity.awayWin, home, away,
+                entity.outcomeCorrect, entity.createdAtEpochMs, match.kickoffEpochMs, match.competitionId, "")
+            val probabilities = listOf(late.homeWin, late.draw, late.awayWin)
+            val best = probabilities.indices.maxByOrNull { probabilities[it] } ?: return@mapNotNull null
+            val actual = if (home > away) 0 else if (home == away) 1 else 2
+            val later = StoredForecastObservation(late.homeWin, late.draw, late.awayWin, home, away,
+                best == actual, late.createdAtEpochMs, late.kickoffEpochMs, match.competitionId, "")
+            early to later
+        }
         val samples = observations.map { row ->
             OutcomeSample(row.home, row.draw, row.away, when {
                 row.homeGoals > row.awayGoals -> MatchOutcome.HOME_WIN
@@ -229,6 +247,8 @@ class PerformanceRepository(
             logLoss = Metrics.logLoss1x2(samples),
             accuracy = correct.toDouble() / observations.size,
             audit = StoredForecastAudit.from(observations),
+            paired = PairedForecastAudit.from(pairs),
+            lateSnapshots = lateSnapshots,
         )
     }
 

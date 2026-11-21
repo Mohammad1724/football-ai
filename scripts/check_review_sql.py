@@ -33,7 +33,7 @@ def database():
 
 
 def migrate(db):
-    code = (LOCAL / 'HistoryMigration.kt').read_text().split('val MIGRATION_1_2', 1)[1].split('val MIGRATION_4_5', 1)[0]
+    code = (LOCAL / 'HistoryMigration.kt').read_text().split('val MIGRATION_1_2', 1)[1].split('val MIGRATION_5_6', 1)[0]
     statements = re.findall(r'db\.execSQL\(("""[\s\S]*?"""\.trimIndent\(\)|"[^"\n]*")\)', code)
     assert len(statements) == 12, f'Migration changed: review extraction ({len(statements)} statements)'
     with db:
@@ -76,6 +76,22 @@ class MigrationTests(unittest.TestCase):
         self.assertFalse(db.execute('PRAGMA foreign_key_check').fetchall())
         db.execute("DELETE FROM predictions WHERE id='p'")
         self.assertEqual(db.execute('SELECT COUNT(*) FROM prediction_markets').fetchone()[0], 0)
+
+    def test_late_forecast_migration_is_additive_and_cascades(self):
+        db = sqlite3.connect(':memory:')
+        db.execute('PRAGMA foreign_keys=ON')
+        db.execute('CREATE TABLE predictions(id TEXT NOT NULL PRIMARY KEY, value TEXT)')
+        db.execute("INSERT INTO predictions VALUES ('p', 'original')")
+        code = (LOCAL / 'HistoryMigration.kt').read_text().split('val MIGRATION_5_6', 1)[1].split('val MIGRATION_4_5', 1)[0]
+        sql = re.search(r'db.execSQL\("([^"\n]+)"\)', code).group(1)
+        db.execute(sql)
+        db.execute("INSERT INTO late_forecasts VALUES ('p', 90, 100, .6, .2, .2)")
+        db.execute("INSERT OR IGNORE INTO late_forecasts VALUES ('p', 99, 100, .1, .2, .7)")
+        self.assertEqual(db.execute('SELECT value FROM predictions').fetchone(), ('original',))
+        self.assertEqual(db.execute('SELECT createdAtEpochMs FROM late_forecasts').fetchone(), (90,))
+        self.assertFalse(db.execute('PRAGMA foreign_key_check').fetchall())
+        db.execute("DELETE FROM predictions WHERE id = 'p'")
+        self.assertEqual(db.execute('SELECT COUNT(*) FROM late_forecasts').fetchone()[0], 0)
 
     def test_stats_use_one_valid_prematch_per_match_and_current_version(self):
         db = sqlite3.connect(':memory:')

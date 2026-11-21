@@ -860,4 +860,12 @@
     <string name="forecast_audit_row">Correct: %1$s of %2$s (%3$s)</string>
     <string name="forecast_audit_band_row">Average chance: %1$s · Correct: %2$s of %3$s (%4$s)</string>
     <string name="forecast_audit_caution">Small groups can change greatly with a few results. Differences do not by themselves establish a cause.</string>
+    <string name="paired_forecast_title">First vs. near-kickoff forecast</string>
+    <string name="paired_forecast_explain">The first forecast made more than 24 hours before kickoff is compared with the first refresh in the final 24 hours, for the same matches. Original history is unchanged.</string>
+    <string name="paired_forecast_counts">Near-kickoff snapshots: %1$s · resolved pairs: %2$s</string>
+    <string name="paired_forecast_correct">Correct: first %1$s, near kickoff %2$s, out of %3$s matches</string>
+    <string name="paired_forecast_brier">Brier: first %1$s · near kickoff %2$s (lower is better)</string>
+    <string name="paired_forecast_loss">Log loss: first %1$s · near kickoff %2$s (lower is better)</string>
+    <string name="paired_forecast_empty">No eligible resolved pairs yet.</string>
+    <string name="paired_forecast_caution">Refresh daily or open the match in the final 24 hours; no exact-time refresh is guaranteed. The latest available local inputs may be stale. Only verified regulation results among the latest 500 evaluated forecasts are compared; rescheduled kickoffs after the late snapshot are excluded. Small or selectively refreshed samples cannot establish a causal improvement.</string>
 </resources>

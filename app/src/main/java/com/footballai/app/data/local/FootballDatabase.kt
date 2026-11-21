@@ -20,6 +20,7 @@ import com.footballai.app.data.local.entity.LineupPlayerEntity
 import com.footballai.app.data.local.entity.MatchEntity
 import com.footballai.app.data.local.entity.MatchEventEntity
 import com.footballai.app.data.local.entity.MatchStatisticsEntity
+import com.footballai.app.data.local.entity.LateForecastEntity
 import com.footballai.app.data.local.entity.PredictionEntity
 import com.footballai.app.data.local.entity.PredictionMarketEntity
 import com.footballai.app.data.local.entity.StandingEntity
@@ -35,12 +36,13 @@ import com.footballai.app.data.local.entity.TeamEntity
         MatchEventEntity::class,
         LineupPlayerEntity::class,
         PredictionEntity::class,
+        LateForecastEntity::class,
         PredictionMarketEntity::class,
         HistoricalMatchEntity::class,
         StandingEntity::class,
         SyncMetaEntity::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = false,
 )
 abstract class FootballDatabase : RoomDatabase() {
@@ -67,6 +69,7 @@ abstract class FootballDatabase : RoomDatabase() {
             HistoryMigration.MIGRATION_2_3,
             HistoryMigration.MIGRATION_3_4,
             HistoryMigration.MIGRATION_4_5,
+            HistoryMigration.MIGRATION_5_6,
         ).build()
     }
 }

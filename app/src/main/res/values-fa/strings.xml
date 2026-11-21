@@ -859,4 +859,12 @@
     <string name="forecast_audit_row">درست: %1$s از %2$s (%3$s)</string>
     <string name="forecast_audit_band_row">میانگین احتمال: %1$s · درست: %2$s از %3$s (%4$s)</string>
     <string name="forecast_audit_caution">در نمونه‌های کوچک چند نتیجه می‌تواند درصد را زیاد تغییر دهد؛ تفاوت این گروه‌ها به‌تنهایی علت خطا را ثابت نمی‌کند.</string>
+    <string name="paired_forecast_title">مقایسه پیش‌بینی اولیه و نزدیک بازی</string>
+    <string name="paired_forecast_explain">برای بازی‌های یکسان، نخستین پیش‌بینیِ بیش از ۲۴ ساعت مانده با نخستین تازه‌سازی در ۲۴ ساعت پایانی مقایسه می‌شود. تاریخچه اولیه تغییر نمی‌کند.</string>
+    <string name="paired_forecast_counts">نسخه‌های نزدیک بازی: %1$s · جفت‌های ارزیابی‌شده: %2$s</string>
+    <string name="paired_forecast_correct">درست: اولیه %1$s، نزدیک بازی %2$s، از %3$s مسابقه</string>
+    <string name="paired_forecast_brier">خطای بریر: اولیه %1$s · نزدیک بازی %2$s (کمتر بهتر است)</string>
+    <string name="paired_forecast_loss">لاگ لاس: اولیه %1$s · نزدیک بازی %2$s (کمتر بهتر است)</string>
+    <string name="paired_forecast_empty">هنوز جفت قابل ارزیابی وجود ندارد.</string>
+    <string name="paired_forecast_caution">در ۲۴ ساعت پایانی برنامه را تازه‌سازی یا صفحه بازی را باز کنید؛ تازه‌سازی در زمان دقیق تضمین نیست و داده‌های محلی ممکن است قدیمی باشند. فقط نتایج معتبر ۹۰ دقیقه‌ای در میان ۵۰۰ ارزیابی اخیر مقایسه می‌شوند؛ تغییر زمان بازی پس از نسخه نزدیک بازی کنار گذاشته می‌شود. نمونه کوچک یا انتخابی، بهبود را ثابت نمی‌کند.</string>
 </resources>

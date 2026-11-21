@@ -179,6 +179,21 @@ data class PredictionEntity(
     val confidenceJson: String? = null,
 )
 
+/** Separate, immutable comparison snapshot. Never participates in history or calibration. */
+@Entity(
+    tableName = "late_forecasts",
+    foreignKeys = [ForeignKey(entity = PredictionEntity::class, parentColumns = ["id"],
+        childColumns = ["predictionId"], onDelete = ForeignKey.CASCADE)],
+)
+data class LateForecastEntity(
+    @PrimaryKey val predictionId: String,
+    val createdAtEpochMs: Long,
+    val kickoffEpochMs: Long,
+    val homeWin: Double,
+    val draw: Double,
+    val awayWin: Double,
+)
+
 @Entity(
     tableName = "prediction_markets",
     primaryKeys = ["predictionId", "sortOrder"],

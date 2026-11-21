@@ -7,6 +7,7 @@ import com.footballai.app.core.TimeConstants
 import com.footballai.app.core.TimeProvider
 import com.footballai.app.data.local.FootballDatabase
 import com.footballai.app.data.local.Serialized
+import com.footballai.app.data.local.entity.LateForecastEntity
 import com.footballai.app.data.local.entity.MatchEntity
 import com.footballai.app.data.local.entity.PredictionEntity
 import com.footballai.app.data.local.entity.PredictionMarketEntity
@@ -314,8 +315,21 @@ class PredictionRepository(
         }
         // First pre-match snapshot per model version is immutable; repeated page visits
         // must not multiply a match's weight or overwrite an earlier forecast.
-        if (persist && (isLive || db.predictionDao().firstPreMatch(matchId, MODEL_VERSION) == null)) {
-            save(view, matchId)
+        if (persist) {
+            if (isLive) {
+                save(view, matchId)
+            } else {
+                val first = db.predictionDao().firstPreMatch(matchId, MODEL_VERSION)
+                if (first == null) {
+                    save(view, matchId)
+                } else if (now >= match.kickoffEpochMs - TimeConstants.DAY_MS && now < match.kickoffEpochMs &&
+                    first.createdAtEpochMs < match.kickoffEpochMs - TimeConstants.DAY_MS) {
+                    db.predictionDao().saveLateForecast(
+                        LateForecastEntity(first.id, now, match.kickoffEpochMs, view.homeWin, view.draw, view.awayWin),
+                        matchId, MODEL_VERSION, clock.nowEpochMs(),
+                    )
+                }
+            }
         }
         return Outcome.Success(view)
     }

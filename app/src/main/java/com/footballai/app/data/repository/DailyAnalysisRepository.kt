@@ -140,8 +140,18 @@ class DailyAnalysisRepository(
                     }
                 }
                 val end = DailyAnalysisPolicy.endOfHorizon(now, zone)
-                val candidates = db.matchDao().scheduledBetween(now + 1, end)
-                    .filter { (it.providerId == source || it.providerId == com.footballai.app.data.remote.Varzesh3Provider.PROVIDER_ID) && it.lastSyncedAt >= now }
+                val scheduled = db.matchDao().scheduledBetween(now + 1, end)
+                    .filter { it.providerId == source || it.providerId == com.footballai.app.data.remote.Varzesh3Provider.PROVIDER_ID }
+                // Fast passes may not re-fetch every fixture. Include already-predicted
+                // fixtures in the last day, using the latest local inputs available.
+                val candidates = scheduled.filter { match ->
+                    if (match.lastSyncedAt >= now) true
+                    else if (match.kickoffEpochMs - now <= com.footballai.app.core.TimeConstants.DAY_MS) {
+                        val first = db.predictionDao().firstPreMatch(match.id, PredictionRepository.MODEL_VERSION)
+                        first != null && first.createdAtEpochMs < match.kickoffEpochMs - com.footballai.app.core.TimeConstants.DAY_MS &&
+                            db.predictionDao().lateForecast(first.id) == null
+                    } else false
+                }
                 report = report.copy(candidates = candidates.size)
 
                 val candidateSeasons = csvSeasons(candidates.filter { it.providerId == source }, source).filter { it !in pendingSeasons }
@@ -151,8 +161,18 @@ class DailyAnalysisRepository(
 
                 timed(timing, "predictions") {
                     for (match in candidates) {
-                        if (db.predictionDao().firstPreMatch(match.id, PredictionRepository.MODEL_VERSION) != null) {
+                        val first = db.predictionDao().firstPreMatch(match.id, PredictionRepository.MODEL_VERSION)
+                        if (first != null) {
                             report = report.copy(alreadySaved = report.alreadySaved + 1)
+                            val asOf = clock.nowEpochMs()
+                            if (asOf < match.kickoffEpochMs && match.kickoffEpochMs - asOf <= com.footballai.app.core.TimeConstants.DAY_MS &&
+                                first.createdAtEpochMs < match.kickoffEpochMs - com.footballai.app.core.TimeConstants.DAY_MS &&
+                                db.predictionDao().lateForecast(first.id) == null) {
+                                when (predictions.predict(match.id)) {
+                                    is Outcome.Failure -> report = report.copy(failed = report.failed + 1)
+                                    is Outcome.Success -> Unit
+                                }
+                            }
                         } else {
                             val asOf = clock.nowEpochMs()
                             val strengths = ratings.strengths(match.providerId, match.competitionId, match.homeTeamId, match.awayTeamId, asOf)

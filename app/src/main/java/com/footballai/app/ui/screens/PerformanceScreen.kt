@@ -129,6 +129,7 @@ fun PerformanceScreen() {
                     if (state.storedStats.resolved > 0) {
                         item { StoredForecastAuditCard(state.storedStats.audit, languageTag) }
                     }
+                    item { PairedForecastCard(state.storedStats.paired, state.storedStats.lateSnapshots, languageTag) }
                     item {
                         InfoCard(title = stringResource(R.string.performance_reading_title), body = stringResource(R.string.performance_reading_body))
                     }
@@ -410,6 +411,32 @@ private fun StoredStatsCard(
                     ),
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun PairedForecastCard(audit: com.footballai.app.data.repository.PairedForecastAudit, collected: Int, languageTag: String) {
+    Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(stringResource(R.string.paired_forecast_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.paired_forecast_explain), style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(top = 8.dp))
+            Text(stringResource(R.string.paired_forecast_counts, Formatters.integer(collected, languageTag),
+                Formatters.integer(audit.count, languageTag)), modifier = Modifier.padding(top = 8.dp))
+            if (audit.count > 0) {
+                Text(stringResource(R.string.paired_forecast_correct, Formatters.integer(audit.earlyCorrect, languageTag),
+                    Formatters.integer(audit.lateCorrect, languageTag), Formatters.integer(audit.count, languageTag)))
+                Text(stringResource(R.string.paired_forecast_brier, Formatters.decimal(audit.earlyBrier, languageTag, 3),
+                    Formatters.decimal(audit.lateBrier, languageTag, 3)))
+                Text(stringResource(R.string.paired_forecast_loss, Formatters.decimal(audit.earlyLogLoss, languageTag, 3),
+                    Formatters.decimal(audit.lateLogLoss, languageTag, 3)))
+            } else {
+                Text(stringResource(R.string.paired_forecast_empty), modifier = Modifier.padding(top = 8.dp))
+            }
+            Text(stringResource(R.string.paired_forecast_caution), style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp))
         }
     }
 }

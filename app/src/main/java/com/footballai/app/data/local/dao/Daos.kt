@@ -6,12 +6,14 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Upsert
+import com.footballai.app.data.local.LateForecastPolicy
 import com.footballai.app.data.local.entity.CompetitionEntity
 import com.footballai.app.data.local.entity.HistoricalMatchEntity
 import com.footballai.app.data.local.entity.LineupPlayerEntity
 import com.footballai.app.data.local.entity.MatchEntity
 import com.footballai.app.data.local.entity.MatchEventEntity
 import com.footballai.app.data.local.entity.MatchStatisticsEntity
+import com.footballai.app.data.local.entity.LateForecastEntity
 import com.footballai.app.data.local.entity.PredictionEntity
 import com.footballai.app.data.local.entity.PredictionMarketEntity
 import com.footballai.app.data.local.entity.StandingEntity
@@ -474,11 +476,34 @@ interface PredictionDao {
         insertMarkets(markets)
     }
 
-    @Query("SELECT * FROM predictions WHERE matchId = :matchId AND modelVersion = :version AND kind = 'PRE_MATCH' ORDER BY createdAtEpochMs ASC LIMIT 1")
+    @Query("SELECT * FROM predictions WHERE matchId = :matchId AND modelVersion = :version AND kind = 'PRE_MATCH' ORDER BY createdAtEpochMs ASC, id ASC LIMIT 1")
     suspend fun firstPreMatch(matchId: String, version: String): PredictionEntity?
 
     @Query("SELECT p.* FROM predictions p INNER JOIN matches m ON m.id = p.matchId WHERE p.resolvedAtEpochMs IS NOT NULL AND p.kind = 'PRE_MATCH' AND p.modelVersion = :version AND p.createdAtEpochMs < m.kickoffEpochMs AND m.scoreScope = 'REGULATION' AND m.status = 'FINISHED' AND m.homeGoals = p.actualHomeGoals AND m.awayGoals = p.actualAwayGoals AND p.id = (SELECT p2.id FROM predictions p2 WHERE p2.matchId = p.matchId AND p2.kind = 'PRE_MATCH' AND p2.modelVersion = :version AND p2.createdAtEpochMs < m.kickoffEpochMs ORDER BY p2.createdAtEpochMs ASC, p2.id ASC LIMIT 1) ORDER BY p.createdAtEpochMs DESC LIMIT 500")
     suspend fun evaluatedPreMatch(version: String): List<PredictionEntity>
+
+    @Query("SELECT COUNT(*) FROM late_forecasts l INNER JOIN predictions p ON p.id = l.predictionId INNER JOIN matches m ON m.id = p.matchId WHERE p.modelVersion = :version AND p.kind = 'PRE_MATCH' AND l.kickoffEpochMs = m.kickoffEpochMs")
+    suspend fun lateForecastCount(version: String): Int
+
+    @Query("SELECT * FROM late_forecasts WHERE predictionId = :predictionId")
+    suspend fun lateForecast(predictionId: String): LateForecastEntity?
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertLateForecast(snapshot: LateForecastEntity)
+
+    /** Check kickoff/status again in the same transaction as the insert. */
+    @Transaction
+    suspend fun saveLateForecast(snapshot: LateForecastEntity, matchId: String, version: String, finishedAt: Long) {
+        val first = firstPreMatch(matchId, version) ?: return
+        val match = comparisonMatch(matchId) ?: return
+        if (!LateForecastPolicy.eligible(first.id, snapshot.predictionId, match.status,
+                match.kickoffEpochMs, snapshot.kickoffEpochMs, first.createdAtEpochMs,
+                snapshot.createdAtEpochMs, finishedAt)) return
+        insertLateForecast(snapshot)
+    }
+
+    @Query("SELECT * FROM matches WHERE id = :matchId")
+    suspend fun comparisonMatch(matchId: String): MatchEntity?
 
     @Query("SELECT * FROM predictions WHERE id = :id")
     suspend fun byId(id: String): PredictionEntity?

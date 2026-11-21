@@ -42,6 +42,13 @@ object HistoryMigration {
         }
     }
 
+    /** Preserve all existing forecasts; comparison snapshots start empty. */
+    val MIGRATION_5_6 = object : Migration(5, 6) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("CREATE TABLE IF NOT EXISTS late_forecasts (predictionId TEXT NOT NULL, createdAtEpochMs INTEGER NOT NULL, kickoffEpochMs INTEGER NOT NULL, homeWin REAL NOT NULL, draw REAL NOT NULL, awayWin REAL NOT NULL, PRIMARY KEY(predictionId), FOREIGN KEY(predictionId) REFERENCES predictions(id) ON UPDATE NO ACTION ON DELETE CASCADE)")
+        }
+    }
+
     /**
      * 4 -> 5: the columns a table is read by.
      *
