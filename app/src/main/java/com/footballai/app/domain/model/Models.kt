@@ -295,7 +295,7 @@ data class LiveSnapshot(
 data class PredictionResolution(
     val actualHomeGoals: Int,
     val actualAwayGoals: Int,
-    val outcomeCorrect: Boolean,
+    val outcomeCorrect: Boolean?,
     val brier: Double,
     val logLoss: Double,
     val resolvedAtEpochMs: Long,

@@ -834,4 +834,15 @@
     <string name="analysis_form_details">Show form details</string>
     <string name="analysis_form_hide">Hide form details</string>
     <string name="analysis_recent_matches">See recent matches</string>
+    <string name="prediction_evaluation_correct">Correct outcome</string>
+    <string name="prediction_evaluation_wrong">Incorrect outcome</string>
+    <string name="prediction_evaluation_tied">No clear leading outcome</string>
+    <string name="prediction_evaluation_unavailable">Outcome comparison unavailable</string>
+    <string name="prediction_evaluation_pick_team">Model’s highest probability: %1$s win</string>
+    <string name="prediction_evaluation_pick_draw">Model’s highest probability: draw</string>
+    <string name="prediction_evaluation_pick_tied">The leading probabilities are equal at the displayed precision.</string>
+    <string name="prediction_evaluation_pick_unavailable">The saved probabilities are unavailable or invalid.</string>
+    <string name="prediction_evaluated_score_title">Score used for this evaluation</string>
+    <string name="prediction_evaluated_goals">%1$s goals</string>
+    <string name="prediction_score_changed">The current match score differs from the score used for this evaluation. The comparison above uses the saved evaluation.</string>
 </resources>

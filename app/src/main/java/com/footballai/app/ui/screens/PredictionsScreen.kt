@@ -275,7 +275,7 @@ private fun PredictionGroupCard(
             Text(stringResource(R.string.prediction_kickoff, Formatters.kickoffDateTime(match.kickoffEpochMs, languageTag)),
                 style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 4.dp))
-            if (match.status.hasScore && match.homeGoals != null && match.awayGoals != null) {
+            if (prediction.resolution == null && match.status.hasScore && match.homeGoals != null && match.awayGoals != null) {
                 ScoreBySide(match.homeGoals, match.awayGoals, languageTag, final = false)
             }
             Text(recordKindLabel(selected), style = MaterialTheme.typography.labelSmall,
@@ -284,14 +284,14 @@ private fun PredictionGroupCard(
                 Text(evaluationReason(selected), style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            com.footballai.app.ui.components.PreMatchVerdict(prediction, match.home, match.away, languageTag, showNote = false)
+            if (prediction.resolution != null) {
+                EvaluationSummary(selected, languageTag)
+            } else {
+                com.footballai.app.ui.components.PreMatchVerdict(prediction, match.home, match.away, languageTag, showNote = false)
+            }
             Spacer(Modifier.height(4.dp))
             ProbabilityBar(homeWin = prediction.homeWin, draw = prediction.draw, awayWin = prediction.awayWin,
                 languageTag = languageTag)
-            prediction.resolution?.let { result ->
-                Text(stringResource(if (result.outcomeCorrect) R.string.prediction_highest_correct else R.string.prediction_highest_wrong),
-                    style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 3.dp))
-            }
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically) {
                 TextButton(onClick = { expanded = !expanded }, modifier = Modifier.weight(1f)) {
@@ -321,7 +321,6 @@ private fun PredictionGroupCard(
                     Text(evaluationReason(selected), style = MaterialTheme.typography.bodySmall)
                 }
                 prediction.resolution?.let { result ->
-                    ScoreBySide(result.actualHomeGoals, result.actualAwayGoals, languageTag, final = true)
                     Text(stringResource(R.string.prediction_brier_only, Formatters.decimal(result.brier, languageTag, 3)),
                         style = MaterialTheme.typography.bodySmall)
                 }
@@ -329,6 +328,67 @@ private fun PredictionGroupCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
+    }
+}
+
+@Composable
+private fun EvaluationSummary(item: PredictionWithMatch, languageTag: String) {
+    val prediction = item.prediction
+    val match = item.match
+    val result = prediction.resolution ?: return
+    val evaluation = evaluationDisplay(prediction.homeWin, prediction.draw, prediction.awayWin, result)
+    val leading = MatchAnalysisPresentation.leadingOutcome(prediction.homeWin, prediction.draw, prediction.awayWin)
+    val colors = FootballAiThemeExtra.colors
+    val statusColor = when (evaluation) {
+        EvaluationDisplay.CORRECT -> colors.positive
+        EvaluationDisplay.INCORRECT -> colors.danger
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    val statusText = stringResource(when (evaluation) {
+        EvaluationDisplay.CORRECT -> R.string.prediction_evaluation_correct
+        EvaluationDisplay.INCORRECT -> R.string.prediction_evaluation_wrong
+        EvaluationDisplay.UNCLEAR -> R.string.prediction_evaluation_tied
+        EvaluationDisplay.UNAVAILABLE -> R.string.prediction_evaluation_unavailable
+    })
+    val predictionText = when (leading) {
+        VerdictOutcome.HOME -> stringResource(R.string.prediction_evaluation_pick_team,
+            NameLocalization.displayName(match.home.name, languageTag, match.home.shortName))
+        VerdictOutcome.AWAY -> stringResource(R.string.prediction_evaluation_pick_team,
+            NameLocalization.displayName(match.away.name, languageTag, match.away.shortName))
+        VerdictOutcome.DRAW -> stringResource(R.string.prediction_evaluation_pick_draw)
+        null -> stringResource(if (MatchAnalysisPresentation.validProbabilities(prediction.homeWin, prediction.draw, prediction.awayWin))
+            R.string.prediction_evaluation_pick_tied else R.string.prediction_evaluation_pick_unavailable)
+    }
+    Card(modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 4.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+        Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
+            Text(statusText, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = statusColor)
+            Text(predictionText, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 4.dp))
+            Text(stringResource(R.string.prediction_evaluated_score_title), style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp))
+            Row(modifier = Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                EvaluatedTeamScore(match.home, result.actualHomeGoals, R.string.selection_home, languageTag, Modifier.weight(1f))
+                EvaluatedTeamScore(match.away, result.actualAwayGoals, R.string.selection_away, languageTag, Modifier.weight(1f))
+            }
+            if (scoreChangedSinceEvaluation(result, match.homeGoals, match.awayGoals)) {
+                Text(stringResource(R.string.prediction_score_changed), style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 8.dp))
+                ScoreBySide(match.homeGoals!!, match.awayGoals!!, languageTag, final = false)
+            }
+        }
+    }
+}
+
+@Composable
+private fun EvaluatedTeamScore(team: com.footballai.app.domain.model.TeamRef, goals: Int,
+    sideLabel: Int, languageTag: String, modifier: Modifier = Modifier) {
+    Column(modifier = modifier) {
+        Text(stringResource(sideLabel), style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        TeamNameLines(team = team, languageTag = languageTag, primaryStyle = MaterialTheme.typography.labelMedium,
+            primaryMaxLines = 2, secondaryMaxLines = 2)
+        Text(stringResource(R.string.prediction_evaluated_goals, Formatters.integer(goals, languageTag)),
+            style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
     }
 }
 

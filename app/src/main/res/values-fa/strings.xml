@@ -833,4 +833,15 @@
     <string name="analysis_form_details">نمایش جزئیات فرم</string>
     <string name="analysis_form_hide">بستن جزئیات فرم</string>
     <string name="analysis_recent_matches">دیدن بازی‌های اخیر</string>
+    <string name="prediction_evaluation_correct">پیش‌بینی نتیجه درست بود</string>
+    <string name="prediction_evaluation_wrong">پیش‌بینی نتیجه درست نبود</string>
+    <string name="prediction_evaluation_tied">نتیجهٔ پیشتاز مشخص نیست</string>
+    <string name="prediction_evaluation_unavailable">مقایسهٔ پیش‌بینی در دسترس نیست</string>
+    <string name="prediction_evaluation_pick_team">بیشترین احتمال مدل: برد %1$s</string>
+    <string name="prediction_evaluation_pick_draw">بیشترین احتمال مدل: مساوی</string>
+    <string name="prediction_evaluation_pick_tied">احتمال‌های پیشتاز با دقت نمایش برابرند.</string>
+    <string name="prediction_evaluation_pick_unavailable">احتمال‌های ذخیره‌شده در دسترس یا معتبر نیستند.</string>
+    <string name="prediction_evaluated_score_title">نتیجه‌ای که با آن ارزیابی شد</string>
+    <string name="prediction_evaluated_goals">%1$s گل</string>
+    <string name="prediction_score_changed">نتیجهٔ فعلی مسابقه با نتیجهٔ ثبت‌شده برای این ارزیابی متفاوت است. مقایسهٔ بالا بر اساس نتیجهٔ ثبت‌شده است.</string>
 </resources>

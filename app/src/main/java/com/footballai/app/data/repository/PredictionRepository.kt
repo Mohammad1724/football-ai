@@ -627,7 +627,7 @@ class PredictionRepository(
             PredictionResolution(
                 actualHomeGoals = entity.actualHomeGoals,
                 actualAwayGoals = entity.actualAwayGoals,
-                outcomeCorrect = entity.outcomeCorrect ?: false,
+                outcomeCorrect = entity.outcomeCorrect,
                 brier = entity.brier ?: Double.NaN,
                 logLoss = entity.logLoss ?: Double.NaN,
                 resolvedAtEpochMs = entity.resolvedAtEpochMs,
