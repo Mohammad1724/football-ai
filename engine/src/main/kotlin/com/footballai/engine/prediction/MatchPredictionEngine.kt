@@ -234,21 +234,20 @@ class MatchPredictionEngine(private val config: EngineConfig = EngineConfig()) {
             } else {
                 null
             },
-            calibration = if (calibration.isApplied) {
-                CalibrationInfo(
-                    method = calibration.method.name,
-                    temperature = calibration.temperature,
-                    sampleCount = calibration.sampleCount,
-                    holdoutCount = calibration.holdoutCount,
-                    holdoutLogLossBefore = calibration.holdoutLogLossBefore,
-                    holdoutLogLossAfter = calibration.holdoutLogLossAfter,
-                    rawHomeWin = rawMarkets.homeWin,
-                    rawDraw = rawMarkets.draw,
-                    rawAwayWin = rawMarkets.awayWin,
-                )
-            } else {
-                null
-            },
+            // Record the raw model triple even when no calibration is applied. The final
+            // triple may already include market alignment and must not be used to fit a
+            // mapping that will later be applied to the raw model distribution.
+            calibration = CalibrationInfo(
+                method = calibration.method.name,
+                temperature = calibration.temperature,
+                sampleCount = calibration.sampleCount,
+                holdoutCount = calibration.holdoutCount,
+                holdoutLogLossBefore = calibration.holdoutLogLossBefore,
+                holdoutLogLossAfter = calibration.holdoutLogLossAfter,
+                rawHomeWin = rawMarkets.homeWin,
+                rawDraw = rawMarkets.draw,
+                rawAwayWin = rawMarkets.awayWin,
+            ),
         )
     }
 

@@ -33,7 +33,7 @@ def database():
 
 
 def migrate(db):
-    code = (LOCAL / 'HistoryMigration.kt').read_text()
+    code = (LOCAL / 'HistoryMigration.kt').read_text().split('val MIGRATION_1_2', 1)[1].split('val MIGRATION_4_5', 1)[0]
     statements = re.findall(r'db\.execSQL\(("""[\s\S]*?"""\.trimIndent\(\)|"[^"\n]*")\)', code)
     assert len(statements) == 12, f'Migration changed: review extraction ({len(statements)} statements)'
     with db:
@@ -80,21 +80,34 @@ class MigrationTests(unittest.TestCase):
     def test_stats_use_one_valid_prematch_per_match_and_current_version(self):
         db = sqlite3.connect(':memory:')
         db.executescript('''
-        CREATE TABLE matches(id TEXT PRIMARY KEY, kickoffEpochMs INTEGER, scoreScope TEXT);
+        CREATE TABLE competitions(id TEXT PRIMARY KEY, competitionClass TEXT);
+        INSERT INTO competitions VALUES ('league','CLUB_LEAGUE');
+        CREATE TABLE matches(id TEXT PRIMARY KEY, kickoffEpochMs INTEGER, scoreScope TEXT,
+          status TEXT, homeGoals INTEGER, awayGoals INTEGER, competitionId TEXT);
         CREATE TABLE predictions(id TEXT PRIMARY KEY, matchId TEXT, resolvedAtEpochMs INTEGER,
-          kind TEXT, modelVersion TEXT, createdAtEpochMs INTEGER);
-        INSERT INTO matches VALUES ('m',1000,'REGULATION'),('n',1000,'ADMINISTRATIVE');
+          kind TEXT, modelVersion TEXT, createdAtEpochMs INTEGER, actualHomeGoals INTEGER, actualAwayGoals INTEGER);
+        INSERT INTO matches VALUES ('m',1000,'REGULATION','FINISHED',2,1,'league'),
+          ('n',1000,'ADMINISTRATIVE','FINISHED',2,1,'league'), ('changed',1000,'REGULATION','FINISHED',1,1,'league'),
+          ('reopened',1000,'REGULATION','LIVE',2,1,'league');
         INSERT INTO predictions VALUES
-          ('first','m',2000,'PRE_MATCH','v2',100),
-          ('repeat','m',2000,'PRE_MATCH','v2',200),
-          ('late','m',2000,'PRE_MATCH','v2',1100),
-          ('live','m',2000,'LIVE','v2',1200),
-          ('old','m',2000,'PRE_MATCH','v1',50),
-          ('admin','n',2000,'PRE_MATCH','v2',100);
+          ('first','m',2000,'PRE_MATCH','v2',100,2,1),
+          ('repeat','m',2000,'PRE_MATCH','v2',200,2,1),
+          ('late','m',2000,'PRE_MATCH','v2',1100,2,1),
+          ('live','m',2000,'LIVE','v2',1200,2,1),
+          ('old','m',2000,'PRE_MATCH','v1',50,2,1),
+          ('admin','n',2000,'PRE_MATCH','v2',100,2,1),
+          ('incorrected','changed',2000,'PRE_MATCH','v2',100,2,1),
+          ('notfinished','reopened',2000,'PRE_MATCH','v2',100,2,1);
         ''')
         code = (LOCAL / 'dao/Daos.kt').read_text()
         query = re.search(r'@Query\("(SELECT p\.\*.*?)"\)', code).group(1)
         self.assertEqual([r[0] for r in db.execute(query, {'version': 'v2'})], ['first'])
+        # Also execute the actual concatenated Room query used for calibration.
+        end = code.index('suspend fun resolvedForClass')
+        start = code.rfind('@Query(', 0, end)
+        calibration_sql = ''.join(re.findall(r'"([^"\n]*)"', code[start:end]))
+        self.assertEqual([r[0] for r in db.execute(calibration_sql,
+                         {'version': 'v2', 'competitionClass': 'CLUB_LEAGUE', 'limit': 3000})], ['first'])
 
 
 if __name__ == '__main__':

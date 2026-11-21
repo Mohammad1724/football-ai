@@ -54,6 +54,19 @@ class PredictionEngineTest {
     }
 
     @Test
+    fun `raw uncalibrated probabilities are retained even when market changes output`() {
+        val base = input()
+        val raw = engine.predictPreMatch(base)
+        val mixed = engine.predictPreMatch(base.copy(market = com.footballai.engine.model.OutcomeTriple(0.2, 0.3, 0.5)))
+        val info = assertNotNull(mixed.calibration)
+        assertEquals("NONE", info.method)
+        assertEquals(raw.markets.homeWin, info.rawHomeWin, 1e-9)
+        assertEquals(raw.markets.draw, info.rawDraw, 1e-9)
+        assertEquals(raw.markets.awayWin, info.rawAwayWin, 1e-9)
+        assertTrue(kotlin.math.abs(mixed.markets.homeWin - info.rawHomeWin) > 1e-3)
+    }
+
+    @Test
     fun `stronger home team is favoured`() {
         val strongHome = engine.predictPreMatch(input(homeAttack = 1.6, homeElo = 1620.0))
         val weakHome = engine.predictPreMatch(input(homeAttack = 0.7, homeElo = 1400.0))

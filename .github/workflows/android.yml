@@ -42,6 +42,9 @@ jobs:
       - name: Head-to-head SQLite regression tests
         run: python3 scripts/check_head_to_head.py
 
+      - name: Prediction evaluation SQLite regression tests
+        run: python3 scripts/check_review_sql.py
+
       - name: Engine unit tests
         run: |
           set -o pipefail

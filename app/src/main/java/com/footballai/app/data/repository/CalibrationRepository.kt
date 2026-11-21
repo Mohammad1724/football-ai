@@ -2,11 +2,9 @@ package com.footballai.app.data.repository
 
 import com.footballai.app.core.TimeProvider
 import com.footballai.app.data.local.FootballDatabase
-import com.footballai.app.data.local.entity.PredictionEntity
 import com.footballai.engine.calibration.CalibrationModel
 import com.footballai.engine.calibration.CalibrationSample
 import com.footballai.engine.calibration.Calibrator
-import com.footballai.engine.model.MatchOutcome
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -31,7 +29,7 @@ class CalibrationRepository(
 ) {
     private data class CacheKey(val competitionClass: String, val modelVersion: String)
 
-    private data class Cached(val sampleCount: Int, val model: CalibrationModel)
+    private data class Cached(val samples: List<CalibrationSample>, val model: CalibrationModel)
 
     private val cache = HashMap<CacheKey, Cached>()
     private val mutex = Mutex()
@@ -46,11 +44,11 @@ class CalibrationRepository(
                 // The query returns the newest match first; a calibration is fitted in
                 // playing order, with the most recent slice withheld.
                 .asReversed()
-                .mapNotNull { it.toCalibrationSample() }
+                .mapNotNull { it.toRawCalibrationSample() }
         }
         val key = CacheKey(competitionClass, modelVersion)
         val cached = cache[key]
-        if (cached != null && cached.sampleCount == samples.size) return cached.model
+        if (cached != null && cached.samples == samples) return cached.model
         val model = if (samples.size < config.minSamples) {
             CalibrationModel.NONE.copy(sampleCount = samples.size)
         } else {
@@ -58,28 +56,17 @@ class CalibrationRepository(
                 Calibrator.fit(samples, config).copy(fittedAtEpochMs = clock.nowEpochMs())
             }
         }
-        cache[key] = Cached(samples.size, model)
+        cache[key] = Cached(samples, model)
         return model
     }
 
     /** Resolved count per competition class, for the performance screen and diagnostics. */
     suspend fun resolvedCount(competitionClass: String, modelVersion: String): Int = withContext(Dispatchers.IO) {
-        db.predictionDao().resolvedCountForClass(modelVersion, competitionClass)
+        db.predictionDao().resolvedForClass(modelVersion, competitionClass, sampleLimit)
+            .count { it.toRawCalibrationSample() != null }
     }
 
     /** Drops the cached fit; called when predictions are resolved or data is cleared. */
     suspend fun invalidate() = mutex.withLock { cache.clear() }
 
-    private fun PredictionEntity.toCalibrationSample(): CalibrationSample? {
-        val home = actualHomeGoals ?: return null
-        val away = actualAwayGoals ?: return null
-        val outcome = when {
-            home > away -> MatchOutcome.HOME_WIN
-            home == away -> MatchOutcome.DRAW
-            else -> MatchOutcome.AWAY_WIN
-        }
-        if (!homeWin.isFinite() || !draw.isFinite() || !awayWin.isFinite()) return null
-        if (homeWin + draw + awayWin <= 0.0) return null
-        return CalibrationSample(homeWin, draw, awayWin, outcome)
-    }
 }

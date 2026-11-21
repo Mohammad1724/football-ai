@@ -13,7 +13,6 @@ import com.footballai.engine.eval.BacktestConfig
 import com.footballai.engine.eval.Backtester
 import com.footballai.engine.eval.HistoricalRecord
 import com.footballai.engine.calibration.CalibrationModel
-import com.footballai.engine.calibration.CalibrationSample
 import com.footballai.engine.calibration.Calibrator
 import com.footballai.engine.eval.CalibrationStudy
 import com.footballai.engine.eval.Metrics
@@ -62,6 +61,7 @@ data class StoredPredictionStats(
     val brier: Double,
     val logLoss: Double,
     val accuracy: Double,
+    val audit: StoredForecastAudit = StoredForecastAudit(),
 ) {
     companion object {
         val EMPTY = StoredPredictionStats(0, 0, Double.NaN, Double.NaN, Double.NaN)
@@ -197,29 +197,38 @@ class PerformanceRepository(
     suspend fun storedPredictionStats(): StoredPredictionStats = withContext(Dispatchers.IO) {
         val resolved = db.predictionDao().evaluatedPreMatch(PredictionRepository.MODEL_VERSION)
         if (resolved.isEmpty()) return@withContext StoredPredictionStats.EMPTY
-        val samples = resolved.mapNotNull { entity ->
+        val matches = resolved.map { it.matchId }.distinct().chunked(400)
+            .flatMap { db.matchDao().byIds(it) }.associateBy { it.id }
+        val competitions = matches.values.map { it.competitionId }.distinct().chunked(400)
+            .flatMap { db.competitionDao().byIds(it) }.associateBy { it.id }
+        val observations = resolved.mapNotNull { entity ->
+            val match = matches[entity.matchId] ?: return@mapNotNull null
             val home = entity.actualHomeGoals ?: return@mapNotNull null
             val away = entity.actualAwayGoals ?: return@mapNotNull null
-            OutcomeSample(
-                homeWin = entity.homeWin,
-                draw = entity.draw,
-                awayWin = entity.awayWin,
-                actual = when {
-                    home > away -> MatchOutcome.HOME_WIN
-                    home == away -> MatchOutcome.DRAW
-                    else -> MatchOutcome.AWAY_WIN
-                },
-            )
+            StoredForecastObservation(
+                home = entity.homeWin, draw = entity.draw, away = entity.awayWin,
+                homeGoals = home, awayGoals = away, savedCorrect = entity.outcomeCorrect,
+                createdAt = entity.createdAtEpochMs, kickoff = match.kickoffEpochMs,
+                competitionId = match.competitionId,
+                competitionName = competitions[match.competitionId]?.name ?: match.competitionId,
+            ).takeIf { it.valid() }
         }
-        val correct = resolved.count { it.outcomeCorrect == true }
-        val brier = Metrics.brier1x2(samples)
-        val logLoss = Metrics.logLoss1x2(samples)
+        if (observations.isEmpty()) return@withContext StoredPredictionStats.EMPTY
+        val samples = observations.map { row ->
+            OutcomeSample(row.home, row.draw, row.away, when {
+                row.homeGoals > row.awayGoals -> MatchOutcome.HOME_WIN
+                row.homeGoals == row.awayGoals -> MatchOutcome.DRAW
+                else -> MatchOutcome.AWAY_WIN
+            })
+        }
+        val correct = observations.count { it.savedCorrect == true }
         StoredPredictionStats(
-            resolved = resolved.size,
+            resolved = observations.size,
             correct = correct,
-            brier = brier,
-            logLoss = logLoss,
-            accuracy = correct.toDouble() / resolved.size,
+            brier = Metrics.brier1x2(samples),
+            logLoss = Metrics.logLoss1x2(samples),
+            accuracy = correct.toDouble() / observations.size,
+            audit = StoredForecastAudit.from(observations),
         )
     }
 
@@ -241,16 +250,7 @@ class PerformanceRepository(
         val samples = withContext(Dispatchers.IO) {
             // Newest first from the query, oldest first for the expanding window below.
             db.predictionDao().resolvedForClass(version, competitionClass, 3000).asReversed()
-        }.mapNotNull { entity ->
-            val home = entity.actualHomeGoals ?: return@mapNotNull null
-            val away = entity.actualAwayGoals ?: return@mapNotNull null
-            val outcome = when {
-                home > away -> MatchOutcome.HOME_WIN
-                home == away -> MatchOutcome.DRAW
-                else -> MatchOutcome.AWAY_WIN
-            }
-            CalibrationSample(entity.homeWin, entity.draw, entity.awayWin, outcome)
-        }
+        }.mapNotNull { it.toRawCalibrationSample() }
         if (samples.size < CalibrationStudy.Config().minimumWarmupSamples) {
             return@withContext CalibrationStudyResult(
                 competitionClass = competitionClass,

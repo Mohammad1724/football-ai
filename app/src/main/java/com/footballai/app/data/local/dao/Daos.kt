@@ -477,7 +477,7 @@ interface PredictionDao {
     @Query("SELECT * FROM predictions WHERE matchId = :matchId AND modelVersion = :version AND kind = 'PRE_MATCH' ORDER BY createdAtEpochMs ASC LIMIT 1")
     suspend fun firstPreMatch(matchId: String, version: String): PredictionEntity?
 
-    @Query("SELECT p.* FROM predictions p INNER JOIN matches m ON m.id = p.matchId WHERE p.resolvedAtEpochMs IS NOT NULL AND p.kind = 'PRE_MATCH' AND p.modelVersion = :version AND p.createdAtEpochMs < m.kickoffEpochMs AND m.scoreScope = 'REGULATION' AND p.id = (SELECT p2.id FROM predictions p2 WHERE p2.matchId = p.matchId AND p2.kind = 'PRE_MATCH' AND p2.modelVersion = :version AND p2.createdAtEpochMs < m.kickoffEpochMs ORDER BY p2.createdAtEpochMs ASC, p2.id ASC LIMIT 1) ORDER BY p.createdAtEpochMs DESC LIMIT 500")
+    @Query("SELECT p.* FROM predictions p INNER JOIN matches m ON m.id = p.matchId WHERE p.resolvedAtEpochMs IS NOT NULL AND p.kind = 'PRE_MATCH' AND p.modelVersion = :version AND p.createdAtEpochMs < m.kickoffEpochMs AND m.scoreScope = 'REGULATION' AND m.status = 'FINISHED' AND m.homeGoals = p.actualHomeGoals AND m.awayGoals = p.actualAwayGoals AND p.id = (SELECT p2.id FROM predictions p2 WHERE p2.matchId = p.matchId AND p2.kind = 'PRE_MATCH' AND p2.modelVersion = :version AND p2.createdAtEpochMs < m.kickoffEpochMs ORDER BY p2.createdAtEpochMs ASC, p2.id ASC LIMIT 1) ORDER BY p.createdAtEpochMs DESC LIMIT 500")
     suspend fun evaluatedPreMatch(version: String): List<PredictionEntity>
 
     @Query("SELECT * FROM predictions WHERE id = :id")
@@ -563,23 +563,14 @@ interface PredictionDao {
             "INNER JOIN competitions c ON c.id = m.competitionId " +
             "WHERE p.resolvedAtEpochMs IS NOT NULL AND p.kind = 'PRE_MATCH' " +
             "AND p.modelVersion = :version AND c.competitionClass = :competitionClass " +
-            "AND m.scoreScope = 'REGULATION' " +
+            "AND m.scoreScope = 'REGULATION' AND m.status = 'FINISHED' " +
+            "AND m.homeGoals = p.actualHomeGoals AND m.awayGoals = p.actualAwayGoals " +
             "AND p.id = (SELECT p2.id FROM predictions p2 WHERE p2.matchId = p.matchId AND p2.kind = 'PRE_MATCH' " +
             "AND p2.modelVersion = :version AND p2.createdAtEpochMs < m.kickoffEpochMs " +
             "ORDER BY p2.createdAtEpochMs ASC, p2.id ASC LIMIT 1) " +
             "ORDER BY m.kickoffEpochMs DESC, p.createdAtEpochMs DESC LIMIT :limit",
     )
     suspend fun resolvedForClass(version: String, competitionClass: String, limit: Int): List<PredictionEntity>
-
-    @Query(
-        "SELECT COUNT(*) FROM predictions p " +
-            "INNER JOIN matches m ON m.id = p.matchId " +
-            "INNER JOIN competitions c ON c.id = m.competitionId " +
-            "WHERE p.resolvedAtEpochMs IS NOT NULL AND p.kind = 'PRE_MATCH' " +
-            "AND p.modelVersion = :version AND c.competitionClass = :competitionClass " +
-            "AND m.scoreScope = 'REGULATION'",
-    )
-    suspend fun resolvedCountForClass(version: String, competitionClass: String): Int
 
     @Query("SELECT * FROM predictions WHERE matchId = :matchId AND kind = :kind ORDER BY createdAtEpochMs DESC LIMIT :limit")
     suspend fun historyForMatch(matchId: String, kind: String, limit: Int): List<PredictionEntity>

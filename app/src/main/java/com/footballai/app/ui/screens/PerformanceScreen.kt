@@ -126,6 +126,9 @@ fun PerformanceScreen() {
                             languageTag = languageTag,
                         )
                     }
+                    if (state.storedStats.resolved > 0) {
+                        item { StoredForecastAuditCard(state.storedStats.audit, languageTag) }
+                    }
                     item {
                         InfoCard(title = stringResource(R.string.performance_reading_title), body = stringResource(R.string.performance_reading_body))
                     }
@@ -408,6 +411,72 @@ private fun StoredStatsCard(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun StoredForecastAuditCard(audit: com.footballai.app.data.repository.StoredForecastAudit, languageTag: String) {
+    Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)) {
+        Column(modifier = Modifier.fillMaxWidth().padding(14.dp)) {
+            Text(stringResource(R.string.forecast_audit_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.forecast_audit_scope), style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
+            Text(stringResource(R.string.forecast_audit_bands), style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 12.dp))
+            Text(stringResource(R.string.forecast_audit_bands_help), style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            com.footballai.app.data.repository.ForecastProbabilityBand.entries.forEach { band ->
+                audit.bands[band]?.let { group ->
+                    val label = stringResource(when (band) {
+                        com.footballai.app.data.repository.ForecastProbabilityBand.BELOW_50 -> R.string.forecast_band_below_50
+                        com.footballai.app.data.repository.ForecastProbabilityBand.FROM_50_TO_70 -> R.string.forecast_band_50_70
+                        com.footballai.app.data.repository.ForecastProbabilityBand.AT_LEAST_70 -> R.string.forecast_band_above_70
+                    })
+                    ForecastAuditRow(label, group, languageTag, showProbability = true)
+                }
+            }
+            Text(stringResource(R.string.forecast_audit_lead), style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 12.dp))
+            com.footballai.app.data.repository.ForecastLeadTime.entries.forEach { lead ->
+                audit.leadTimes[lead]?.let { group ->
+                    val label = stringResource(when (lead) {
+                        com.footballai.app.data.repository.ForecastLeadTime.UNDER_DAY -> R.string.forecast_lead_under_day
+                        com.footballai.app.data.repository.ForecastLeadTime.ONE_TO_THREE_DAYS -> R.string.forecast_lead_one_three
+                        com.footballai.app.data.repository.ForecastLeadTime.OVER_THREE_DAYS -> R.string.forecast_lead_over_three
+                    })
+                    ForecastAuditRow(label, group, languageTag)
+                }
+            }
+            if (audit.leagues.isNotEmpty()) {
+                Text(stringResource(R.string.forecast_audit_leagues), style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 12.dp))
+                audit.leagues.forEach { league ->
+                    ForecastAuditRow(com.footballai.app.domain.catalog.NameLocalization.competitionNamePair(
+                        league.name, league.id, languageTag).first, league.summary, languageTag)
+                }
+            }
+            Text(stringResource(R.string.forecast_audit_caution), style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 10.dp))
+        }
+    }
+}
+
+@Composable
+private fun ForecastAuditRow(label: String, group: com.footballai.app.data.repository.ForecastAuditGroup,
+    languageTag: String, showProbability: Boolean = false) {
+    Column(modifier = Modifier.fillMaxWidth().padding(top = 7.dp)) {
+        Text(label, style = MaterialTheme.typography.labelLarge)
+        val detail = if (showProbability) {
+            stringResource(R.string.forecast_audit_band_row,
+                Formatters.percent(group.averageTopProbability, languageTag), Formatters.integer(group.correct, languageTag),
+                Formatters.integer(group.count, languageTag), Formatters.percent(group.accuracy, languageTag))
+        } else {
+            stringResource(R.string.forecast_audit_row, Formatters.integer(group.correct, languageTag),
+                Formatters.integer(group.count, languageTag), Formatters.percent(group.accuracy, languageTag))
+        }
+        Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 

@@ -328,7 +328,7 @@ data class PredictionResult(
     }
 }
 
-/** Summary of the calibration that was actually applied, with its measured effect. */
+/** Calibration metadata and raw model output; method NONE means no calibration was applied. */
 data class CalibrationInfo(
     val method: String,
     val temperature: Double,

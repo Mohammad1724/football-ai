@@ -653,7 +653,7 @@
     <string name="calibration_holdout">خطای پیش از سنجش %1$s ← پس از آن %2$s</string>
     <string name="calibration_ninety_note">این درصدها برای ۹۰ دقیقهٔ بازی است؛ وقت اضافه و پنالتی حساب نمی‌شود.</string>
     <string name="calibration_study_title">مطالعهٔ برون‌نمونه‌ای کالیبراسیون</string>
-    <string name="calibration_study_hint">مقایسهٔ پیش و پس از کالیبراسیون، فقط روی پیش‌بینی‌های حل‌شده و با پنجرهٔ گسترده</string>
+    <string name="calibration_study_hint">مقایسهٔ احتمال خام مدل پیش و پس از کالیبراسیون، فقط روی نمونه‌های معتبر پیش‌بازی. اثر ترکیب با بازار جداگانه سنجیده می‌شود.</string>
     <string name="calibration_study_empty">برای این دستهٔ رقابت هنوز نمونهٔ کافی وجود ندارد</string>
     <string name="calibration_gain">کاهش خطای لگاریتمی: %1$s</string>
     <string name="class_club_league">لیگ باشگاهی</string>
@@ -736,7 +736,7 @@
     <string name="performance_intro_body">«عملکرد» یعنی چقدر می‌توان به پیش‌بینی‌های این برنامه اعتماد کرد. سه بخش دارد. پیش‌بینی‌های ذخیره‌شده: از میان پیش‌بینی‌هایی که بازی‌شان تمام شده، چندتا درست بوده و خطای امتیازدهی چقدر است. کالیبراسیون: آیا احتمال‌هایی که مدل می‌دهد با دفعات واقعی وقوعشان جور درمی‌آید یا نه. آزمون بازگشتی: همان مدل روی بازی‌های قدیمی‌تری که با آن‌ها آموزش ندیده اجرا می‌شود؛ تنها سنجه صادقانه برای دقت آینده.</string>
     <string name="performance_action_hint">اینجا چه کار کنید: فهرست را به پایین بکشید (یا دکمه به‌روزرسانی را بزنید) تا آمار پیش‌بینی‌های ذخیره‌شده دوباره حساب شود؛ دکمه پخش را بزنید تا مدل روی بازی‌های تاریخی موجود اجرا شود. هیچ‌چیز در این صفحه پیش‌بینی‌ها را عوض نمی‌کند، فقط آن‌ها را اندازه می‌گیرد.</string>
     <string name="performance_reading_title">این اعداد را چطور بخوانم؟</string>
-    <string name="performance_reading_body">«دقت» سهم انتخاب‌های درست است؛ با سه حالت (برد، تساوی، باخت) حدس زدن حدود ۳۳٪ می‌شود. «Brier» و «Log-loss» خطا را می‌سنجند و کمتر بودنشان بهتر است. به‌عنوان قاعده سرانگشتی برای فوتبال سه‌حالته، Brier حدود ۰٫۵۵ نتیجه یک مدل آگاه است و بالاتر از ۰٫۶۵ یعنی مدل تقریباً هم‌سطح شانس است. درصدها فقط وقتی نمایش داده می‌شوند که تعداد کافی پیش‌بینی داوری شده باشد؛ نمونه کم، به جای عدد، همان را می‌گوید.</string>
+    <string name="performance_reading_body">«دقت» سهم انتخاب‌های درست است؛ روش‌های ساده مثل انتخاب همیشگی میزبان هم باید برای مقایسه بررسی شوند. Brier و Log-loss علاوه بر نتیجه، کیفیت احتمال‌ها را می‌سنجند؛ عدد کمتر بهتر است. به تعداد نمونه و بازه زمانی هم توجه کنید.</string>
     <string name="predictions_intro_short">فقط بازی‌هایی که برایشان پیش‌بینی ذخیره شده است</string>
     <string name="refresh_failed_keep_stored">به‌روزرسانی از منبع انجام نشد. همین داده‌هایی که ذخیره شده است در ادامه نمایش داده می‌شود.</string>
     <string name="live_tracking_unsupported_source">این منبع کل برنامهٔ یک روز را منتشر می‌کند، پس یک بازی تنها در حین اجرا قابل به‌روزرسانی نیست. نتیجهٔ اینجا همان چیزی است که آخرین همگام‌سازی دریافت کرده است.</string>
@@ -844,4 +844,19 @@
     <string name="prediction_evaluated_score_title">نتیجه‌ای که با آن ارزیابی شد</string>
     <string name="prediction_evaluated_goals">%1$s گل</string>
     <string name="prediction_score_changed">نتیجهٔ فعلی مسابقه با نتیجهٔ ثبت‌شده برای این ارزیابی متفاوت است. مقایسهٔ بالا بر اساس نتیجهٔ ثبت‌شده است.</string>
+    <string name="forecast_audit_title">بررسی خطاهای پیش‌بینی</string>
+    <string name="forecast_audit_scope">حداکثر ۵۰۰ پیش‌بینی معتبر اخیر: اولین پیش‌بازی هر مسابقه در نسخه فعلی مدل. پیش‌بینی زنده، نتیجه اصلاح‌شده یا تأییدنشده و رکورد نامعتبر کنار گذاشته می‌شوند؛ بنابراین تعداد می‌تواند با فهرست تاریخچه فرق کند.</string>
+    <string name="forecast_audit_bands">بر اساس بیشترین احتمال</string>
+    <string name="forecast_audit_bands_help">میانگین احتمالی را که مدل داده با تعداد وقوع واقعی همان انتخاب مقایسه کنید.</string>
+    <string name="forecast_band_below_50">کمتر از ۵۰٪</string>
+    <string name="forecast_band_50_70">از ۵۰٪ تا کمتر از ۷۰٪</string>
+    <string name="forecast_band_above_70">۷۰٪ و بالاتر</string>
+    <string name="forecast_audit_lead">بر اساس زمان ثبت پیش از شروع</string>
+    <string name="forecast_lead_under_day">کمتر از یک روز</string>
+    <string name="forecast_lead_one_three">یک تا سه روز</string>
+    <string name="forecast_lead_over_three">بیش از سه روز</string>
+    <string name="forecast_audit_leagues">بر اساس رقابت (پنج نمونه بزرگ‌تر)</string>
+    <string name="forecast_audit_row">درست: %1$s از %2$s (%3$s)</string>
+    <string name="forecast_audit_band_row">میانگین احتمال: %1$s · درست: %2$s از %3$s (%4$s)</string>
+    <string name="forecast_audit_caution">در نمونه‌های کوچک چند نتیجه می‌تواند درصد را زیاد تغییر دهد؛ تفاوت این گروه‌ها به‌تنهایی علت خطا را ثابت نمی‌کند.</string>
 </resources>

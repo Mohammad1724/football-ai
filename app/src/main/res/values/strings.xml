@@ -653,7 +653,7 @@
     <string name="calibration_holdout">Error before %1$s ← after %2$s</string>
     <string name="calibration_ninety_note">These percentages cover 90 minutes; extra time and penalties do not count.</string>
     <string name="calibration_study_title">Out-of-sample calibration study</string>
-    <string name="calibration_study_hint">Before and after calibration on resolved forecasts only, expanding window</string>
+    <string name="calibration_study_hint">Comparison of raw model probabilities before and after calibration, on eligible pre-match samples. Market blending is assessed separately.</string>
     <string name="calibration_study_empty">Not enough resolved forecasts for this class yet</string>
     <string name="calibration_gain">Log-loss reduction: %1$s</string>
     <string name="class_club_league">Club league</string>
@@ -737,7 +737,7 @@
     <string name="performance_intro_body">Performance is the answer to \"how much can I trust these predictions?\". It has three parts. Stored predictions: of the forecasts whose matches have finished, how many were right, and how large the scoring error is. Calibration: whether the probabilities the model prints match how often they actually happen. Backtest: the same model replayed over older fixtures it was not fitted on, which is the only honest measure of future accuracy.</string>
     <string name="performance_action_hint">What to do here: pull the list down (or tap refresh) to recompute the stored-prediction statistics; tap the play button to replay the model over the historical fixtures you already have. Nothing here changes a prediction — it only measures them.</string>
     <string name="performance_reading_title">How to read the numbers</string>
-    <string name="performance_reading_body">Accuracy is the share of correct outright picks; with three outcomes (home, draw, away) guessing scores about one in three, and the model should beat that clearly. Brier and log-loss measure error, and lower is better. As a rule of thumb for three-outcome football, a Brier score near 0.55 is what a well-informed model produces, and anything above 0.65 means the model is barely better than chance. Percentages are only shown when enough forecasts have been graded; a small sample says so instead of a number.</string>
+    <string name="performance_reading_body">Accuracy is the share of correct leading outcomes; compare it with simple baselines such as always choosing the home team. Brier and log loss also assess the probabilities: lower is better. Consider the sample size and period.</string>
     <string name="predictions_intro_short">Only fixtures that already have a saved prediction</string>
     <string name="refresh_failed_keep_stored">Could not refresh from the source. The data already stored is shown below.</string>
     <string name="live_tracking_unsupported_source">This source publishes whole matchdays, so a single match cannot be updated while it is being played. The score here is what the last sync received.</string>
@@ -845,4 +845,19 @@
     <string name="prediction_evaluated_score_title">Score used for this evaluation</string>
     <string name="prediction_evaluated_goals">%1$s goals</string>
     <string name="prediction_score_changed">The current match score differs from the score used for this evaluation. The comparison above uses the saved evaluation.</string>
+    <string name="forecast_audit_title">Understand forecast errors</string>
+    <string name="forecast_audit_scope">Up to 500 recent, valid first pre-match forecasts from the current model. Live forecasts, corrected or unconfirmed scores and invalid records are excluded; this can differ from the history list.</string>
+    <string name="forecast_audit_bands">By highest forecast probability</string>
+    <string name="forecast_audit_bands_help">Compare the average predicted chance with how often that outcome actually happened.</string>
+    <string name="forecast_band_below_50">Below 50%</string>
+    <string name="forecast_band_50_70">50% to below 70%</string>
+    <string name="forecast_band_above_70">70% or higher</string>
+    <string name="forecast_audit_lead">By time before kickoff</string>
+    <string name="forecast_lead_under_day">Less than one day</string>
+    <string name="forecast_lead_one_three">One to three days</string>
+    <string name="forecast_lead_over_three">More than three days</string>
+    <string name="forecast_audit_leagues">By competition (five largest samples)</string>
+    <string name="forecast_audit_row">Correct: %1$s of %2$s (%3$s)</string>
+    <string name="forecast_audit_band_row">Average chance: %1$s · Correct: %2$s of %3$s (%4$s)</string>
+    <string name="forecast_audit_caution">Small groups can change greatly with a few results. Differences do not by themselves establish a cause.</string>
 </resources>
