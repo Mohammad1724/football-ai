@@ -130,14 +130,26 @@ class PerformanceRepository(
                 oddsHome = row.homeOdds,
                 oddsDraw = row.drawOdds,
                 oddsAway = row.awayOdds,
+                homeXg = row.homeXg,
+                awayXg = row.awayXg,
             )
         }
 
+        // Both arms use the production xG blend: the A/B here is the context
+        // features, and the backtest must measure the model as it actually runs.
         val report = Backtester(
-            BacktestConfig(refitEveryMatches = refitEvery, contextFeaturesEnabled = true),
+            BacktestConfig(
+                refitEveryMatches = refitEvery,
+                contextFeaturesEnabled = true,
+                xgBlendWeight = RatingsRepository.PRODUCTION_XG_BLEND_WEIGHT,
+            ),
         ).run(records)
         val baselineReport = Backtester(
-            BacktestConfig(refitEveryMatches = refitEvery, contextFeaturesEnabled = false),
+            BacktestConfig(
+                refitEveryMatches = refitEvery,
+                contextFeaturesEnabled = false,
+                xgBlendWeight = RatingsRepository.PRODUCTION_XG_BLEND_WEIGHT,
+            ),
         ).run(records)
         if (report.matchesEvaluated == 0) {
             return@withContext Outcome.Failure(

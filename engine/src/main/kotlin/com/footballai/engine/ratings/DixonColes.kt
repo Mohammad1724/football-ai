@@ -14,6 +14,14 @@ data class RatingMatch(
     val kickoffEpochMs: Long,
     /** Sample weight, normally derived from the time decay of the match. */
     val weight: Double = 1.0,
+    /**
+     * Expected goals for/against, when a provider supplies them. Only consumed when
+     * [DixonColesConfig.xgBlendWeight] is above zero — by the Dixon-Coles fit and by
+     * the league baseline, which averages the same blended evidence. Every other
+     * consumer (Elo, form, context features) keeps using actual goals.
+     */
+    val homeXg: Double? = null,
+    val awayXg: Double? = null,
 ) {
     init {
         require(homeGoals >= 0 && awayGoals >= 0) { "Goals must be non-negative" }
@@ -56,6 +64,23 @@ data class DixonColesConfig(
      * result — it only stops one afternoon from outweighing a season.
      */
     val maxGoalsPerTeam: Int = 7,
+    /**
+     * How much of the fit's evidence comes from expected goals rather than actual goals,
+     * for matches that carry xG: 0.0 fits goals only (the historical behaviour, and the
+     * default everywhere), 1.0 fits xG only, values in between optimise the weighted sum
+     * of the two Poisson log-likelihoods.
+     *
+     * The xG term treats a match's xG as a fractional Poisson count
+     * (`xg * ln(lambda) - lambda`) with no Dixon-Coles tau correction — tau is only
+     * defined for the four integer low-score cells, and inventing a fractional analogue
+     * would be modelling fiction. The goals term keeps its tau, scaled by `1 - weight`,
+     * so at weight 0 the objective is exactly the pre-xG one.
+     *
+     * Leakage discipline is inherited from the caller: a match's xG enters the fit only
+     * through the same walk-forward history as its goals, i.e. only after the match was
+     * played. xG is a post-match measurement of that match, never of a future one.
+     */
+    val xgBlendWeight: Double = 0.0,
 )
 
 /** Fitted parameters of a Dixon-Coles model for one competition. */
@@ -125,6 +150,10 @@ object DixonColesFitter {
         val homeGoals = IntArray(usable.size)
         val awayGoals = IntArray(usable.size)
         val weights = DoubleArray(usable.size)
+        // NaN = this match carries no usable xG; its evidence stays goals-only.
+        val homeXg = DoubleArray(usable.size) { Double.NaN }
+        val awayXg = DoubleArray(usable.size) { Double.NaN }
+        val xgWeight = config.xgBlendWeight.coerceIn(0.0, 1.0)
 
         var weightSum = 0.0
         var weightedHomeGoals = 0.0
@@ -140,8 +169,21 @@ object DixonColesFitter {
             awayGoals[i] = match.awayGoals.coerceAtMost(config.maxGoalsPerTeam)
             weights[i] = match.weight
             weightSum += match.weight
-            weightedHomeGoals += match.weight * match.homeGoals
-            weightedAwayGoals += match.weight * match.awayGoals
+            val hxg = match.homeXg
+            val axg = match.awayXg
+            if (hxg != null && axg != null && hxg.isFinite() && axg.isFinite()) {
+                homeXg[i] = hxg.coerceIn(0.0, config.maxGoalsPerTeam.toDouble())
+                awayXg[i] = axg.coerceIn(0.0, config.maxGoalsPerTeam.toDouble())
+            }
+            // The league bases are averages of the same blended evidence the likelihood
+            // sees, so at blend weight w a base is (1-w)*goals + w*xG per match that has
+            // xG, and plain goals for the rest. At w = 0 this is exactly the old average.
+            val effHome = if (homeXg[i].isNaN()) match.homeGoals.toDouble()
+                else (1.0 - xgWeight) * match.homeGoals + xgWeight * homeXg[i]
+            val effAway = if (awayXg[i].isNaN()) match.awayGoals.toDouble()
+                else (1.0 - xgWeight) * match.awayGoals + xgWeight * awayXg[i]
+            weightedHomeGoals += match.weight * effHome
+            weightedAwayGoals += match.weight * effAway
             matchesByTeam[h]++
             matchesByTeam[a]++
         }
@@ -155,7 +197,7 @@ object DixonColesFitter {
         val beta = DoubleArray(teamCount)
         var rho = 0.0
 
-        var currentObjective = objective(alpha, beta, rho, homeIndex, awayIndex, homeGoals, awayGoals, weights, homeBase, awayBase, config)
+        var currentObjective = objective(alpha, beta, rho, homeIndex, awayIndex, homeGoals, awayGoals, weights, homeBase, awayBase, config, homeXg, awayXg)
         var step = config.initialLearningRate
         var iterations = 0
         var converged = false
@@ -212,14 +254,24 @@ object DixonColesFitter {
                 val dLogTauDLambdaAway = if (useTau) dTauDLambdaAway / safeTau else 0.0
                 val dLogTauDRho = if (useTau) dTauDRho / safeTau else 0.0
 
-                val gradHome = w * ((x - lambdaHome) + lambdaHome * dLogTauDLambdaHome)
-                val gradAway = w * ((y - lambdaAway) + lambdaAway * dLogTauDLambdaAway)
+                // Blended evidence: the goals likelihood (with tau) is scaled by
+                // (1 - xgWeight) and the fractional-xG Poisson term by xgWeight, for
+                // matches that carry xG. At xgWeight = 0, or without xG, these are the
+                // pre-xG gradients bit for bit.
+                val hasXg = !homeXg[i].isNaN()
+                val goalsTerm = if (hasXg) 1.0 - xgWeight else 1.0
+                var gradHome = w * goalsTerm * ((x - lambdaHome) + lambdaHome * dLogTauDLambdaHome)
+                var gradAway = w * goalsTerm * ((y - lambdaAway) + lambdaAway * dLogTauDLambdaAway)
+                if (hasXg && xgWeight > 0.0) {
+                    gradHome += w * xgWeight * (homeXg[i] - lambdaHome)
+                    gradAway += w * xgWeight * (awayXg[i] - lambdaAway)
+                }
 
                 gradAlpha[h] += gradHome
                 gradBeta[a] += gradHome
                 gradAlpha[a] += gradAway
                 gradBeta[h] += gradAway
-                gradRho += w * dLogTauDRho
+                gradRho += w * goalsTerm * dLogTauDRho
             }
 
             for (t in 0 until teamCount) {
@@ -238,6 +290,7 @@ object DixonColesFitter {
             val candidateObjective = objective(
                 candidateAlpha, candidateBeta, candidateRho,
                 homeIndex, awayIndex, homeGoals, awayGoals, weights, homeBase, awayBase, config,
+                homeXg, awayXg,
             )
 
             if (candidateObjective > currentObjective) {
@@ -315,7 +368,10 @@ object DixonColesFitter {
         homeBase: Double,
         awayBase: Double,
         config: DixonColesConfig,
+        homeXg: DoubleArray,
+        awayXg: DoubleArray,
     ): Double {
+        val xgWeight = config.xgBlendWeight.coerceIn(0.0, 1.0)
         var total = 0.0
         for (i in homeGoals.indices) {
             val h = homeIndex[i]
@@ -327,7 +383,18 @@ object DixonColesFitter {
             val tau = tau(x, y, lambdaHome, lambdaAway, rho)
             val safeTau = if (tau > config.tauFloor) tau else 1.0
             val logTau = if (tau > config.tauFloor) ln(safeTau) else 0.0
-            total += weights[i] * (logTau + x * ln(lambdaHome) - lambdaHome + y * ln(lambdaAway) - lambdaAway)
+            val goalsLogLik = logTau + x * ln(lambdaHome) - lambdaHome + y * ln(lambdaAway) - lambdaAway
+            var contribution = goalsLogLik
+            if (!homeXg[i].isNaN()) {
+                contribution = (1.0 - xgWeight) * goalsLogLik
+                if (xgWeight > 0.0) {
+                    contribution += xgWeight * (
+                        homeXg[i] * ln(lambdaHome) - lambdaHome +
+                            awayXg[i] * ln(lambdaAway) - lambdaAway
+                        )
+                }
+            }
+            total += weights[i] * contribution
         }
         var penalty = 0.0
         for (v in alpha) penalty += v * v

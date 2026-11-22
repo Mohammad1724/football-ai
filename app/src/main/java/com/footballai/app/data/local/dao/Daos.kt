@@ -612,6 +612,10 @@ interface HistoricalDao {
     @Query("SELECT * FROM historical_matches WHERE source = :source AND competitionId = :competitionId AND kickoffEpochMs <= :asOfEpochMs ORDER BY kickoffEpochMs ASC")
     suspend fun forCompetition(source: String, competitionId: String, asOfEpochMs: Long): List<HistoricalMatchEntity>
 
+    /** Fills the xG columns of one stored history row from the xG mirror. */
+    @Query("UPDATE historical_matches SET homeXg = :homeXg, awayXg = :awayXg WHERE id = :id")
+    suspend fun updateXg(id: String, homeXg: Double, awayXg: Double)
+
     @Query("SELECT * FROM historical_matches WHERE source = :source AND kickoffEpochMs <= :asOfEpochMs ORDER BY kickoffEpochMs ASC")
     suspend fun forSource(source: String, asOfEpochMs: Long): List<HistoricalMatchEntity>
 

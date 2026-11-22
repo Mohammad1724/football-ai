@@ -31,6 +31,9 @@ data class HistoricalRecord(
     val oddsHome: Double? = null,
     val oddsDraw: Double? = null,
     val oddsAway: Double? = null,
+    /** Post-match expected goals, when the data source carries them. See [BacktestConfig.xgBlendWeight]. */
+    val homeXg: Double? = null,
+    val awayXg: Double? = null,
 ) {
     init {
         require(homeGoals >= 0 && awayGoals >= 0) { "Goals must be non-negative" }
@@ -56,6 +59,13 @@ data class BacktestConfig(
     val binCount: Int = 10,
     /** Enables the same recent-form, venue and congestion features used in production. */
     val contextFeaturesEnabled: Boolean = true,
+    /**
+     * Blend of xG into the Dixon-Coles strength fit (0.0 = goals only, the production
+     * behaviour). A record's xG joins the rating history at the same moment its goals
+     * do — after the match was played and the availability delay has passed — so the
+     * walk-forward leakage controls apply to xG exactly as they do to goals.
+     */
+    val xgBlendWeight: Double = 0.0,
     /** Conservative result availability when historic completion timestamps are absent. */
     val resultAvailabilityDelayMinutes: Int = 120,
 )
@@ -177,6 +187,8 @@ class Backtester(private val config: BacktestConfig = BacktestConfig()) {
                         homeGoals = record.homeGoals,
                         awayGoals = record.awayGoals,
                         kickoffEpochMs = record.kickoffEpochMs,
+                        homeXg = record.homeXg,
+                        awayXg = record.awayXg,
                     ),
                 )
                 elo.update(
@@ -295,7 +307,10 @@ class Backtester(private val config: BacktestConfig = BacktestConfig()) {
         if (decayed.size < config.minPriorMatchesForCompetition) return null
         return DixonColesFitter.fit(
             decayed,
-            com.footballai.engine.ratings.DixonColesConfig(maxIterations = config.dixonColesMaxIterations),
+            com.footballai.engine.ratings.DixonColesConfig(
+                maxIterations = config.dixonColesMaxIterations,
+                xgBlendWeight = config.xgBlendWeight,
+            ),
         )
     }
 
@@ -305,13 +320,28 @@ class Backtester(private val config: BacktestConfig = BacktestConfig()) {
         var homeGoals = 0.0
         var awayGoals = 0.0
         var count = 0
+        val xgWeight = config.xgBlendWeight.coerceIn(0.0, 1.0)
         for (match in prior) {
             val ageMs = asOfEpochMs - match.kickoffEpochMs
             if (ageMs <= 0L || ageMs > windowMs) continue
             val weight = EloRatingSystem.timeDecayWeight(ageMs / 86_400_000.0, config.halfLifeDays)
             weightSum += weight
-            homeGoals += weight * match.homeGoals
-            awayGoals += weight * match.awayGoals
+            // The baseline is the league's average of the same blended evidence the
+            // strengths are fitted on; with xgWeight = 0 this is the old goals average.
+            val hxg = match.homeXg
+            val axg = match.awayXg
+            val effHome = if (xgWeight > 0.0 && hxg != null && hxg.isFinite()) {
+                (1.0 - xgWeight) * match.homeGoals + xgWeight * hxg
+            } else {
+                match.homeGoals.toDouble()
+            }
+            val effAway = if (xgWeight > 0.0 && axg != null && axg.isFinite()) {
+                (1.0 - xgWeight) * match.awayGoals + xgWeight * axg
+            } else {
+                match.awayGoals.toDouble()
+            }
+            homeGoals += weight * effHome
+            awayGoals += weight * effAway
             count++
         }
         if (weightSum <= 0.0) return LeagueBaseline.FALLBACK

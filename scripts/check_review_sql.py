@@ -93,6 +93,20 @@ class MigrationTests(unittest.TestCase):
         db.execute("DELETE FROM predictions WHERE id = 'p'")
         self.assertEqual(db.execute('SELECT COUNT(*) FROM late_forecasts').fetchone()[0], 0)
 
+    def test_xg_migration_is_additive_and_nullable(self):
+        db = sqlite3.connect(':memory:')
+        db.execute('CREATE TABLE historical_matches(id TEXT NOT NULL PRIMARY KEY, homeGoals INTEGER NOT NULL)')
+        db.execute("INSERT INTO historical_matches VALUES ('m', 2)")
+        code = (LOCAL / 'HistoryMigration.kt').read_text().split('val MIGRATION_6_7', 1)[1]
+        statements = re.findall(r'db.execSQL\("([^"\n]+)"\)', code)
+        self.assertEqual(len(statements), 2)
+        for sql in statements:
+            db.execute(sql)
+        # Existing rows keep their data and read NULL (goals-only evidence), never 0.
+        self.assertEqual(db.execute('SELECT homeGoals, homeXg, awayXg FROM historical_matches').fetchone(), (2, None, None))
+        db.execute("UPDATE historical_matches SET homeXg = 1.85, awayXg = 0.42 WHERE id = 'm'")
+        self.assertEqual(db.execute('SELECT homeXg, awayXg FROM historical_matches').fetchone(), (1.85, 0.42))
+
     def test_stats_use_one_valid_prematch_per_match_and_current_version(self):
         db = sqlite3.connect(':memory:')
         db.executescript('''

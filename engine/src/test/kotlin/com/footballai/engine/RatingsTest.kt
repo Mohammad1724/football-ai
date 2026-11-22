@@ -122,6 +122,42 @@ class RatingsTest {
     }
 
     @Test
+    fun `rating book baseline blends xG when the fit does`() {
+        val kickoff = 1_600_000_000_000L
+        val book = RatingBook(
+            RatingBookConfig(
+                dixonColes = com.footballai.engine.ratings.DixonColesConfig(xgBlendWeight = 0.5),
+            ),
+        )
+        repeat(10) { index ->
+            book.add(
+                "L1",
+                RatingMatch("A", "B", 2, 1, kickoff + index * 86_400_000L, homeXg = 1.0, awayXg = 3.0),
+            )
+        }
+        val baseline = book.baseline("L1", kickoff + 10L * 86_400_000L)
+        // (1-w)*goals + w*xG per match: home 0.5*2 + 0.5*1.0, away 0.5*1 + 0.5*3.0.
+        assertEquals(1.5, baseline.averageHomeGoals, 0.001)
+        assertEquals(2.0, baseline.averageAwayGoals, 0.001)
+    }
+
+    @Test
+    fun `rating book baseline ignores the blend for matches without xG`() {
+        val kickoff = 1_600_000_000_000L
+        val book = RatingBook(
+            RatingBookConfig(
+                dixonColes = com.footballai.engine.ratings.DixonColesConfig(xgBlendWeight = 0.5),
+            ),
+        )
+        repeat(10) { index ->
+            book.add("L1", RatingMatch("A", "B", 2, 1, kickoff + index * 86_400_000L))
+        }
+        val baseline = book.baseline("L1", kickoff + 10L * 86_400_000L)
+        assertEquals(2.0, baseline.averageHomeGoals, 0.001)
+        assertEquals(1.0, baseline.averageAwayGoals, 0.001)
+    }
+
+    @Test
     fun `rating book falls back when there is no history`() {
         val book = RatingBook()
         val baseline = book.baseline("missing", 1_600_000_000_000L)

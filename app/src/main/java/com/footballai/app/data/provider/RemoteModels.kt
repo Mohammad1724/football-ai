@@ -107,6 +107,19 @@ data class RemoteHistoryMatch(
     val awayOdds: Double?,
 )
 
+/**
+ * One row of the football-ai-data xG mirror: post-match expected goals for a
+ * played match, keyed by calendar date and football-data.co.uk team names so
+ * it can be joined onto [RemoteHistoryMatch]-derived rows.
+ */
+data class RemoteMatchXg(
+    val date: java.time.LocalDate,
+    val homeTeamName: String,
+    val awayTeamName: String,
+    val homeXg: Double,
+    val awayXg: Double,
+)
+
 /** Contract every data provider implements; new sources only need this interface. */
 interface FootballDataProvider {
     val info: ProviderInfo
