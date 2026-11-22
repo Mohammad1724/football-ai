@@ -1,0 +1,701 @@
+package com.footballai.app.ui.screens
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.footballai.app.data.repository.CalibrationStudyResult
+import com.footballai.app.ui.competitionClassLabel
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
+import com.footballai.app.R
+import com.footballai.app.core.Formatters
+import com.footballai.app.domain.model.CompetitionPerformance
+import com.footballai.app.domain.model.PerformanceReport
+import com.footballai.app.ui.LocalAppContainer
+import com.footballai.app.ui.LocalLanguageTag
+import com.footballai.app.ui.localizedString
+import com.footballai.app.ui.components.CalibrationChart
+import com.footballai.app.ui.components.EmptyState
+import com.footballai.app.ui.components.ErrorState
+import com.footballai.app.ui.components.InfoCard
+import com.footballai.app.ui.components.LoadingState
+import com.footballai.app.ui.components.SwipeRefresh
+import com.footballai.app.ui.components.SectionHeader
+import com.footballai.app.ui.components.StatusChip
+import com.footballai.app.ui.errorLabel
+import com.footballai.app.ui.theme.FootballAiThemeExtra
+import com.footballai.app.ui.viewmodel.CALIBRATION_CLASSES
+import com.footballai.app.ui.viewmodel.PerformanceViewModel
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun PerformanceScreen() {
+    val container = LocalAppContainer.current
+    val viewModel: PerformanceViewModel = viewModel(
+        factory = viewModelFactory { initializer { PerformanceViewModel(container) } },
+    )
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    val languageTag = LocalLanguageTag.current
+
+    Scaffold(
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = { Text(stringResource(R.string.title_performance)) },
+                actions = {
+                    IconButton(onClick = { viewModel.runBacktest() }) {
+                        Icon(Icons.Default.PlayArrow, contentDescription = stringResource(R.string.action_run_backtest))
+                    }
+                    IconButton(onClick = { viewModel.refreshStoredStats() }) {
+                        Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.action_refresh))
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
+            )
+        },
+    ) { padding ->
+        Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+            if (state.isLoading) {
+                LoadingState()
+                return@Column
+            }
+            // Pull down to recompute the stored-prediction statistics: the same numbers
+            // the refresh button produces, without hunting for the icon.
+            SwipeRefresh(
+                isRefreshing = state.statsRefreshing,
+                onRefresh = viewModel::refreshStoredStats,
+                modifier = Modifier.weight(1f),
+            ) {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    // The floating pill bar is drawn by the shell; this keeps the last row
+                    // off it and gives the list somewhere to end.
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 24.dp),
+                ) {
+                    // The numbers come first. They are the reason the screen exists; the
+                    // paragraphs that explain them follow, so they stop burying the answer.
+                    item {
+                        SectionHeader(
+                            title = stringResource(R.string.section_stored_predictions),
+                            subtitle = stringResource(R.string.section_stored_predictions_subtitle),
+                        )
+                    }
+                    item {
+                        StoredStatsCard(
+                            resolved = state.storedStats.resolved,
+                            correct = state.storedStats.correct,
+                            brier = state.storedStats.brier,
+                            logLoss = state.storedStats.logLoss,
+                            accuracy = state.storedStats.accuracy,
+                            languageTag = languageTag,
+                        )
+                    }
+                    if (state.storedStats.resolved > 0) {
+                        item { StoredForecastAuditCard(state.storedStats.audit, languageTag) }
+                    }
+                    item { PairedForecastCard(state.storedStats.paired, state.storedStats.lateSnapshots, languageTag) }
+                    item {
+                        InfoCard(title = stringResource(R.string.performance_reading_title), body = stringResource(R.string.performance_reading_body))
+                    }
+                    item {
+                        Text(
+                            text = stringResource(R.string.performance_action_hint),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+                        )
+                    }
+
+                    item {
+                        SectionHeader(
+                            title = stringResource(R.string.calibration_study_title),
+                            subtitle = stringResource(R.string.calibration_study_hint),
+                        )
+                    }
+                    item {
+                        CalibrationStudyCard(
+                            studyClass = state.studyClass,
+                            study = state.study,
+                            fittedSamples = state.fittedSamples,
+                            loading = state.studyLoading,
+                            languageTag = languageTag,
+                            onSelectClass = viewModel::selectStudyClass,
+                        )
+                    }
+
+                    item {
+                        SectionHeader(
+                            title = stringResource(R.string.section_backtest),
+                            subtitle = stringResource(R.string.section_backtest_subtitle),
+                        )
+                    }
+                    if (state.sources.isEmpty()) {
+                        item {
+                            EmptyState(
+                                title = stringResource(R.string.empty_backtest_title),
+                                message = stringResource(R.string.empty_backtest_message),
+                            )
+                        }
+                    } else {
+                        item {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .horizontalScroll(rememberScrollState())
+                                    .padding(horizontal = 16.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                state.sources.forEach { source ->
+                                    FilterChip(
+                                        selected = state.selectedSource == source.source,
+                                        onClick = { viewModel.selectSource(source.source) },
+                                        label = {
+                                            Text(
+                                                "${source.displayName} (${Formatters.integer(source.matches, languageTag)})",
+                                            )
+                                        },
+                                    )
+                                }
+                            }
+                        }
+                        item {
+                            if (state.isRunning) {
+                                LoadingState()
+                            } else {
+                                state.lastError?.let { error ->
+                                    ErrorState(message = errorLabel(error), onRetry = { viewModel.runBacktest() })
+                                }
+                            }
+                        }
+                        state.report?.let { report ->
+                            item { BacktestSummary(report = report, languageTag = languageTag) }
+                            if (report.baselineMatchesEvaluated > 0) {
+                                item {
+                                    InfoCard(
+                                        title = stringResource(R.string.context_comparison_title),
+                                        body = stringResource(
+                                            R.string.context_comparison_body,
+                                            Formatters.decimal(report.baselineBrier, languageTag, 4),
+                                            Formatters.decimal(report.brier, languageTag, 4),
+                                            Formatters.decimal(report.baselineLogLoss, languageTag, 3),
+                                            Formatters.decimal(report.logLoss, languageTag, 3),
+                                            Formatters.percent(report.baselineAccuracy, languageTag),
+                                            Formatters.percent(report.accuracy, languageTag),
+                                        ),
+                                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                    )
+                                }
+                            }
+                            item {
+                                SectionHeader(title = stringResource(R.string.section_calibration))
+                            }
+                            item {
+                                Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+                                    CalibrationChart(points = report.calibration)
+                                    Text(
+                                        text = stringResource(
+                                            R.string.calibration_hint,
+                                            Formatters.decimal(report.expectedCalibrationError, languageTag, 3),
+                                        ),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+                            item {
+                                SectionHeader(title = stringResource(R.string.section_by_competition))
+                                val leagues = report.byCompetition.values.toList()
+                                val judged = leagues.filter { it.matches >= MIN_LEAGUE_SAMPLE }
+                                val better = judged.count { it.beatsBaseRate }
+                                Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+                                    Text(
+                                        text = stringResource(R.string.competition_table_hint),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                    if (judged.isNotEmpty()) {
+                                        Spacer(Modifier.height(6.dp))
+                                        Text(
+                                            text = localizedString(
+                                                R.string.competition_table_summary,
+                                                better,
+                                                judged.size,
+                                            ),
+                                            style = MaterialTheme.typography.labelMedium,
+                                        )
+                                    }
+                                }
+                            }
+                            items(rankedCompetitions(report.byCompetition.values.toList())) { competition ->
+                                CompetitionPerformanceRow(competition = competition, languageTag = languageTag)
+                            }
+                        }
+                    }
+
+                    item {
+                        Spacer(Modifier.height(12.dp))
+                        // What the screen measures, kept as context after the numbers.
+                        InfoCard(
+                            title = stringResource(R.string.performance_intro_title),
+                            body = stringResource(R.string.performance_intro_body),
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        )
+                    }
+                    item {
+                        Spacer(Modifier.height(8.dp))
+                        InfoCard(
+                            title = stringResource(R.string.honesty_title),
+                            body = stringResource(R.string.honesty_body),
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        )
+                    }
+                    item { Spacer(Modifier.height(24.dp)) }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Shows the measured, out-of-sample effect of calibration for one competition class,
+ * plus the sample count actually used by the on-device fitter. A class with too few
+ * resolved forecasts says so instead of showing a number.
+ */
+@Composable
+private fun CalibrationStudyCard(
+    studyClass: String,
+    study: CalibrationStudyResult?,
+    fittedSamples: Int,
+    loading: Boolean,
+    languageTag: String,
+    onSelectClass: (String) -> Unit,
+) {
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            CALIBRATION_CLASSES.forEach { option ->
+                FilterChip(
+                    selected = option == studyClass,
+                    onClick = { onSelectClass(option) },
+                    label = { Text(competitionClassLabel(option)) },
+                )
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        ) {
+            Column(modifier = Modifier.padding(14.dp)) {
+                when {
+                    loading -> Text(
+                        text = "…",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    study == null || study.sampleCount == 0 || study.note == "NOT_ENOUGH_SAMPLES" -> Text(
+                        text = stringResource(R.string.calibration_study_empty),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    else -> {
+                        Text(
+                            text = localizedString(R.string.calibration_fitted, study.sampleCount),
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = stringResource(R.string.calibration_gain, Formatters.decimal(study.logLossGain, languageTag, 4)),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = stringResource(
+                                R.string.calibration_holdout,
+                                Formatters.decimal(study.rawLogLoss, languageTag, 4),
+                                Formatters.decimal(study.calibratedLogLoss, languageTag, 4),
+                            ),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        if (!study.adopted) {
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                text = stringResource(R.string.calibration_not_adopted),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = localizedString(R.string.calibration_local_samples, fittedSamples),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun StoredStatsCard(
+    resolved: Int,
+    correct: Int,
+    brier: Double,
+    logLoss: Double,
+    accuracy: Double,
+    languageTag: String,
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            if (resolved == 0) {
+                Text(
+                    text = stringResource(R.string.no_resolved_predictions),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                MetricGrid(
+                    metrics = listOf(
+                        stringResource(R.string.metric_resolved) to Formatters.integer(resolved, languageTag),
+                        stringResource(R.string.metric_accuracy) to Formatters.percent(accuracy, languageTag),
+                        stringResource(R.string.metric_brier) to Formatters.decimal(brier, languageTag, 3),
+                        stringResource(R.string.metric_log_loss) to Formatters.decimal(logLoss, languageTag, 3),
+                    ),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PairedForecastCard(audit: com.footballai.app.data.repository.PairedForecastAudit, collected: Int, languageTag: String) {
+    Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(stringResource(R.string.paired_forecast_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.paired_forecast_explain), style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(top = 8.dp))
+            Text(stringResource(R.string.paired_forecast_counts, Formatters.integer(collected, languageTag),
+                Formatters.integer(audit.count, languageTag)), modifier = Modifier.padding(top = 8.dp))
+            if (audit.count > 0) {
+                Text(stringResource(R.string.paired_forecast_correct, Formatters.integer(audit.earlyCorrect, languageTag),
+                    Formatters.integer(audit.lateCorrect, languageTag), Formatters.integer(audit.count, languageTag)))
+                Text(stringResource(R.string.paired_forecast_brier, Formatters.decimal(audit.earlyBrier, languageTag, 3),
+                    Formatters.decimal(audit.lateBrier, languageTag, 3)))
+                Text(stringResource(R.string.paired_forecast_loss, Formatters.decimal(audit.earlyLogLoss, languageTag, 3),
+                    Formatters.decimal(audit.lateLogLoss, languageTag, 3)))
+            } else {
+                Text(stringResource(R.string.paired_forecast_empty), modifier = Modifier.padding(top = 8.dp))
+            }
+            Text(stringResource(R.string.paired_forecast_caution), style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp))
+        }
+    }
+}
+
+@Composable
+private fun StoredForecastAuditCard(audit: com.footballai.app.data.repository.StoredForecastAudit, languageTag: String) {
+    Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)) {
+        Column(modifier = Modifier.fillMaxWidth().padding(14.dp)) {
+            Text(stringResource(R.string.forecast_audit_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.forecast_audit_scope), style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
+            Text(stringResource(R.string.forecast_audit_bands), style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 12.dp))
+            Text(stringResource(R.string.forecast_audit_bands_help), style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            com.footballai.app.data.repository.ForecastProbabilityBand.entries.forEach { band ->
+                audit.bands[band]?.let { group ->
+                    val label = stringResource(when (band) {
+                        com.footballai.app.data.repository.ForecastProbabilityBand.BELOW_50 -> R.string.forecast_band_below_50
+                        com.footballai.app.data.repository.ForecastProbabilityBand.FROM_50_TO_70 -> R.string.forecast_band_50_70
+                        com.footballai.app.data.repository.ForecastProbabilityBand.AT_LEAST_70 -> R.string.forecast_band_above_70
+                    })
+                    ForecastAuditRow(label, group, languageTag, showProbability = true)
+                }
+            }
+            Text(stringResource(R.string.forecast_audit_lead), style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 12.dp))
+            com.footballai.app.data.repository.ForecastLeadTime.entries.forEach { lead ->
+                audit.leadTimes[lead]?.let { group ->
+                    val label = stringResource(when (lead) {
+                        com.footballai.app.data.repository.ForecastLeadTime.UNDER_DAY -> R.string.forecast_lead_under_day
+                        com.footballai.app.data.repository.ForecastLeadTime.ONE_TO_THREE_DAYS -> R.string.forecast_lead_one_three
+                        com.footballai.app.data.repository.ForecastLeadTime.OVER_THREE_DAYS -> R.string.forecast_lead_over_three
+                    })
+                    ForecastAuditRow(label, group, languageTag)
+                }
+            }
+            if (audit.leagues.isNotEmpty()) {
+                Text(stringResource(R.string.forecast_audit_leagues), style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 12.dp))
+                audit.leagues.forEach { league ->
+                    ForecastAuditRow(com.footballai.app.domain.catalog.NameLocalization.competitionNamePair(
+                        league.name, league.id, languageTag).first, league.summary, languageTag)
+                }
+            }
+            Text(stringResource(R.string.forecast_audit_caution), style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 10.dp))
+        }
+    }
+}
+
+@Composable
+private fun ForecastAuditRow(label: String, group: com.footballai.app.data.repository.ForecastAuditGroup,
+    languageTag: String, showProbability: Boolean = false) {
+    Column(modifier = Modifier.fillMaxWidth().padding(top = 7.dp)) {
+        Text(label, style = MaterialTheme.typography.labelLarge)
+        val detail = if (showProbability) {
+            stringResource(R.string.forecast_audit_band_row,
+                Formatters.percent(group.averageTopProbability, languageTag), Formatters.integer(group.correct, languageTag),
+                Formatters.integer(group.count, languageTag), Formatters.percent(group.accuracy, languageTag))
+        } else {
+            stringResource(R.string.forecast_audit_row, Formatters.integer(group.correct, languageTag),
+                Formatters.integer(group.count, languageTag), Formatters.percent(group.accuracy, languageTag))
+        }
+        Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable
+private fun BacktestSummary(report: PerformanceReport, languageTag: String) {
+    val colors = FootballAiThemeExtra.colors
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Text(
+                text = stringResource(
+                    R.string.backtest_period,
+                    Formatters.dateOnly(report.periodStartEpochMs, languageTag),
+                    Formatters.dateOnly(report.periodEndEpochMs, languageTag),
+                    Formatters.integer(report.matchesEvaluated, languageTag),
+                ),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(10.dp))
+            MetricGrid(
+                metrics = listOf(
+                    stringResource(R.string.metric_brier) to Formatters.decimal(report.brier, languageTag, 4),
+                    stringResource(R.string.metric_base_rate) to Formatters.decimal(report.baseRateBrier, languageTag, 4),
+                    stringResource(R.string.metric_accuracy) to Formatters.percent(report.accuracy, languageTag),
+                    stringResource(R.string.metric_log_loss) to Formatters.decimal(report.logLoss, languageTag, 3),
+                ),
+            )
+            Spacer(Modifier.height(8.dp))
+            MetricGrid(
+                metrics = listOf(
+                    stringResource(R.string.metric_market_brier) to (report.marketBrier?.let { Formatters.decimal(it, languageTag, 4) } ?: "—"),
+                    stringResource(R.string.metric_over25) to Formatters.decimal(report.over25Brier, languageTag, 4),
+                    stringResource(R.string.metric_btts) to Formatters.decimal(report.bttsBrier, languageTag, 4),
+                    stringResource(R.string.metric_ece) to Formatters.decimal(report.expectedCalibrationError, languageTag, 3),
+                ),
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = stringResource(R.string.market_paired_comparison,
+                    report.pairedModelBrier?.let { Formatters.decimal(it, languageTag, 4) } ?: "—",
+                    Formatters.integer(report.marketSampleCount, languageTag)),
+                style = MaterialTheme.typography.bodySmall,
+            )
+            val unaligned = report.unalignedBrier
+            val aligned = report.pairedModelBrier
+            if (unaligned != null && aligned != null && unaligned.isFinite() && aligned.isFinite()) {
+                // Measured, not claimed: the same matches with the alignment switched off.
+                Text(
+                    text = stringResource(
+                        R.string.market_alignment_effect,
+                        Formatters.decimal(unaligned, languageTag, 4),
+                        Formatters.decimal(aligned, languageTag, 4),
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (aligned < unaligned) colors.positive else colors.warning,
+                )
+            }
+            Text(
+                text = if (report.brier < report.baseRateBrier) {
+                    stringResource(R.string.backtest_beats_base_rate)
+                } else {
+                    stringResource(R.string.backtest_loses_base_rate)
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = if (report.brier < report.baseRateBrier) colors.positive else colors.warning,
+            )
+        }
+    }
+}
+
+@Composable
+private fun CompetitionPerformanceRow(competition: CompetitionPerformance, languageTag: String) {
+    val colors = FootballAiThemeExtra.colors
+    val judged = competition.matches >= MIN_LEAGUE_SAMPLE
+    val verdict = when {
+        !judged -> stringResource(R.string.competition_verdict_thin)
+        competition.beatsBaseRate -> stringResource(R.string.competition_verdict_beats)
+        else -> stringResource(R.string.competition_verdict_not_better)
+    }
+    val verdictColor = when {
+        !judged -> MaterialTheme.colorScheme.onSurfaceVariant
+        competition.beatsBaseRate -> colors.positive
+        else -> colors.warning
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = competition.competitionName, style = MaterialTheme.typography.bodyMedium, maxLines = 1)
+            Text(
+                text = buildString {
+                    append(
+                        stringResource(
+                            R.string.competition_matches,
+                            Formatters.integer(competition.matches, languageTag),
+                        ),
+                    )
+                    if (competition.baseRateBrier.isFinite()) {
+                        append(" · ")
+                        append(
+                            stringResource(
+                                R.string.competition_base_rate,
+                                Formatters.decimal(competition.baseRateBrier, languageTag, 3),
+                            ),
+                        )
+                    }
+                },
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(2.dp))
+            StatusChip(text = verdict, color = verdictColor)
+        }
+        Text(
+            text = Formatters.decimal(competition.brier, languageTag, 4),
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
+        )
+    }
+}
+
+/** Matches below which a league's own Brier cannot be judged against its base rate. */
+private const val MIN_LEAGUE_SAMPLE = 40
+
+/**
+ * Leagues that beat their own base rate first, then the ones that do not, then the ones
+ * with too little data to say — each group largest sample first. A league where the model
+ * adds nothing should not be sitting above a league where it does.
+ */
+private fun rankedCompetitions(items: List<CompetitionPerformance>): List<CompetitionPerformance> {
+    fun rank(item: CompetitionPerformance): Int = when {
+        item.matches < MIN_LEAGUE_SAMPLE -> 2
+        item.beatsBaseRate -> 0
+        else -> 1
+    }
+    return items.sortedWith(compareBy({ rank(it) }, { -it.matches }))
+}
+
+/**
+ * One number and its name, as a slab of its own.
+ *
+ * The number is the headline: it used to be the same size as the label, four of them in one
+ * row, which is why the screen read as a wall of text with some digits in it.
+ */
+@Composable
+private fun MetricTile(label: String, value: String, modifier: Modifier = Modifier) {
+    val colors = FootballAiThemeExtra.colors
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(16.dp))
+            .background(colors.cardStrong)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+    ) {
+        Text(
+            text = value,
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 2,
+        )
+    }
+}
+
+/** Two columns of [MetricTile]s: readable on a phone, instead of four squeezed into a row. */
+@Composable
+private fun MetricGrid(metrics: List<Pair<String, String>>, modifier: Modifier = Modifier) {
+    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        metrics.chunked(2).forEach { row ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                row.forEach { (label, value) ->
+                    MetricTile(label = label, value = value, modifier = Modifier.weight(1f))
+                }
+                if (row.size == 1) Spacer(Modifier.weight(1f))
+            }
+        }
+    }
+}

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Pitch outline -->
+    <path
+        android:strokeColor="#2FBF7F"
+        android:strokeWidth="3"
+        android:fillColor="#00000000"
+        android:pathData="M30,66h48" />
+    <!-- Rising probability bars -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M36,58h7v8h-7z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M47,50h7v16h-7z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M58,42h7v24h-7z" />
+    <!-- Ball -->
+    <path
+        android:fillColor="#2FBF7F"
+        android:pathData="M69,34m-7,0a7,7 0,1 1,14 0a7,7 0,1 1,-14 0" />
+</vector>

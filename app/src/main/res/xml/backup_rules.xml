@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!-- API keys are encrypted with a device-bound Keystore key, so a backup would be
+         useless anyway; excluding them keeps ciphertext out of cloud backups entirely. -->
+    <exclude domain="sharedpref" path="secure_credentials.xml" />
+    <exclude domain="file" path="secrets/credentials.enc" />
+</full-backup-content>

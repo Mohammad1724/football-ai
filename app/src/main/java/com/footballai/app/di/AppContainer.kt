@@ -1,0 +1,172 @@
+package com.footballai.app.di
+
+import android.content.Context
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.preferencesDataStore
+import com.footballai.app.core.DispatchersProvider
+import com.footballai.app.core.TimeProvider
+import com.footballai.app.data.local.FootballDatabase
+import com.footballai.app.data.remote.ApiClient
+import com.footballai.app.data.remote.ApiFootballProvider
+import com.footballai.app.data.remote.FootballDataCoUkProvider
+import com.footballai.app.data.remote.EspnOpenProvider
+import com.footballai.app.data.remote.FootballDataOrgProvider
+import com.footballai.app.data.remote.QuotaGuard
+import com.footballai.app.data.repository.CalibrationRepository
+import com.footballai.app.data.repository.MatchRepository
+import com.footballai.app.data.repository.PerformanceRepository
+import com.footballai.app.data.repository.PredictionRepository
+import com.footballai.app.data.repository.ProviderRegistry
+import com.footballai.app.data.repository.RatingsRepository
+import com.footballai.app.data.repository.SyncRepository
+import com.footballai.app.data.settings.CredentialStore
+import com.footballai.app.data.settings.DataStoreQuotaStore
+import com.footballai.app.data.settings.KeystoreCredentialStore
+import com.footballai.app.data.settings.SettingsRepository
+import com.footballai.engine.prediction.EngineConfig
+import com.footballai.engine.prediction.MatchPredictionEngine
+
+private val Context.settingsDataStore: DataStore<Preferences> by preferencesDataStore(
+    name = SettingsRepository.PREFERENCES_NAME,
+)
+
+private val Context.quotaDataStore: DataStore<Preferences> by preferencesDataStore(name = "football_ai_quota")
+
+/**
+ * Manual dependency container.
+ *
+ * A hand-written container keeps the build fast and predictable (no annotation
+ * processor) while still giving a single place to swap implementations in tests.
+ */
+class AppContainer(context: Context) {
+
+    private val appContext: Context = context.applicationContext
+
+    /** Exposed only for WorkManager scheduling; nothing else should need it. */
+    fun contextForWork(): Context = appContext
+
+    val clock: TimeProvider = TimeProvider.System
+
+    /** Connectivity, so no screen starts a sync it cannot finish. */
+    val networkMonitor = com.footballai.app.core.NetworkMonitor(appContext)
+    val dispatchers: DispatchersProvider = DispatchersProvider()
+
+    val database: FootballDatabase = FootballDatabase.create(appContext)
+
+    val settingsRepository: SettingsRepository = SettingsRepository(appContext.settingsDataStore)
+
+    private val quotaGuard: QuotaGuard = QuotaGuard(DataStoreQuotaStore(appContext.quotaDataStore), clock)
+
+    /**
+     * One HTTP cache for the whole app: fixtures, results and archives are documents that
+     * rarely change, and a refresh that has to download all of them again is a defect the
+     * user measures in seconds.
+     */
+    private val apiClient: ApiClient = ApiClient(
+        quotaGuard = quotaGuard,
+        client = ApiClient.defaultClient(java.io.File(appContext.cacheDir, "documents")),
+    )
+
+    val credentialStore: CredentialStore = KeystoreCredentialStore(appContext)
+
+    private val apiFootballProvider: ApiFootballProvider = ApiFootballProvider(
+        client = apiClient,
+        apiKeyProvider = { credentialStore.getKey(ApiFootballProvider.PROVIDER_ID) },
+    )
+
+    private val footballDataOrgProvider: FootballDataOrgProvider = FootballDataOrgProvider(
+        client = apiClient,
+        apiKeyProvider = { credentialStore.getKey(FootballDataOrgProvider.PROVIDER_ID) },
+    )
+
+    private val csvProvider: FootballDataCoUkProvider = FootballDataCoUkProvider(apiClient)
+
+    private val espnProvider: EspnOpenProvider = EspnOpenProvider(apiClient, clock)
+
+    val providerRegistry: ProviderRegistry = ProviderRegistry(
+        apiFootballProvider = apiFootballProvider,
+        footballDataOrgProvider = footballDataOrgProvider,
+        historicalProvider = csvProvider,
+        espnOpenProvider = espnProvider,
+        credentialStore = credentialStore,
+        settingsRepository = settingsRepository,
+        varzesh3Provider = com.footballai.app.data.remote.Varzesh3Provider(apiClient, clock),
+    )
+
+    val quotaGuardProvider: QuotaGuard get() = quotaGuard
+
+    val ratingsRepository: RatingsRepository = RatingsRepository(database, clock)
+
+    val engine: MatchPredictionEngine = MatchPredictionEngine(
+        EngineConfig(eloBlendWeight = PredictionRepository.ELO_BLEND_WEIGHT),
+    )
+
+    val matchRepository: MatchRepository =
+        MatchRepository(database, clock, ratingsRepository, quotaGuard)
+
+    /**
+     * The only history this app owns for national teams. No fixture provider publishes
+     * past international results, so it is imported once from a CC0 archive.
+     */
+    val nationalHistoryRepository: com.footballai.app.data.repository.NationalHistoryRepository =
+        com.footballai.app.data.repository.NationalHistoryRepository(
+            db = database,
+            client = apiClient,
+            clock = clock,
+            ratingsRepository = ratingsRepository,
+        )
+
+    val calibrationRepository: CalibrationRepository = CalibrationRepository(database, clock)
+
+    val predictionRepository: PredictionRepository = PredictionRepository(
+        db = database,
+        matchRepository = matchRepository,
+        ratingsRepository = ratingsRepository,
+        engine = engine,
+        clock = clock,
+        settingsRepository = settingsRepository,
+        calibrationRepository = calibrationRepository,
+    )
+
+    val syncRepository: SyncRepository = SyncRepository(
+        db = database,
+        registry = providerRegistry,
+        settingsRepository = settingsRepository,
+        ratingsRepository = ratingsRepository,
+        clock = clock,
+        sportsDbCrests = com.footballai.app.data.remote.SportsDbCrests(apiClient),
+        leagueCrestIndex = com.footballai.app.data.remote.LeagueCrestIndex(apiClient),
+    )
+
+    val dailyAnalysisRepository = com.footballai.app.data.repository.DailyAnalysisRepository(
+        database, providerRegistry, syncRepository, ratingsRepository, predictionRepository, clock,
+    )
+
+    /**
+     * One place that decides whether the stored data is current and, if not, refreshes
+     * it. Every refresh button and every automatic trigger goes through it, so two syncs
+     * can never run at once and the UI always shows the truth about what is happening.
+     */
+    val syncDiagnostics = com.footballai.app.data.sync.SyncDiagnosticsStore(database.syncMetaDao())
+
+    val autoSyncCoordinator: com.footballai.app.data.sync.AutoSyncCoordinator =
+        com.footballai.app.data.sync.AutoSyncCoordinator(
+            settingsRepository = settingsRepository,
+            syncRepository = syncRepository,
+            dailyAnalysisRepository = dailyAnalysisRepository,
+            predictionRepository = predictionRepository,
+            providerRegistry = providerRegistry,
+            matchRepository = matchRepository,
+            networkMonitor = networkMonitor,
+            clock = clock,
+            diagnostics = syncDiagnostics,
+        )
+
+    val performanceRepository: PerformanceRepository = PerformanceRepository(
+        db = database,
+        clock = clock,
+        predictionRepository = predictionRepository,
+        calibrationRepository = calibrationRepository,
+    )
+}

@@ -1,0 +1,400 @@
+package com.footballai.app.ui.viewmodel
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.footballai.app.core.AppError
+import com.footballai.app.core.Outcome
+import com.footballai.app.data.sync.SyncTrigger
+import com.footballai.app.di.AppContainer
+import com.footballai.app.domain.model.Competition
+import com.footballai.app.domain.model.MatchSummary
+import com.footballai.app.domain.model.PredictionWithMatch
+import com.footballai.app.domain.model.TableVenue
+import com.footballai.app.domain.model.TeamProfile
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+
+// ----------------------------------------------------------------------- Teams
+
+data class TeamUiState(
+    val isLoading: Boolean = true,
+    val profile: TeamProfile? = null,
+    /** The club's own league, counted or published, with its own row marked in the screen. */
+    val table: LeagueTableUiState = LeagueTableUiState(),
+    val lastError: AppError? = null,
+)
+
+class TeamViewModel(
+    private val container: AppContainer,
+    private val teamId: String,
+) : ViewModel() {
+
+    private val _state = MutableStateFlow(TeamUiState())
+    val state: StateFlow<TeamUiState> = _state.asStateFlow()
+
+    private var loadGeneration = 0
+
+    init {
+        load()
+    }
+
+    fun load() {
+        val generation = ++loadGeneration
+        viewModelScope.launch {
+            val venue = _state.value.table.venue
+            val profile = container.matchRepository.teamProfile(teamId)
+            val competitionId = profile?.competitionId?.takeIf { it.isNotBlank() }
+            // A club page shows the league it plays in: the table belongs to that competition,
+            // not to the club, so it goes through the same reader as the table page.
+            val stored = competitionId
+                ?.let { container.matchRepository.leagueTableUi(it, venue) }
+                ?: LeagueTableUiState(venue = venue)
+            if (generation == loadGeneration) {
+                _state.update { TeamUiState(isLoading = false, profile = profile, table = stored) }
+            }
+            // The page is drawn from what the device holds; only then is the source asked for
+            // the league's own table, which is what turns a two-row count into a real table.
+            if (competitionId != null && stored.wouldImproveWithFetch) {
+                val fresh = container.leagueTableUi(competitionId, venue)
+                if (generation == loadGeneration) _state.update { it.copy(table = fresh) }
+            }
+        }
+    }
+
+    fun setVenue(venue: TableVenue) {
+        if (venue == _state.value.table.venue) return
+        _state.update { it.copy(table = it.table.copy(venue = venue)) }
+        load()
+    }
+}
+
+// ----------------------------------------------------------------- Competitions
+
+data class CompetitionUiState(
+    val isLoading: Boolean = true,
+    val competition: Competition? = null,
+    val fixtures: List<MatchSummary> = emptyList(),
+    /** The competition's own table, drawn on its second tab. */
+    val table: LeagueTableUiState = LeagueTableUiState(),
+    val lastError: AppError? = null,
+)
+
+class CompetitionViewModel(
+    private val container: AppContainer,
+    private val competitionId: String,
+) : ViewModel() {
+
+    private val _state = MutableStateFlow(CompetitionUiState())
+    val state: StateFlow<CompetitionUiState> = _state.asStateFlow()
+
+    private var loadGeneration = 0
+
+    init {
+        load()
+    }
+
+    fun load() {
+        val generation = ++loadGeneration
+        viewModelScope.launch {
+            val venue = _state.value.table.venue
+            val competition = container.matchRepository.competition(competitionId)
+            val fixtures = container.matchRepository.fixturesForCompetition(competitionId, 40)
+            val stored = container.matchRepository.leagueTableUi(competitionId, venue)
+            if (generation == loadGeneration) _state.update {
+                CompetitionUiState(
+                    isLoading = false,
+                    competition = competition,
+                    fixtures = fixtures,
+                    table = stored,
+                )
+            }
+            if (stored.wouldImproveWithFetch) {
+                val fresh = container.leagueTableUi(competitionId, venue)
+                if (generation == loadGeneration) _state.update { it.copy(table = fresh) }
+            }
+        }
+    }
+
+    fun setVenue(venue: TableVenue) {
+        if (venue == _state.value.table.venue) return
+        _state.update { it.copy(table = it.table.copy(venue = venue)) }
+        load()
+    }
+}
+
+// ------------------------------------------------------------------ Predictions
+
+enum class PredictionListFilter { UPCOMING, LIVE, WAITING, RESOLVED, ALL }
+
+data class PredictionsUiState(
+    val isLoading: Boolean = true,
+    internal val items: List<PredictionGroup> = emptyList(),
+    val filter: PredictionListFilter = PredictionListFilter.UPCOMING,
+    val upcomingCount: Int = 0,
+    val liveCount: Int = 0,
+    val waitingCount: Int = 0,
+    val resolvedCount: Int = 0,
+    val loadedCount: Int = 0,
+    val storedCount: Int = 0,
+    val loadedLimit: Int = 100,
+    val loadingMore: Boolean = false,
+    val resolving: Boolean = false,
+    val resolvedNow: Int? = 0,
+    /** True while the screen's refresh gesture is running a full sync. */
+    val refreshing: Boolean = false,
+    /** Fixtures the last refresh received; 0 is a valid answer, not a failure. */
+    val lastSyncedAdded: Int = 0,
+    val lastError: com.footballai.app.core.AppError? = null,
+    /** Summary of the last daily analysis run; the home screen used to show it. */
+    val dailyReport: com.footballai.app.data.repository.DailyAnalysisReport? = null,
+    /** Network reachability, so the strip can say "offline" instead of "no data". */
+    val isOnline: Boolean = true,
+    /** Last successful sync of any kind; null until this device has synced once. */
+    val lastSyncEpochMs: Long? = null,
+    /** Clock for the relative "updated N minutes ago" label, refreshed every 30 s. */
+    val nowEpochMs: Long = 0L,
+    /** True while a background sync runs, so the strip can show its progress. */
+    val autoSyncing: Boolean = false,
+    val syncDone: Int = 0,
+    val syncTotal: Int = 0,
+)
+
+class PredictionsViewModel(private val container: AppContainer) : ViewModel() {
+
+    private val _state = MutableStateFlow(PredictionsUiState(nowEpochMs = container.clock.nowEpochMs()))
+    val state: StateFlow<PredictionsUiState> = _state.asStateFlow()
+    private var latestItems: List<PredictionWithMatch> = emptyList()
+    private val historyLimit = MutableStateFlow(100)
+
+    private fun updateHistory(state: PredictionsUiState, now: Long): PredictionsUiState {
+        val groups = predictionGroups(latestItems)
+        fun count(filter: PredictionListFilter) = groups.count { group -> group.versions.any { filter.includes(it, now) } }
+        return state.copy(
+            items = filterPredictionGroups(groups, state.filter, now),
+            upcomingCount = count(PredictionListFilter.UPCOMING), liveCount = count(PredictionListFilter.LIVE),
+            waitingCount = count(PredictionListFilter.WAITING), resolvedCount = count(PredictionListFilter.RESOLVED),
+            loadedCount = latestItems.size, nowEpochMs = now, isLoading = false,
+        )
+    }
+
+    init {
+        viewModelScope.launch {
+            historyLimit.collectLatest { limit ->
+                combine(container.predictionRepository.observeRecent(limit), container.predictionRepository.observeStoredCount()) { items, count -> items to count }
+                    .catch { error ->
+                        if (error is kotlinx.coroutines.CancellationException) throw error
+                        _state.update { it.copy(isLoading = false, loadingMore = false, lastError = AppError(com.footballai.app.core.ErrorCode.UNKNOWN)) }
+                    }.collect { (items, count) ->
+                        latestItems = items
+                        _state.update { state -> updateHistory(state.copy(storedCount = count, loadedLimit = limit, loadingMore = false), container.clock.nowEpochMs()) }
+                    }
+            }
+        }
+        // The forecast work belongs on the forecasts tab: this is the run that produced
+        // (or could not produce) today's analysis, so it is reported where it is used.
+        viewModelScope.launch {
+            container.dailyAnalysisRepository.reports.collect { report ->
+                _state.update { it.copy(dailyReport = report) }
+            }
+        }
+        // The same status strip as the matches tab, fed real values: this screen used to
+        // hand it a hardcoded "online, never synced, no progress", so the offline banner
+        // and the "updated N minutes ago" line could never appear here.
+        viewModelScope.launch {
+            container.networkMonitor.isOnline.collect { online ->
+                _state.update { it.copy(isOnline = online) }
+            }
+        }
+        viewModelScope.launch {
+            container.autoSyncCoordinator.state.collect { sync ->
+                _state.update {
+                    it.copy(
+                        autoSyncing = sync.isSyncing,
+                        lastSyncEpochMs = sync.lastSuccessEpochMs ?: it.lastSyncEpochMs,
+                        nowEpochMs = container.clock.nowEpochMs(),
+                        syncDone = if (sync.isSyncing) sync.progressDone else it.syncDone,
+                        syncTotal = if (sync.isSyncing) sync.progressTotal else it.syncTotal,
+                    )
+                }
+            }
+        }
+        viewModelScope.launch {
+            container.settingsRepository.settings.collect { settings ->
+                _state.update { it.copy(lastSyncEpochMs = settings.lastSyncEpochMs ?: it.lastSyncEpochMs) }
+            }
+        }
+        viewModelScope.launch {
+            while (true) {
+                kotlinx.coroutines.delay(30_000L)
+                _state.update { updateHistory(it, container.clock.nowEpochMs()) }
+            }
+        }
+        resolve()
+    }
+
+    fun setFilter(filter: PredictionListFilter) {
+        _state.update { updateHistory(it.copy(filter = filter), container.clock.nowEpochMs()) }
+    }
+
+    fun loadMore() {
+        if (!_state.value.loadingMore && historyLimit.value < _state.value.storedCount) {
+            _state.update { it.copy(loadingMore = true) }
+            historyLimit.value += 100
+        }
+    }
+
+    fun resolve() {
+        viewModelScope.launch {
+            _state.update { it.copy(resolving = true) }
+            val resolved = container.predictionRepository.resolveFinishedPredictions()
+            _state.update { it.copy(resolving = false, resolvedNow = resolved) }
+        }
+    }
+
+    /**
+     * The screen's refresh control.
+     *
+     * Resolving finished predictions only updates rows that already exist; a user pressing
+     * refresh on this screen is also asking for new fixtures and new odds to appear, so the
+     * gesture does both, in that order: sync first, then grade what has finished.
+     */
+    fun refresh() {
+        if (_state.value.refreshing) return
+        viewModelScope.launch {
+            _state.update { it.copy(refreshing = true, lastError = null) }
+            try {
+                when (val result = container.autoSyncCoordinator.syncNow(SyncTrigger.MANUAL)) {
+                    is Outcome.Failure -> _state.update { it.copy(lastError = result.error) }
+                    is Outcome.Success -> {
+                        _state.update { it.copy(
+                            resolvedNow = result.value.resolved,
+                            lastSyncedAdded = result.value.added,
+                            lastError = if (result.value.resolved == null)
+                                AppError(com.footballai.app.core.ErrorCode.UNKNOWN, detail = "PREDICTION_RESOLUTION_FAILED")
+                            else null,
+                        ) }
+                    }
+                }
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                _state.update { it.copy(lastError = com.footballai.app.core.AppError(com.footballai.app.core.ErrorCode.UNKNOWN)) }
+            } finally {
+                _state.update { it.copy(refreshing = false) }
+            }
+        }
+    }
+
+
+}
+
+// ------------------------------------------------------------------ Performance
+
+data class PerformanceUiState(
+    val isLoading: Boolean = true,
+    val isRunning: Boolean = false,
+    val sources: List<com.footballai.app.data.repository.HistoricalSourceOption> = emptyList(),
+    val selectedSource: String? = null,
+    val report: com.footballai.app.domain.model.PerformanceReport? = null,
+    val storedStats: com.footballai.app.data.repository.StoredPredictionStats =
+        com.footballai.app.data.repository.StoredPredictionStats.EMPTY,
+    /** Out-of-sample calibration study for the class selected below. */
+    val studyClass: String = "CLUB_LEAGUE",
+    val study: com.footballai.app.data.repository.CalibrationStudyResult? = null,
+    val studyLoading: Boolean = false,
+    /** True while the stored-prediction statistics are being recomputed. */
+    val statsRefreshing: Boolean = false,
+    val fittedSamples: Int = 0,
+    val lastError: AppError? = null,
+)
+
+/** Competition classes with a separately fitted and separately measured calibration. */
+val CALIBRATION_CLASSES = listOf(
+    "CLUB_LEAGUE",
+    "CLUB_KNOCKOUT",
+    "INTERNATIONAL_TOURNAMENT",
+    "WOMEN_CLUB_LEAGUE",
+    "WOMEN_INTERNATIONAL",
+)
+
+class PerformanceViewModel(private val container: AppContainer) : ViewModel() {
+
+    private val _state = MutableStateFlow(PerformanceUiState())
+    val state: StateFlow<PerformanceUiState> = _state.asStateFlow()
+
+    init {
+        load()
+    }
+
+    fun load() {
+        viewModelScope.launch {
+            val sources = container.performanceRepository.historicalSources()
+            val storedStats = container.performanceRepository.storedPredictionStats()
+            val selected = _state.value.selectedSource
+                ?: sources.firstOrNull { it.source == "football-data-co-uk" }?.source
+                ?: sources.firstOrNull()?.source
+            _state.update {
+                it.copy(
+                    isLoading = false,
+                    sources = sources,
+                    selectedSource = selected,
+                    storedStats = storedStats,
+                )
+            }
+            loadStudy(_state.value.studyClass)
+            if (selected != null && _state.value.report == null) {
+                runBacktest(selected)
+            }
+        }
+    }
+
+    fun selectSource(source: String) {
+        _state.update { it.copy(selectedSource = source, report = null) }
+        runBacktest(source)
+    }
+
+    fun runBacktest(source: String? = _state.value.selectedSource) {
+        if (source == null) return
+        viewModelScope.launch {
+            _state.update { it.copy(isRunning = true, lastError = null) }
+            when (val result = container.performanceRepository.runBacktest(source)) {
+                is Outcome.Failure -> _state.update { it.copy(isRunning = false, lastError = result.error) }
+                is Outcome.Success -> _state.update { it.copy(isRunning = false, report = result.value) }
+            }
+        }
+    }
+
+    fun selectStudyClass(competitionClass: String) {
+        _state.update { it.copy(studyClass = competitionClass) }
+        loadStudy(competitionClass)
+    }
+
+    /** Refreshes the calibration study and the sample count actually used on this device. */
+    fun loadStudy(competitionClass: String = _state.value.studyClass) {
+        viewModelScope.launch {
+            _state.update { it.copy(studyLoading = true) }
+            val study = container.performanceRepository.calibrationStudy(competitionClass)
+            val fitted = container.performanceRepository.calibrationSampleCount(competitionClass)
+            _state.update { it.copy(studyLoading = false, study = study, fittedSamples = fitted) }
+        }
+    }
+
+    fun refreshStoredStats() {
+        if (_state.value.statsRefreshing) return
+        viewModelScope.launch {
+            _state.update { it.copy(statsRefreshing = true) }
+            try {
+                val stats = container.performanceRepository.refreshStoredStats()
+                _state.update { it.copy(storedStats = stats) }
+            } finally {
+                _state.update { it.copy(statsRefreshing = false) }
+            }
+        }
+    }
+}

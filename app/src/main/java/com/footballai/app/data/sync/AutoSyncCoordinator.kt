@@ -1,0 +1,382 @@
+package com.footballai.app.data.sync
+
+import com.footballai.app.core.AppError
+import com.footballai.app.core.AppErrorException
+import com.footballai.app.core.ErrorCode
+import com.footballai.app.core.NetworkMonitor
+import com.footballai.app.core.Outcome
+import com.footballai.app.core.TimeConstants
+import com.footballai.app.core.TimeProvider
+import com.footballai.app.data.remote.FootballDataOrgProvider
+import com.footballai.app.data.repository.DailyAnalysisReport
+import com.footballai.app.data.repository.DailyAnalysisRepository
+import com.footballai.app.data.repository.MatchRepository
+import com.footballai.app.data.repository.PredictionRepository
+import com.footballai.app.data.repository.ProviderRegistry
+import com.footballai.app.data.repository.SyncRepository
+import com.footballai.app.data.settings.SettingsRepository
+import java.time.Instant
+import java.time.ZoneId
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+
+/** Why a sync started. Only a manual press may bypass the "is it needed?" question. */
+enum class SyncTrigger { STARTUP, RESUME, MANUAL }
+
+/** What one sync actually did, in numbers rather than adjectives. */
+data class SyncRun(
+    /** Fixtures the source returned this time. Zero is a legitimate answer. */
+    val added: Int,
+    /** Per-competition failures; a non-empty list means the result is partial. */
+    val warnings: List<String>,
+    /** Set when the configured provider answered nothing and a keyless one stepped in. */
+    val fallbackProviderId: String?,
+    val dailyReport: DailyAnalysisReport?,
+    val providerName: String?,
+    /** Null means grading failed; zero means it completed and found nothing. */
+    val resolved: Int? = null,
+)
+
+/**
+ * The single state every refresh in the app reads.
+ *
+ * Every button, pull gesture and automatic trigger funnels through one coordinator, so
+ * "the refresh does nothing" can only have one cause at a time. Two syncs can never run
+ * together, and the progress the UI shows is the progress of the sync that is running.
+ */
+data class AutoSyncState(
+    val isSyncing: Boolean = false,
+    val trigger: SyncTrigger? = null,
+    val startedAtEpochMs: Long? = null,
+    val lastAttemptEpochMs: Long? = null,
+    val lastSuccessEpochMs: Long? = null,
+    val lastAdded: Int = 0,
+    val lastWarnings: List<String> = emptyList(),
+    val lastFallbackProviderId: String? = null,
+    val lastError: AppError? = null,
+    val progressDone: Int = 0,
+    val progressTotal: Int = 0,
+) {
+    val isManual: Boolean get() = trigger == SyncTrigger.MANUAL
+}
+
+/**
+ * Decides when the app refreshes itself, and does the refreshing.
+ *
+ * The rule that makes "everything is up to date without pressing anything" true is
+ * [isStale]: a new calendar day, a stale timestamp, or an empty fixture window all mean
+ * the data on screen is not current. On top of that the coordinator refuses to run when
+ * the phone is offline or when the user turned automatic refreshing off, and it never
+ * runs twice at once.
+ */
+class AutoSyncCoordinator(
+    private val settingsRepository: SettingsRepository,
+    private val syncRepository: SyncRepository,
+    private val dailyAnalysisRepository: DailyAnalysisRepository,
+    private val predictionRepository: PredictionRepository,
+    private val providerRegistry: ProviderRegistry,
+    private val matchRepository: MatchRepository,
+    private val networkMonitor: NetworkMonitor,
+    private val clock: TimeProvider,
+    maintenanceScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
+    private val diagnostics: SyncDiagnosticsStore? = null,
+) {
+
+    // App-lifetime scope: enrichment continues after a screen's refresh finishes, but is
+    // best effort if Android stops the process. A later sync will schedule it again.
+    private val maintenance = OptionalSyncMaintenance(
+        scope = maintenanceScope,
+        standings = { provider, keys ->
+            syncRepository.refreshStandings(provider, keys)
+            if (provider != com.footballai.app.data.remote.Varzesh3Provider.PROVIDER_ID) {
+                syncRepository.refreshStandings(com.footballai.app.data.remote.Varzesh3Provider.PROVIDER_ID,
+                    com.footballai.app.data.remote.Varzesh3Provider.KEYS)
+            }
+            Unit
+        },
+        crests = { syncRepository.backfillCrests(); Unit },
+    )
+
+    private val mutex = Mutex()
+
+    /**
+     * Serialises the "is it needed?" decision itself. Without it two triggers that fire
+     * together (start-up and the dashboard opening) would both decide the data is stale
+     * before either one started, and both would download.
+     */
+    private val gate = Mutex()
+
+    private val _state = MutableStateFlow(AutoSyncState())
+
+    /** The last run that finished, so a caller that waited for it need not repeat it. */
+    private var lastCompleted: SyncRun? = null
+    private var lastCompletedAt: Long = 0L
+    val state: StateFlow<AutoSyncState> = _state.asStateFlow()
+
+    /**
+     * Runs a sync only when there is a reason to.
+     *
+     * Returns null when the call was skipped, which is the common case: an app opened
+     * five times in a minute must not start five downloads.
+     */
+    suspend fun syncIfStale(trigger: SyncTrigger): Outcome<SyncRun>? {
+        return gate.withLock {
+            val settings = settingsRepository.current()
+            if (!settings.onboarded) return@withLock null
+            if (trigger != SyncTrigger.MANUAL && !settings.autoRefreshOnOpen) return@withLock null
+            // Daily analysis has its own default source; any other mode needs one chosen.
+            if (providerRegistry.activeProviderId() == null && !settings.dailyAnalysisEnabled) {
+                return@withLock null
+            }
+            // An automatic pass must not fight one that is already running, and must not
+            // repeat the attempt that just finished seconds ago.
+            if (_state.value.isSyncing) return@withLock null
+            val lastAttempt = _state.value.lastAttemptEpochMs
+            if (trigger != SyncTrigger.MANUAL && lastAttempt != null &&
+                clock.nowEpochMs() - lastAttempt < MIN_RETRY_GAP_MS
+            ) {
+                return@withLock null
+            }
+            if (!networkMonitor.isOnlineNow()) return@withLock null
+            if (!isStale()) return@withLock null
+            syncNow(trigger)
+        }
+    }
+
+    /**
+     * Runs a sync; used by every manual refresh in the UI.
+     *
+     * If another sync is already running, waiting for the lock and then starting a second
+     * pass would make the user wait twice for the same result. The running pass *is* the
+     * refresh they asked for, so its outcome is returned instead.
+     */
+    suspend fun syncNow(
+        trigger: SyncTrigger,
+        onProgress: (done: Int, total: Int) -> Unit = { _, _ -> },
+    ): Outcome<SyncRun> {
+        val enteredAt = clock.nowEpochMs()
+        val wasSyncing = _state.value.isSyncing
+        return mutex.withLock {
+            val finished = lastCompleted
+            if (wasSyncing && finished != null && lastCompletedAt >= enteredAt) {
+                Outcome.Success(finished)
+            } else {
+                runLocked(trigger, onProgress)
+            }
+        }
+    }
+
+    private suspend fun runLocked(
+        trigger: SyncTrigger,
+        onProgress: (done: Int, total: Int) -> Unit,
+    ): Outcome<SyncRun> {
+        val now = clock.nowEpochMs()
+        _state.update {
+            it.copy(
+                isSyncing = true,
+                trigger = trigger,
+                startedAtEpochMs = now,
+                lastAttemptEpochMs = now,
+                lastError = null,
+                progressDone = 0,
+                progressTotal = 0,
+            )
+        }
+        var timing: SyncTimingRecorder? = null
+        var mode = "unknown"
+        var timingStatus = "failed"
+        try {
+            val previous = _state.value
+            val justFinished = previous.lastSuccessEpochMs
+            if (trigger == SyncTrigger.MANUAL && justFinished != null &&
+                now - justFinished < DUPLICATE_WINDOW_MS
+            ) {
+                // A sync finished a moment ago; repeating it would download the same
+                // answer again and make the button feel slow for no gain.
+                return Outcome.Success(
+                    lastCompleted?.copy(resolved = lastCompleted?.resolved?.let { 0 })
+                        ?: SyncRun(previous.lastAdded, previous.lastWarnings, previous.lastFallbackProviderId, null, null),
+                )
+            }
+            timing = SyncTimingRecorder()
+            if (!networkMonitor.isOnlineNow()) {
+                return fail(AppError(ErrorCode.NETWORK_UNAVAILABLE), now)
+            }
+            val settings = settingsRepository.current()
+            val providerId = providerRegistry.activeProviderId()
+            val dailyMode = settings.dailyAnalysisEnabled ||
+                providerId == FootballDataOrgProvider.PROVIDER_ID
+            val progress: (Int, Int) -> Unit = { done, total ->
+                _state.update { it.copy(progressDone = done, progressTotal = total) }
+                onProgress(done, total)
+            }
+            mode = if (dailyMode) "daily" else "provider"
+            if (dailyMode) {
+                // The daily analysis path downloads the CSVs, rebuilds the ratings and
+                // stores predictions; it *is* the sync for this mode.
+                val report = dailyAnalysisRepository.run(progress, timing)
+                // Claiming a refresh that produced nothing at all would be a lie: the strip
+                // would say "just now" on top of data that was never updated.
+                if (report.fixturesReceived > 0 || report.errors.isEmpty()) {
+                    settingsRepository.setLastSync(clock.nowEpochMs())
+                }
+                // Retry only if the daily pipeline never completed grading.
+                val resolved = if (report.gradingCompleted) report.resolved
+                    else timing.measure("grading") { resolvePredictions() }
+                val warnings = report.errors + if (resolved == null) listOf("PREDICTION_RESOLUTION_FAILED") else emptyList()
+                // Tables and badge searches can take minutes; they update Room separately
+                // and must not keep the refresh indicator running after results are ready.
+                maintenance.schedule(providerId ?: "", settings.followedCompetitionKeys.toList())
+                val run = SyncRun(
+                    added = report.fixturesReceived,
+                    warnings = warnings,
+                    fallbackProviderId = null,
+                    dailyReport = report,
+                    providerName = providerRegistry.activeInfo(settings)?.displayName,
+                    resolved = resolved,
+                )
+                timingStatus = if (warnings.isEmpty() && report.failed == 0) "success" else "partial"
+                succeed(run)
+                return Outcome.Success(run)
+            }
+            val id = providerId ?: return fail(AppError(ErrorCode.MISSING_API_KEY), now)
+            return when (
+                val result = timing.measure("fixtures") {
+                    if (id == com.footballai.app.data.remote.Varzesh3Provider.PROVIDER_ID) {
+                        syncRepository.syncIranCompetitions()
+                    } else syncRepository.syncFixtures(
+                        providerId = id,
+                        daysBack = DAYS_BACK,
+                        daysAhead = DAYS_AHEAD,
+                        onProgress = progress,
+                    )
+                }
+            ) {
+                is Outcome.Failure -> fail(result.error, now)
+                is Outcome.Success -> {
+                    val iran = if (id == com.footballai.app.data.remote.Varzesh3Provider.PROVIDER_ID) null
+                        else timing.measure("iran") { syncRepository.syncIranCompetitions() }
+                    val iranWarnings = when (iran) {
+                        is Outcome.Failure -> listOf("Varzesh3: ${iran.error.code}")
+                        is Outcome.Success -> iran.value.errors
+                        null -> emptyList()
+                    }
+                    val iranCount = (iran as? Outcome.Success)?.value?.fixtures ?: 0
+                    val resolved = timing.measure("grading") { resolvePredictions() }
+                    val warnings = result.value.errors + iranWarnings + if (resolved == null) listOf("PREDICTION_RESOLUTION_FAILED") else emptyList()
+                    maintenance.schedule(id, settings.followedCompetitionKeys.toList())
+                    val run = SyncRun(
+                        added = result.value.fixtures + iranCount,
+                        warnings = warnings,
+                        fallbackProviderId = result.value.fallbackProviderId,
+                        dailyReport = null,
+                        providerName = providerRegistry.info(result.value.fallbackProviderId ?: id)?.displayName
+                            ?: providerRegistry.activeInfo(settings)?.displayName,
+                        resolved = resolved,
+                    )
+                    timingStatus = if (warnings.isEmpty()) "success" else "partial"
+                    succeed(run)
+                    Outcome.Success(run)
+                }
+            }
+        } catch (cancelled: CancellationException) {
+            timingStatus = "cancelled"
+            throw cancelled
+        } catch (error: AppErrorException) {
+            return fail(error.error, now)
+        } catch (error: Exception) {
+            return fail(AppError(ErrorCode.UNKNOWN, detail = error.message, cause = error), now)
+        } finally {
+            val completedTiming = timing
+            if (completedTiming != null && diagnostics != null) {
+                // Keep failures/cancellations as well; diagnostics must never change the result.
+                withContext(NonCancellable) {
+                    try { diagnostics.save(completedTiming.report(clock.nowEpochMs(), mode, timingStatus)) }
+                    catch (_: Exception) { /* best effort */ }
+                }
+            }
+            _state.update { it.copy(isSyncing = false, trigger = null, progressDone = 0, progressTotal = 0) }
+        }
+    }
+
+    /**
+     * True when what is stored cannot honestly be called current.
+     *
+     * - Daily-analysis mode is stale when the last run was on an earlier calendar day.
+     * - Otherwise it is stale when the last successful sync is from an earlier day, is
+     *   older than [FRESH_FOR_MS], or when the coming two days have no fixtures at all
+     *   (which is what a user sees as an empty home screen).
+     */
+    suspend fun isStale(now: Long = clock.nowEpochMs()): Boolean {
+        val settings = settingsRepository.current()
+        if (settings.dailyAnalysisEnabled || providerRegistry.activeProviderId() == FootballDataOrgProvider.PROVIDER_ID) {
+            return dailyAnalysisRepository.needsRefresh()
+        }
+        val last = settings.lastSyncEpochMs ?: return true
+        if (startOfDay(last) < startOfDay(now)) return true
+        if (now - last > FRESH_FOR_MS) return true
+        return !matchRepository.hasFixturesBetween(now, now + 2 * TimeConstants.DAY_MS)
+    }
+
+    /** Force the next automatic trigger to run, e.g. after the user changed sources. */
+    fun forgetAttempt() = _state.update { it.copy(lastAttemptEpochMs = null) }
+
+    private suspend fun resolvePredictions(): Int? {
+        return try {
+            predictionRepository.resolveFinishedPredictions()
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            // A grading failure does not discard already synced fixtures.
+            null
+        }
+    }
+
+    private fun succeed(run: SyncRun) {
+        lastCompleted = run
+        lastCompletedAt = clock.nowEpochMs()
+        _state.update {
+            it.copy(
+                lastSuccessEpochMs = clock.nowEpochMs(),
+                lastAdded = run.added,
+                lastWarnings = run.warnings,
+                lastFallbackProviderId = run.fallbackProviderId,
+                lastError = null,
+            )
+        }
+    }
+
+    private fun fail(error: AppError, now: Long): Outcome<SyncRun> {
+        _state.update { it.copy(lastError = error, lastAttemptEpochMs = now) }
+        return Outcome.Failure(error)
+    }
+
+    private fun startOfDay(epochMs: Long): Long =
+        Instant.ofEpochMilli(epochMs).atZone(ZoneId.systemDefault()).toLocalDate()
+            .atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+
+    companion object {
+        /** How long stored fixtures are considered current without a new request. */
+        val FRESH_FOR_MS: Long = 30 * TimeConstants.MINUTE_MS
+
+        /** Two automatic attempts closer than this would only duplicate work. */
+        private const val MIN_RETRY_GAP_MS: Long = 60_000L
+
+        /** A second manual press inside this window reuses the sync that just finished. */
+        private const val DUPLICATE_WINDOW_MS: Long = 5_000L
+
+        /** The match list reaches ten days ahead; two days back keeps yesterday correct. */
+        const val DAYS_BACK = 2
+        const val DAYS_AHEAD = 10
+    }
+}
