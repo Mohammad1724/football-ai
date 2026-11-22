@@ -1,40 +1,39 @@
 # Signing
 
-`footballai-release.p12` is the **stable** signing key for this app.
+The app is signed with one **stable** signing key, so every build installs over the
+previous one without uninstalling (which would delete the local database).
 
 | | |
 |---|---|
-| Keystore | `signing/footballai-release.p12` (PKCS#12) |
-| Store password | `footballai-signing-2026` |
+| Keystore | `signing/footballai-release.p12` (PKCS#12) — restored by CI, **not committed** |
 | Key alias | `footballai` |
-| Key password | same as the store password (PKCS#12 rule) |
 | Key | RSA 4096, self-signed, valid 30 years |
 | Certificate SHA-256 | `7cd605244926555fa5e51be08601d89e908e6df474f10b592ecf71b35f73d668` |
 
-## Why the key is in the repository
+## Where the key lives
 
-Before this key, every CI run signed the APK with a debug keystore that Gradle created
-on that runner. Each download therefore had a *different* signature, and Android
-refuses to install a package over an app signed by another key: the only way to update
-was to uninstall first, which deletes the local database.
+The keystore and its password are **not in this repository**. They are stored as
+GitHub Actions secrets:
 
-A stable, committed key fixes that for a phone-only workflow: no secret has to be pasted
-into a build, and the same certificate appears in every build.
+| Secret | Content |
+|---|---|
+| `FOOTBALLAI_KEYSTORE_BASE64` | The `.p12` file, base64-encoded |
+| `FOOTBALLAI_STORE_PASSWORD` | Store password (also the key password, per PKCS#12) |
+| `FOOTBALLAI_KEY_ALIAS` | Key alias |
 
-## What you accept by doing this
+CI decodes the keystore into `signing/` at the start of the build and verifies its
+SHA-256 checksum before building; the build then verifies that every APK carries
+the certificate fingerprint above and fails if it ever differs.
 
-Anyone who can read this repository can produce an APK that Android will accept as an
-update to the installed app. That is fine for a personal build side-loaded from GitHub
-Actions; it is **not** acceptable for the Play Store, which requires a private key.
-If that ever matters, the same key can be moved into GitHub Secrets —
-`app/build.gradle.kts` already reads `FOOTBALLAI_STORE_PASSWORD` and
-`FOOTBALLAI_KEY_ALIAS` from the environment first.
+For a local build, place the `.p12` at `signing/footballai-release.p12` yourself
+and set `FOOTBALLAI_STORE_PASSWORD` (and optionally `FOOTBALLAI_KEY_ALIAS`) in your
+environment. Without the keystore file, builds fall back to the debug key and will
+not install over the stable-signed app.
 
 ## Changing the key
 
 Changing it changes the signature, and Android will then demand a one-time uninstall
-again. Everything installed before is signed with the certificate fingerprint above; the
-CI build verifies that fingerprint on every run and fails if it ever differs.
+again. Everything installed before is signed with the certificate fingerprint above.
 
 ## Version codes
 
