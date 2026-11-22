@@ -131,10 +131,27 @@ class RatingBook(private val config: RatingBookConfig = RatingBookConfig()) {
         var weightSum = 0.0
         var homeGoals = 0.0
         var awayGoals = 0.0
+        val xgWeight = config.dixonColes.xgBlendWeight.coerceIn(0.0, 1.0)
         for (match in windowed) {
             weightSum += match.weight
-            homeGoals += match.weight * match.homeGoals
-            awayGoals += match.weight * match.awayGoals
+            // The baseline is the league's average of the same blended evidence the
+            // strengths are fitted on: per match, (1-w)*goals + w*xG when the match
+            // carries xG, plain goals when it does not. At w = 0 this is exactly the
+            // old goals average. Mirrors Backtester.baseline.
+            val hxg = match.homeXg
+            val axg = match.awayXg
+            val effHome = if (xgWeight > 0.0 && hxg != null && hxg.isFinite()) {
+                (1.0 - xgWeight) * match.homeGoals + xgWeight * hxg
+            } else {
+                match.homeGoals.toDouble()
+            }
+            val effAway = if (xgWeight > 0.0 && axg != null && axg.isFinite()) {
+                (1.0 - xgWeight) * match.awayGoals + xgWeight * axg
+            } else {
+                match.awayGoals.toDouble()
+            }
+            homeGoals += match.weight * effHome
+            awayGoals += match.weight * effAway
         }
         if (weightSum <= 0.0) return LeagueBaseline.FALLBACK
         return LeagueBaseline(

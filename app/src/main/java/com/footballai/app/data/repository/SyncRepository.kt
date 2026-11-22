@@ -41,6 +41,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
 import java.time.ZoneOffset
 
@@ -89,6 +90,7 @@ class SyncRepository(
     private val clock: TimeProvider,
     private val sportsDbCrests: com.footballai.app.data.remote.SportsDbCrests,
     private val leagueCrestIndex: com.footballai.app.data.remote.LeagueCrestIndex,
+    private val xgProvider: com.footballai.app.data.remote.XgHistoryProvider,
 ) {
 
     private val crestBackfillMutex = Mutex()
@@ -937,13 +939,15 @@ class SyncRepository(
                         }
                     }
                     is Outcome.Success -> {
+                        val competitionId = Ids.competition(provider.info.id, key)
                         val inserted = persistHistory(
                             source = com.footballai.app.data.remote.FootballDataCoUkProvider.PROVIDER_ID,
-                            competitionId = Ids.competition(provider.info.id, key),
+                            competitionId = competitionId,
                             competitionName = competitionName,
                             rows = result.value,
                             now = now,
                         )
+                        applyXg(key, competitionId, season)
                         summary = summary + SyncSummary(historical = inserted)
                     }
                 }
@@ -952,6 +956,45 @@ class SyncRepository(
         settingsRepository.setLastHistoricalImport(now)
         ratingsRepository.invalidate()
         return Outcome.Success(summary.copy(errors = errors))
+    }
+
+    /**
+     * Best-effort xG enrichment for one imported competition season.
+     *
+     * The mirror names teams exactly as football-data.co.uk does, and the stored
+     * history rows carry those names, so a row is matched on (home name, away
+     * name, kickoff date in Europe/London) — the same dated-fixture discipline
+     * [persistHistory] uses for results, with a one-day tolerance for timezone
+     * edges. A row is only ever filled, never overwritten, and any failure
+     * (mirror unreachable, competition not covered) leaves the import exactly
+     * as it was: xG is an enhancement to the rating fit, not a requirement.
+     */
+    private suspend fun applyXg(competitionKey: String, competitionId: String, seasonStartYear: Int) {
+        if (competitionKey !in com.footballai.app.data.remote.XgHistoryProvider.COVERED_COMPETITIONS) return
+        val xgRows = when (val result = xgProvider.xg(competitionKey, seasonStartYear)) {
+            is Outcome.Failure -> return
+            is Outcome.Success -> result.value
+        }
+        if (xgRows.isEmpty()) return
+        val byFixture = HashMap<Triple<String, String, LocalDate>, Pair<Double, Double>>()
+        for (row in xgRows) {
+            byFixture[Triple(row.homeTeamName, row.awayTeamName, row.date)] = row.homeXg to row.awayXg
+        }
+        val stored = db.historicalDao().forCompetition(
+            FootballDataCoUkProvider.PROVIDER_ID, competitionId, Long.MAX_VALUE,
+        )
+        db.withTransaction {
+            for (row in stored) {
+                if (row.homeXg != null && row.awayXg != null) continue
+                val date = Instant.ofEpochMilli(row.kickoffEpochMs)
+                    .atZone(ZoneId.of("Europe/London")).toLocalDate()
+                val xg = byFixture[Triple(row.homeTeamName, row.awayTeamName, date)]
+                    ?: byFixture[Triple(row.homeTeamName, row.awayTeamName, date.minusDays(1))]
+                    ?: byFixture[Triple(row.homeTeamName, row.awayTeamName, date.plusDays(1))]
+                    ?: continue
+                db.historicalDao().updateXg(row.id, xg.first, xg.second)
+            }
+        }
     }
 
     /**

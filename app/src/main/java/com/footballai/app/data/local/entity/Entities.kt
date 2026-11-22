@@ -242,6 +242,13 @@ data class HistoricalMatchEntity(
     val awayOdds: Double?,
     val importedAt: Long,
     /**
+     * Post-match expected goals from the football-ai-data xG mirror, when the
+     * competition is covered (big-5) and the mirror has this match. Null means
+     * "no xG evidence": the rating fit then uses this match's goals only.
+     */
+    val homeXg: Double? = null,
+    val awayXg: Double? = null,
+    /**
      * True when the archive states the match was played on neutral ground.
      *
      * National-team results are full of neutral venues (tournaments, play-offs) and the

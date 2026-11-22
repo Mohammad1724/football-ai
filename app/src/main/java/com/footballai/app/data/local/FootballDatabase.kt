@@ -42,7 +42,7 @@ import com.footballai.app.data.local.entity.TeamEntity
         StandingEntity::class,
         SyncMetaEntity::class,
     ],
-    version = 6,
+    version = 7,
     exportSchema = false,
 )
 abstract class FootballDatabase : RoomDatabase() {
@@ -70,6 +70,7 @@ abstract class FootballDatabase : RoomDatabase() {
             HistoryMigration.MIGRATION_3_4,
             HistoryMigration.MIGRATION_4_5,
             HistoryMigration.MIGRATION_5_6,
+            HistoryMigration.MIGRATION_6_7,
         ).build()
     }
 }

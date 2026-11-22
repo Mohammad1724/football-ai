@@ -125,4 +125,18 @@ object HistoryMigration {
             )
         }
     }
+
+    /**
+     * 6 -> 7: per-match expected goals on the history table.
+     *
+     * Additive and nullable, like 4 -> 5: competitions the xG mirror does not
+     * cover leave both columns empty, and an empty column means "goals-only
+     * evidence" to the rating fit — never a zero the source did not publish.
+     */
+    val MIGRATION_6_7 = object : Migration(6, 7) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE historical_matches ADD COLUMN homeXg REAL")
+            db.execSQL("ALTER TABLE historical_matches ADD COLUMN awayXg REAL")
+        }
+    }
 }
