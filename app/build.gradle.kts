@@ -13,14 +13,15 @@ plugins {
  * Android refused to install it over the previous version — the app had to be uninstalled
  * first, losing its local history every time.
  *
- * This key lives in `signing/` on purpose: the same certificate is used for every build,
- * so an update installs over the installed app and keeps its data. It is a personal,
- * self-signed key and is not suitable for Play Store distribution. Anyone who can read
- * this repository can sign a build that Android accepts as an update to this app, which
- * is the trade-off for a phone-only, no-secrets workflow.
+ * The key itself is NOT in the repository: CI restores it from the
+ * FOOTBALLAI_KEYSTORE_BASE64 GitHub secret into `signing/` before building, and the
+ * password and alias come from the FOOTBALLAI_STORE_PASSWORD / FOOTBALLAI_KEY_ALIAS
+ * secrets. The same certificate is used for every build, so an update installs over
+ * the installed app and keeps its data. It is a personal, self-signed key and is not
+ * suitable for Play Store distribution.
  */
 val stableKeystore = rootProject.file("signing/footballai-release.p12")
-val stableStorePassword = System.getenv("FOOTBALLAI_STORE_PASSWORD") ?: "footballai-signing-2026"
+val stableStorePassword = System.getenv("FOOTBALLAI_STORE_PASSWORD")
 val stableKeyAlias = System.getenv("FOOTBALLAI_KEY_ALIAS") ?: "footballai"
 
 /** Each CI run gets a higher version code, so Android treats a download as an update. */
@@ -34,6 +35,7 @@ android {
         if (stableKeystore.exists()) {
             create("stable") {
                 storeFile = stableKeystore
+                requireNotNull(stableStorePassword) { "FOOTBALLAI_STORE_PASSWORD is not set; the signing key password comes from CI secrets or the local environment." }
                 // PKCS#12 keeps the key password equal to the store password.
                 storeType = "PKCS12"
                 storePassword = stableStorePassword
