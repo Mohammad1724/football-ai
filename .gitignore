@@ -14,10 +14,11 @@ captures/
 .externalNativeBuild/
 .cxx/
 
-# Secrets (never commit API keys)
+# Secrets (never commit API keys or signing keys)
 secrets.properties
 *.jks
 *.keystore
+*.p12
 keystore.properties
 
 # Python bytecode (scripts/)
