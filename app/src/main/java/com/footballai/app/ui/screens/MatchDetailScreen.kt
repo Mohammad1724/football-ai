@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideInHorizontally
@@ -377,11 +378,19 @@ private fun MatchDetailContent(
             // One indicator for both rows: a gold rule under the selected tab, and no
             // Material divider under the row — a hairline across the aurora reads as
             // a stray slab edge, not as part of the glass.
+            //
+            // The row measures its indicator with fixed full-row constraints, so the
+            // box must first opt out of that size: fillMaxWidth + wrapContentSize lets
+            // it shrink back to the selected tab's width and a 3.dp height, pinned to
+            // the row's bottom. Without that pair the background fills the whole row
+            // and buries the tab labels under a gold slab.
             val tabIndicator: @Composable (List<TabPosition>) -> Unit = { positions ->
                 if (selectedTab in positions.indices) {
                     val position = positions[selectedTab]
                     Box(
                         modifier = Modifier
+                            .fillMaxWidth()
+                            .wrapContentSize(Alignment.BottomStart)
                             .offset(x = position.left)
                             .width(position.width)
                             .height(3.dp)
