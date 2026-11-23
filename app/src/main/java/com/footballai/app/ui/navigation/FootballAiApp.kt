@@ -16,7 +16,7 @@ import com.footballai.app.ui.theme.GlassLightInkSecondary
 import com.footballai.app.ui.theme.GlassViolet
 import com.footballai.app.ui.theme.Spacing
 import com.footballai.app.ui.theme.FootballAiThemeExtra
-import com.footballai.app.ui.glass.LightGlassFill
+import com.footballai.app.ui.glass.GlassFillBar
 import com.footballai.app.ui.glass.LocalScrollLight
 import com.footballai.app.ui.glass.ScrollLight
 import com.footballai.app.ui.glass.scrollSpecular
@@ -258,8 +258,12 @@ private fun MainScaffold() {
     // margins included. Translucent white over opaque near-white read on device
     // as a matte white slab docked to the bottom edge, the pill and the search
     // circle sitting *in* it. As an overlay the pastel runs full-height behind
-    // both, showing in the margins and through the glass — which is what makes
-    // them float. The pill does not span the screen, and search rides in its own
+    // both, showing in the margins around them — which is what makes them float.
+    // The fill is the opaque GlassFillBar, not the translucent sheet the cards
+    // use: the feed scrolls *under* this bar, and through a translucent fill its
+    // rows stayed legible and collided with the bar's own icons and labels — the
+    // same failure the pinned league headers cured by going opaque. The pill
+    // does not span the screen, and search rides in its own
     // glass circle beside it, the way the reference wallet app floats its own
     // search beside its pill; it counts a request on the shared signal, and the
     // matches feed — the only glass destination with a bar — opens its dialog.
@@ -283,7 +287,7 @@ private fun MainScaffold() {
                         spotColor = GlassViolet.copy(alpha = 0.18f),
                     )
                     .clip(RoundedCornerShape(30.dp))
-                    .background(LightGlassFill)
+                    .background(GlassFillBar)
                     .scrollSpecular(RoundedCornerShape(30.dp), scrollLight),
             ) {
                 pillContent()
@@ -299,7 +303,7 @@ private fun MainScaffold() {
                         spotColor = GlassViolet.copy(alpha = 0.18f),
                     )
                     .clip(CircleShape)
-                    .background(LightGlassFill)
+                    .background(GlassFillBar)
                     .clickable { searchSignal.request() }
                     .scrollSpecular(CircleShape, scrollLight),
                 contentAlignment = Alignment.Center,

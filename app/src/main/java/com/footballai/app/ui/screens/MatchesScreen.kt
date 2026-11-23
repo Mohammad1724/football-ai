@@ -760,7 +760,11 @@ private fun GroupedMatchList(
             // The shell's glass navigation floats over the feed now instead of
             // reserving a slot under it, so the list needs the bar's height in
             // bottom padding (plus a breath) or its last group could never
-            // scroll fully clear of the pill.
+            // scroll fully clear of the pill. Measured against the bar as
+            // built: the pill stands 75.dp (59.dp of icon, label and item
+            // padding inside 16.dp of row padding) on an 8.dp bottom margin —
+            // an 83.dp footprint — so 104.dp leaves the last group resting
+            // 21.dp clear of the bar's top edge.
             bottom = 104.dp,
         ),
         verticalArrangement = Arrangement.spacedBy(Spacing.sm),
