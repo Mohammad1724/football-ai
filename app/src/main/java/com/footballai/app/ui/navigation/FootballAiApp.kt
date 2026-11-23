@@ -9,6 +9,7 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxSize
 import com.footballai.app.ui.theme.GlassLightInkFaint
 import com.footballai.app.ui.theme.GlassLightInkSecondary
@@ -249,192 +250,205 @@ private fun MainScaffold() {
         }
     }
 
+    // The glass destinations' navigation, drawn as an overlay over the content
+    // rather than in the Scaffold's bottomBar slot. That slot is a full-width
+    // rectangle stacked *below* the content: the NavHost is padded away from it,
+    // so the pastel ground the glass destinations draw never reaches behind it,
+    // and the Scaffold's own opaque background fills the whole slot — side
+    // margins included. Translucent white over opaque near-white read on device
+    // as a matte white slab docked to the bottom edge, the pill and the search
+    // circle sitting *in* it. As an overlay the pastel runs full-height behind
+    // both, showing in the margins and through the glass — which is what makes
+    // them float. The pill does not span the screen, and search rides in its own
+    // glass circle beside it, the way the reference wallet app floats its own
+    // search beside its pill; it counts a request on the shared signal, and the
+    // matches feed — the only glass destination with a bar — opens its dialog.
+    val glassBarOverlay: @Composable BoxScope.() -> Unit = {
+        Row(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .padding(horizontal = Spacing.page, vertical = Spacing.sm),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .shadow(
+                        elevation = 4.dp,
+                        shape = RoundedCornerShape(30.dp),
+                        clip = false,
+                        ambientColor = GlassViolet.copy(alpha = 0.18f),
+                        spotColor = GlassViolet.copy(alpha = 0.18f),
+                    )
+                    .clip(RoundedCornerShape(30.dp))
+                    .background(LightGlassFill)
+                    .scrollSpecular(RoundedCornerShape(30.dp), scrollLight),
+            ) {
+                pillContent()
+            }
+            Box(
+                modifier = Modifier
+                    .size(52.dp)
+                    .shadow(
+                        elevation = 4.dp,
+                        shape = CircleShape,
+                        clip = false,
+                        ambientColor = GlassViolet.copy(alpha = 0.18f),
+                        spotColor = GlassViolet.copy(alpha = 0.18f),
+                    )
+                    .clip(CircleShape)
+                    .background(LightGlassFill)
+                    .clickable { searchSignal.request() }
+                    .scrollSpecular(CircleShape, scrollLight),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Search,
+                    contentDescription = stringResource(R.string.search_matches),
+                    tint = GlassLightInkSecondary,
+                    modifier = Modifier.size(22.dp),
+                )
+            }
+        }
+    }
+
     Scaffold(
         bottomBar = {
-            if (showBottomBar) {
-                // A floating pill instead of a bar glued to the edge, edged and lit by
-                // the same fixed light as the glass cards. Two finishes. Over the
-                // glass destinations the pill is light glass — the shared translucent
-                // fill under the shared specular, the selected tab a whisper of
-                // violet — and it no longer spans the screen: a separate glass
-                // circle beside it carries search, the way the reference wallet app
-                // floats its own search beside its pill. Over the light destinations
-                // the light pill stays exactly as it was.
-                if (glassBar) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = Spacing.page, vertical = Spacing.sm),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .shadow(
-                                    elevation = 4.dp,
-                                    shape = RoundedCornerShape(30.dp),
-                                    clip = false,
-                                    ambientColor = GlassViolet.copy(alpha = 0.18f),
-                                    spotColor = GlassViolet.copy(alpha = 0.18f),
-                                )
-                                .clip(RoundedCornerShape(30.dp))
-                                .background(LightGlassFill)
-                                .scrollSpecular(RoundedCornerShape(30.dp), scrollLight),
-                        ) {
-                            pillContent()
-                        }
-                        // Search, as its own floating circle. It counts a request on
-                        // the shared signal; the matches feed — the only glass
-                        // destination with a bar — opens its search dialog.
-                        Box(
-                            modifier = Modifier
-                                .size(52.dp)
-                                .shadow(
-                                    elevation = 4.dp,
-                                    shape = CircleShape,
-                                    clip = false,
-                                    ambientColor = GlassViolet.copy(alpha = 0.18f),
-                                    spotColor = GlassViolet.copy(alpha = 0.18f),
-                                )
-                                .clip(CircleShape)
-                                .background(LightGlassFill)
-                                .clickable { searchSignal.request() }
-                                .scrollSpecular(CircleShape, scrollLight),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.Search,
-                                contentDescription = stringResource(R.string.search_matches),
-                                tint = GlassLightInkSecondary,
-                                modifier = Modifier.size(22.dp),
-                            )
-                        }
-                    }
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = Spacing.xl, vertical = Spacing.sm)
-                            .shadow(elevation = 14.dp, shape = RoundedCornerShape(30.dp), clip = false)
-                            .clip(RoundedCornerShape(30.dp))
-                            .background(
-                                Brush.verticalGradient(
-                                    listOf(
-                                        MaterialTheme.colorScheme.surface.copy(alpha = 0.82f),
-                                        MaterialTheme.colorScheme.surface.copy(alpha = 0.82f),
-                                    ),
+            // Only the light destinations keep a bar in this slot; the glass
+            // destinations float theirs as an overlay (glassBarOverlay, drawn in
+            // the content lambda below). A floating pill instead of a bar glued
+            // to the edge, edged and lit by the same fixed light as the glass
+            // cards — unchanged from before.
+            if (showBottomBar && !glassBar) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = Spacing.xl, vertical = Spacing.sm)
+                        .shadow(elevation = 14.dp, shape = RoundedCornerShape(30.dp), clip = false)
+                        .clip(RoundedCornerShape(30.dp))
+                        .background(
+                            Brush.verticalGradient(
+                                listOf(
+                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.82f),
+                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.82f),
                                 ),
-                            )
-                            .scrollSpecular(RoundedCornerShape(30.dp), scrollLight),
-                    ) {
-                        pillContent()
-                    }
+                            ),
+                        )
+                        .scrollSpecular(RoundedCornerShape(30.dp), scrollLight),
+                ) {
+                    pillContent()
                 }
             }
         },
     ) { innerPadding ->
-        NavHost(
-            navController = navController,
-            startDestination = Routes.MATCHES,
-            modifier = Modifier.padding(bottom = innerPadding.calculateBottomPadding()),
-            enterTransition = {
-                if (isPushed(targetState)) {
-                    slideInHorizontally(animationSpec = tween(300)) { width -> forward * width } +
-                        fadeIn(animationSpec = tween(200))
-                } else {
-                    fadeIn(animationSpec = tween(200)) +
-                        scaleIn(initialScale = 0.97f, animationSpec = tween(260))
+        Box(modifier = Modifier.fillMaxSize()) {
+            NavHost(
+                navController = navController,
+                startDestination = Routes.MATCHES,
+                modifier = Modifier.padding(bottom = innerPadding.calculateBottomPadding()),
+                enterTransition = {
+                    if (isPushed(targetState)) {
+                        slideInHorizontally(animationSpec = tween(300)) { width -> forward * width } +
+                            fadeIn(animationSpec = tween(200))
+                    } else {
+                        fadeIn(animationSpec = tween(200)) +
+                            scaleIn(initialScale = 0.97f, animationSpec = tween(260))
+                    }
+                },
+                exitTransition = {
+                    if (isPushed(targetState)) {
+                        fadeOut(animationSpec = tween(150)) +
+                            slideOutHorizontally(animationSpec = tween(300)) { width -> -forward * width / 4 }
+                    } else {
+                        fadeOut(animationSpec = tween(150))
+                    }
+                },
+                popEnterTransition = {
+                    fadeIn(animationSpec = tween(200)) + scaleIn(initialScale = 0.99f, animationSpec = tween(240))
+                },
+                popExitTransition = {
+                    slideOutHorizontally(animationSpec = tween(280)) { width -> forward * width / 3 } +
+                        fadeOut(animationSpec = tween(200))
+                },
+            ) {
+                composable(Routes.MATCHES) {
+                    MatchesScreen(
+                        onMatchClick = { navController.navigate(Routes.matchDetail(it)) },
+                        onCompetitionClick = { navController.navigate(Routes.competitionTable(it)) },
+                    )
                 }
-            },
-            exitTransition = {
-                if (isPushed(targetState)) {
-                    fadeOut(animationSpec = tween(150)) +
-                        slideOutHorizontally(animationSpec = tween(300)) { width -> -forward * width / 4 }
-                } else {
-                    fadeOut(animationSpec = tween(150))
+                composable(Routes.PREDICTIONS) {
+                    PredictionsScreen(onMatchClick = { navController.navigate(Routes.matchDetail(it)) })
                 }
-            },
-            popEnterTransition = {
-                fadeIn(animationSpec = tween(200)) + scaleIn(initialScale = 0.99f, animationSpec = tween(240))
-            },
-            popExitTransition = {
-                slideOutHorizontally(animationSpec = tween(280)) { width -> forward * width / 3 } +
-                    fadeOut(animationSpec = tween(200))
-            },
-        ) {
-            composable(Routes.MATCHES) {
-                MatchesScreen(
-                    onMatchClick = { navController.navigate(Routes.matchDetail(it)) },
-                    onCompetitionClick = { navController.navigate(Routes.competitionTable(it)) },
-                )
+                composable(Routes.PERFORMANCE) {
+                    PerformanceScreen()
+                }
+                composable(Routes.DATA_SOURCES) {
+                    DataSourcesScreen(onBack = { navController.popBackStack() })
+                }
+                composable(Routes.SETTINGS) {
+                    SettingsScreen(
+                        onOpenDataSources = { navController.navigate(Routes.DATA_SOURCES) },
+                        onOpenCompetitionOrder = { navController.navigate(Routes.COMPETITION_ORDER) },
+                    )
+                }
+                composable(Routes.COMPETITION_ORDER) {
+                    CompetitionOrderScreen(onBack = { navController.popBackStack() })
+                }
+                composable(
+                    route = Routes.MATCH_DETAIL,
+                    arguments = listOf(navArgument("matchId") { type = NavType.StringType }),
+                ) { entry ->
+                    val matchId = entry.arguments?.getString("matchId").orEmpty()
+                    MatchDetailScreen(
+                        matchId = matchId,
+                        onBack = { navController.popBackStack() },
+                        onTeamClick = { navController.navigate(Routes.team(it)) },
+                        onCompetitionClick = { navController.navigate(Routes.competitionTable(it)) },
+                    )
+                }
+                composable(
+                    route = Routes.TEAM,
+                    arguments = listOf(navArgument("teamId") { type = NavType.StringType }),
+                ) { entry ->
+                    TeamScreen(
+                        teamId = entry.arguments?.getString("teamId").orEmpty(),
+                        onBack = { navController.popBackStack() },
+                        onCompetitionClick = { navController.navigate(Routes.competitionTable(it)) },
+                        onTeamClick = { navController.navigate(Routes.team(it)) },
+                    )
+                }
+                composable(
+                    route = Routes.COMPETITION_TABLE,
+                    arguments = listOf(navArgument("competitionId") { type = NavType.StringType }),
+                ) { entry ->
+                    CompetitionTableScreen(
+                        competitionId = entry.arguments?.getString("competitionId").orEmpty(),
+                        onBack = { navController.popBackStack() },
+                        onTeamClick = { navController.navigate(Routes.team(it)) },
+                    )
+                }
+                composable(
+                    route = Routes.COMPETITION,
+                    arguments = listOf(navArgument("competitionId") { type = NavType.StringType }),
+                ) { entry ->
+                    CompetitionScreen(
+                        competitionId = entry.arguments?.getString("competitionId").orEmpty(),
+                        onBack = { navController.popBackStack() },
+                        onMatchClick = { navController.navigate(Routes.matchDetail(it)) },
+                        onTableClick = {
+                            navController.navigate(
+                                Routes.competitionTable(entry.arguments?.getString("competitionId").orEmpty()),
+                            )
+                        },
+                        onTeamClick = { navController.navigate(Routes.team(it)) },
+                    )
+                }
             }
-            composable(Routes.PREDICTIONS) {
-                PredictionsScreen(onMatchClick = { navController.navigate(Routes.matchDetail(it)) })
-            }
-            composable(Routes.PERFORMANCE) {
-                PerformanceScreen()
-            }
-            composable(Routes.DATA_SOURCES) {
-                DataSourcesScreen(onBack = { navController.popBackStack() })
-            }
-            composable(Routes.SETTINGS) {
-                SettingsScreen(
-                    onOpenDataSources = { navController.navigate(Routes.DATA_SOURCES) },
-                    onOpenCompetitionOrder = { navController.navigate(Routes.COMPETITION_ORDER) },
-                )
-            }
-            composable(Routes.COMPETITION_ORDER) {
-                CompetitionOrderScreen(onBack = { navController.popBackStack() })
-            }
-            composable(
-                route = Routes.MATCH_DETAIL,
-                arguments = listOf(navArgument("matchId") { type = NavType.StringType }),
-            ) { entry ->
-                val matchId = entry.arguments?.getString("matchId").orEmpty()
-                MatchDetailScreen(
-                    matchId = matchId,
-                    onBack = { navController.popBackStack() },
-                    onTeamClick = { navController.navigate(Routes.team(it)) },
-                    onCompetitionClick = { navController.navigate(Routes.competitionTable(it)) },
-                )
-            }
-            composable(
-                route = Routes.TEAM,
-                arguments = listOf(navArgument("teamId") { type = NavType.StringType }),
-            ) { entry ->
-                TeamScreen(
-                    teamId = entry.arguments?.getString("teamId").orEmpty(),
-                    onBack = { navController.popBackStack() },
-                    onCompetitionClick = { navController.navigate(Routes.competitionTable(it)) },
-                    onTeamClick = { navController.navigate(Routes.team(it)) },
-                )
-            }
-            composable(
-                route = Routes.COMPETITION_TABLE,
-                arguments = listOf(navArgument("competitionId") { type = NavType.StringType }),
-            ) { entry ->
-                CompetitionTableScreen(
-                    competitionId = entry.arguments?.getString("competitionId").orEmpty(),
-                    onBack = { navController.popBackStack() },
-                    onTeamClick = { navController.navigate(Routes.team(it)) },
-                )
-            }
-            composable(
-                route = Routes.COMPETITION,
-                arguments = listOf(navArgument("competitionId") { type = NavType.StringType }),
-            ) { entry ->
-                CompetitionScreen(
-                    competitionId = entry.arguments?.getString("competitionId").orEmpty(),
-                    onBack = { navController.popBackStack() },
-                    onMatchClick = { navController.navigate(Routes.matchDetail(it)) },
-                    onTableClick = {
-                        navController.navigate(
-                            Routes.competitionTable(entry.arguments?.getString("competitionId").orEmpty()),
-                        )
-                    },
-                    onTeamClick = { navController.navigate(Routes.team(it)) },
-                )
+            if (showBottomBar && glassBar) {
+                glassBarOverlay()
             }
         }
     }
