@@ -132,6 +132,7 @@ import com.footballai.app.ui.components.VenueChips
 import com.footballai.app.ui.components.TeamMonogram
 import com.footballai.app.ui.components.TimelineRow
 import com.footballai.app.ui.components.TeamNameLines
+import com.footballai.app.ui.components.isLeftToRightText
 import com.footballai.app.ui.errorLabel
 import com.footballai.app.ui.evidenceGapLabel
 import com.footballai.app.ui.explanationLabel
@@ -1116,7 +1117,8 @@ private fun PredictionVerdictCard(
                     }
                     val secondary = if (languageTag.startsWith("fa", ignoreCase = true))
                         leadingTeam?.let { NameLocalization.namePair(it.name, languageTag, it.shortName).second } else null
-                    if (secondary != null) Text("\u200E" + secondary, style = MaterialTheme.typography.labelSmall,
+                    if (secondary != null) Text("\u200E" + secondary + if (secondary.isLeftToRightText()) "\u200E" else "",
+                        style = MaterialTheme.typography.labelSmall,
                         color = GlassLightInkMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 if (valid && leading != null) {
@@ -2258,7 +2260,7 @@ private fun RecentTenStat(label: String, value: String, secondary: String? = nul
         Column(horizontalAlignment = Alignment.End) {
             Text(text = value, style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            if (secondary != null) Text("\u200E" + secondary,
+            if (secondary != null) Text("\u200E" + secondary + if (secondary.isLeftToRightText()) "\u200E" else "",
                 style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
