@@ -106,7 +106,7 @@ import com.footballai.app.ui.components.RowDivider
 import com.footballai.app.ui.components.SoftCard
 import com.footballai.app.ui.glass.AuroraBackground
 import com.footballai.app.ui.glass.GlassCard
-import com.footballai.app.ui.glass.GlassFillOpaque
+import com.footballai.app.ui.glass.GlassFillHeader
 import com.footballai.app.ui.glass.GlassChip
 import com.footballai.app.ui.glass.GlassProbabilityBar
 import com.footballai.app.ui.theme.FootballAiTheme
@@ -552,7 +552,21 @@ private fun GroupedMatchList(
     val listState = rememberLazyListState()
     val sections = matchSections(state)
     val favourites = sections.favourites
-    val groups = sections.groups
+    // Today's top picks lead the feed, so on the Today tab they leave the league
+    // groups: a match is shown once, in the row that says why it matters, not
+    // again a screenful below under its league. A group the picks empty out is
+    // dropped entirely, header and all, and the counts on the headers that stay
+    // count only the matches actually listed under them. Other days have no
+    // top-picks row, so their groups pass through untouched.
+    val picks = if (state.selectedDayOffset == 0) topPicks(state.matches) else emptyList()
+    val groups = if (picks.isEmpty()) {
+        sections.groups
+    } else {
+        val pickIds = picks.mapTo(HashSet()) { it.id }
+        sections.groups
+            .map { group -> group.filter { match -> match.id !in pickIds } }
+            .filter { group -> group.isNotEmpty() }
+    }
     LazyColumn(
         state = listState,
         modifier = Modifier.fillMaxSize(),
@@ -566,28 +580,25 @@ private fun GroupedMatchList(
     ) {
         // The day's strongest stored forecasts lead the feed — but only on the Today
         // tab, and only forecasts the app's own pick rule calls clear (see topPicks).
-        if (state.selectedDayOffset == 0) {
-            val picks = topPicks(state.matches)
-            if (picks.isNotEmpty()) {
-                item(key = "top-picks") {
-                    Column {
-                        Text(
-                            text = stringResource(R.string.top_picks_today),
-                            style = MaterialTheme.typography.labelLarge,
-                            fontWeight = FontWeight.SemiBold,
-                            color = GlassGold,
-                        )
-                        Spacer(Modifier.height(Spacing.sm))
-                        LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        ) {
-                            items(picks, key = { it.id }) { match ->
-                                TopPickCard(
-                                    match = match,
-                                    languageTag = languageTag,
-                                    onClick = { onMatchClick(match.id) },
-                                )
-                            }
+        if (picks.isNotEmpty()) {
+            item(key = "top-picks") {
+                Column {
+                    Text(
+                        text = stringResource(R.string.top_picks_today),
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = GlassGold,
+                    )
+                    Spacer(Modifier.height(Spacing.sm))
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        items(picks, key = { it.id }) { match ->
+                            TopPickCard(
+                                match = match,
+                                languageTag = languageTag,
+                                onClick = { onMatchClick(match.id) },
+                            )
                         }
                     }
                 }
@@ -669,8 +680,10 @@ private fun CompetitionHeaderBar(
     // The pinned bar is glass in finish but opaque in fill: it is a sticky header,
     // so match rows constantly scroll beneath it, and through the translucent fill
     // their names and badges stayed legible inside the bar — two layers of text in
-    // one card. GlassFillOpaque hides whatever passes below; the specular and the
-    // bright edge keep it in the same material as the cards it pins over.
+    // one card. GlassFillHeader hides whatever passes below — every stop is
+    // full-alpha — but as an aurora-tinted gradient rather than a flat ink, so
+    // with the specular and the bright edge the bar reads as a darker pane of
+    // the same glass, not a solid navy slab.
     //
     // The card alone is not the whole item, though: the item's own padding above
     // and below the card was left unpainted, and through those transparent strips
@@ -681,14 +694,14 @@ private fun CompetitionHeaderBar(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .background(GlassFillOpaque)
+            .background(GlassFillHeader)
             .padding(top = Spacing.sm, bottom = Spacing.xs),
     ) {
         GlassCard(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
             onClick = onClick,
-            fill = GlassFillOpaque,
+            fill = GlassFillHeader,
         ) {
         Row(
             modifier = Modifier
@@ -892,11 +905,26 @@ private fun RecentMatchRow(
     onClick: () -> Unit,
     showCompetition: Boolean = false,
 ) {
+    // The stored forecast rides under the fixture line when one exists and the
+    // pick rule calls it clear. Nothing is computed here and nothing is invented:
+    // no stored forecast, no strip. A finished match keeps its score instead —
+    // the forecast for it lives on the predictions tab, with its evaluation.
+    val pickLabel = if (match.status == MatchStatus.SCHEDULED) {
+        storedPickLabel(match, languageTag)
+    } else {
+        null
+    }
+    val prediction = match.prediction
+    val hasStrip = pickLabel != null && prediction != null
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 13.dp),
+            // Without a strip the row is a single fixture line, and the full
+            // vertical padding left it floating in mostly empty glass, as tall
+            // as a predicted row. The compact row hugs its line; rows with a
+            // strip keep the original padding exactly.
+            .padding(horizontal = 14.dp, vertical = if (hasStrip) 13.dp else 8.dp),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -923,16 +951,6 @@ private fun RecentMatchRow(
             MatchMoment(match, languageTag, Modifier.width(72.dp))
             MatchTeam(match.away, languageTag, Modifier.weight(1f))
         }
-        // The stored forecast rides under the fixture line when one exists and the
-        // pick rule calls it clear. Nothing is computed here and nothing is invented:
-        // no stored forecast, no strip. A finished match keeps its score instead —
-        // the forecast for it lives on the predictions tab, with its evaluation.
-        val pickLabel = if (match.status == MatchStatus.SCHEDULED) {
-            storedPickLabel(match, languageTag)
-        } else {
-            null
-        }
-        val prediction = match.prediction
         if (pickLabel != null && prediction != null) {
             Spacer(Modifier.height(10.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {

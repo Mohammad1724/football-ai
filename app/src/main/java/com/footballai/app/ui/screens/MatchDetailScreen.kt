@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideInHorizontally
@@ -377,11 +378,19 @@ private fun MatchDetailContent(
             // One indicator for both rows: a gold rule under the selected tab, and no
             // Material divider under the row — a hairline across the aurora reads as
             // a stray slab edge, not as part of the glass.
+            //
+            // The row measures its indicator with fixed full-row constraints, so the
+            // box must first opt out of that size: fillMaxWidth + wrapContentSize lets
+            // it shrink back to the selected tab's width and a 3.dp height, pinned to
+            // the row's bottom. Without that pair the background fills the whole row
+            // and buries the tab labels under a gold slab.
             val tabIndicator: @Composable (List<TabPosition>) -> Unit = { positions ->
                 if (selectedTab in positions.indices) {
                     val position = positions[selectedTab]
                     Box(
                         modifier = Modifier
+                            .fillMaxWidth()
+                            .wrapContentSize(Alignment.BottomStart)
                             .offset(x = position.left)
                             .width(position.width)
                             .height(3.dp)
@@ -779,7 +788,7 @@ private fun AnalysisTab(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     TextButton(onClick = onRetryRefresh) {
-                        Text(stringResource(R.string.action_retry))
+                        Text(stringResource(R.string.action_retry), color = GlassGoldBright)
                     }
                 }
             }
@@ -901,7 +910,7 @@ private fun AnalysisTab(
                         ExpectedGoals(stringResource(if (prediction.kind == PredictionKind.LIVE) R.string.remaining_total_goals else R.string.expected_total_goals), prediction.expectedHomeGoals + prediction.expectedAwayGoals, languageTag)
                     }
                     TextButton(onClick = { glossary = PredictionGlossary.EXPECTED_GOALS }) {
-                        Text(stringResource(R.string.expected_goals_help))
+                        Text(stringResource(R.string.expected_goals_help), color = GlassGoldBright)
                     }
                     prediction.live?.let { live ->
                         Text(stringResource(R.string.live_remaining_goals,
@@ -1033,7 +1042,7 @@ private fun AnalysisTab(
         if (canPredict) {
             item {
                 TextButton(onClick = onPredict, enabled = !isPredicting, modifier = Modifier.padding(horizontal = 8.dp)) {
-                    Text(stringResource(R.string.action_recalculate))
+                    Text(stringResource(R.string.action_recalculate), color = GlassGoldBright)
                 }
             }
         }
@@ -1047,7 +1056,7 @@ private fun AnalysisTab(
             else R.string.expected_goals_help_body)
         AlertDialog(
             onDismissRequest = { glossary = null },
-            confirmButton = { TextButton(onClick = { glossary = null }) { Text(closeText) } },
+            confirmButton = { TextButton(onClick = { glossary = null }) { Text(closeText, color = GlassGoldBright) } },
             title = { Text(titleText) },
             text = { Text(bodyText) },
         )
@@ -1196,10 +1205,10 @@ private fun CompactFormCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 7.dp))
             // Two separate actions, each with its own touch target and no hidden tab promise.
             TextButton(onClick = onDetails) {
-                Text(stringResource(if (detailsOpen) R.string.analysis_form_hide else R.string.analysis_form_details))
+                Text(stringResource(if (detailsOpen) R.string.analysis_form_hide else R.string.analysis_form_details), color = GlassGoldBright)
             }
             if (onRecentMatches != null) TextButton(onClick = onRecentMatches) {
-                Text(stringResource(R.string.analysis_recent_matches))
+                Text(stringResource(R.string.analysis_recent_matches), color = GlassGoldBright)
             }
         }
     }

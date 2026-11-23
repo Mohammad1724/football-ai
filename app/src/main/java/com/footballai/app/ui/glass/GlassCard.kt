@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -28,6 +29,8 @@ import com.footballai.app.R
 import com.footballai.app.core.Formatters
 import com.footballai.app.ui.theme.AuroraBaseBottom
 import com.footballai.app.ui.theme.AuroraBaseMid
+import com.footballai.app.ui.theme.AuroraGlowBlue
+import com.footballai.app.ui.theme.AuroraGlowViolet
 import com.footballai.app.ui.theme.GlassGold
 import com.footballai.app.ui.theme.GlassGoldBright
 import com.footballai.app.ui.theme.GlassInk
@@ -107,6 +110,24 @@ val GlassFillOpaque = Brush.linearGradient(
     colors = listOf(
         AuroraBaseMid,
         AuroraBaseBottom,
+    ),
+)
+
+/**
+ * The pinned league header's frosted variant of [GlassFillOpaque].
+ *
+ * The rule is unchanged — every stop is a full-alpha colour, so nothing scrolling
+ * beneath can show through — but instead of a flat ink the fill is a vertical
+ * aurora-tinted gradient: a breath of the blue and violet glows near the top,
+ * settling into the deep base at the bottom. Under the specular finish and the
+ * bright edge the bar then reads as a darker pane of the same glass as the cards
+ * it pins over, not as a solid navy slab.
+ */
+val GlassFillHeader = Brush.verticalGradient(
+    colorStops = arrayOf(
+        0.0f to lerp(AuroraBaseMid, AuroraGlowBlue, 0.16f),
+        0.55f to lerp(AuroraBaseMid, AuroraGlowViolet, 0.06f),
+        1.0f to AuroraBaseBottom,
     ),
 )
 
