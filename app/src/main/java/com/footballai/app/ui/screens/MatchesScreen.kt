@@ -894,11 +894,26 @@ private fun RecentMatchRow(
     onClick: () -> Unit,
     showCompetition: Boolean = false,
 ) {
+    // The stored forecast rides under the fixture line when one exists and the
+    // pick rule calls it clear. Nothing is computed here and nothing is invented:
+    // no stored forecast, no strip. A finished match keeps its score instead —
+    // the forecast for it lives on the predictions tab, with its evaluation.
+    val pickLabel = if (match.status == MatchStatus.SCHEDULED) {
+        storedPickLabel(match, languageTag)
+    } else {
+        null
+    }
+    val prediction = match.prediction
+    val hasStrip = pickLabel != null && prediction != null
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 13.dp),
+            // Without a strip the row is a single fixture line, and the full
+            // vertical padding left it floating in mostly empty glass, as tall
+            // as a predicted row. The compact row hugs its line; rows with a
+            // strip keep the original padding exactly.
+            .padding(horizontal = 14.dp, vertical = if (hasStrip) 13.dp else 8.dp),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -925,16 +940,6 @@ private fun RecentMatchRow(
             MatchMoment(match, languageTag, Modifier.width(72.dp))
             MatchTeam(match.away, languageTag, Modifier.weight(1f))
         }
-        // The stored forecast rides under the fixture line when one exists and the
-        // pick rule calls it clear. Nothing is computed here and nothing is invented:
-        // no stored forecast, no strip. A finished match keeps its score instead —
-        // the forecast for it lives on the predictions tab, with its evaluation.
-        val pickLabel = if (match.status == MatchStatus.SCHEDULED) {
-            storedPickLabel(match, languageTag)
-        } else {
-            null
-        }
-        val prediction = match.prediction
         if (pickLabel != null && prediction != null) {
             Spacer(Modifier.height(10.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
