@@ -212,7 +212,8 @@ class DailyAnalysisRepository(
         matches.mapNotNull { match ->
             match.season?.let { season ->
                 val key = match.competitionId.substringAfterLast(':')
-                val csvKey = if (source == FootballDataCoUkProvider.PROVIDER_ID) key else HistoryBridge.leagues[key]
+                val csvKey = if (source == FootballDataCoUkProvider.PROVIDER_ID) key
+                    else HistoryBridge.leagues[key] ?: HistoryBridge.mirrorLeagues["$source:$key"]
                 csvKey?.let { it to season }
             }
         }.distinct()

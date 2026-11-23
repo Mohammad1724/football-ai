@@ -27,4 +27,27 @@ class HistoryBridgeTest {
     @Test fun `Brazil is not assigned European history`() {
         assertNull(HistoryBridge.leagues["BSA"])
     }
+    @Test fun `Champions League bridges to the UCL mirror archive`() {
+        assertEquals("UCL", HistoryBridge.leagues["CL"])
+        assertEquals("UCL", HistoryBridge.mirrorLeagues["api-football:2"])
+        assertEquals("UCL", HistoryBridge.mirrorLeagues["espn-open:uefa.champions"])
+        assertNull(HistoryBridge.mirrorLeagues["espn-open:eng.1"])
+    }
+    @Test fun `mirror aliases let a FotMob name answer to the fixture provider's name`() {
+        val cityRow = row.copy(homeTeamName = "Man City", awayTeamName = "Dortmund")
+        val teams = listOf(team("1", "Manchester City"), team("2", "Borussia Dortmund"))
+        // Without the alias table the exact bridge refuses both endpoints.
+        assertTrue(HistoryBridge.map(listOf(cityRow), teams).isEmpty())
+        val mapped = HistoryBridge.map(listOf(cityRow), teams, HistoryBridge.nameAliases.getValue("UCL"))
+        assertEquals("1", mapped.single().homeTeamId)
+        assertEquals("2", mapped.single().awayTeamId)
+    }
+    @Test fun `an alias colliding with another club's name is rejected`() {
+        val clash = row.copy(homeTeamName = "Man City", awayTeamName = "Chelsea")
+        val teams = listOf(
+            team("1", "Manchester City"), team("2", "Chelsea"),
+            team("3", "Manchester City"),
+        )
+        assertTrue(HistoryBridge.map(listOf(clash), teams, HistoryBridge.nameAliases.getValue("UCL")).isEmpty())
+    }
 }

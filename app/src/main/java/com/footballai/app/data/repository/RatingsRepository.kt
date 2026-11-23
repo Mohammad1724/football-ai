@@ -79,10 +79,21 @@ class RatingsRepository(
 
     private suspend fun history(source: String, competitionId: String, asOf: Long): List<HistoricalMatchEntity> {
         val native = db.historicalDao().forCompetition(source, competitionId, asOf)
-        if (source != "football-data-org") return native.canonicalIdentities(competitionId)
-        val code = HistoryBridge.leagues[competitionId.substringAfterLast(':')] ?: return native.canonicalIdentities(competitionId)
+        val providerKey = competitionId.substringAfterLast(':')
+        // Two bridges onto the CSV archive, both name-exact: football-data.org's
+        // league codes ([HistoryBridge.leagues]) and the competitions a provider
+        // publishes without usable history of its own ([HistoryBridge.mirrorLeagues]).
+        val code = if (source == "football-data-org") {
+            HistoryBridge.leagues[providerKey]
+        } else {
+            HistoryBridge.mirrorLeagues["$source:$providerKey"]
+        } ?: return native.canonicalIdentities(competitionId)
         val csv = db.historicalDao().forCompetition("football-data-co-uk", "football-data-co-uk:league:$code", asOf)
-        val mapped = HistoryBridge.map(csv, db.teamDao().forCompetition(competitionId))
+        val mapped = HistoryBridge.map(
+            csv,
+            db.teamDao().forCompetition(competitionId),
+            HistoryBridge.nameAliases[code].orEmpty(),
+        )
         // Use one complete source, never double-count the same results across providers.
         val chosen = if (mapped.size > native.size) mapped else native
         return chosen.canonicalIdentities(competitionId)
