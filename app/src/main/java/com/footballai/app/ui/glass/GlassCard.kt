@@ -128,6 +128,29 @@ val GlassFillHeader = Brush.verticalGradient(
 )
 
 /**
+ * Fully opaque light glass for the floating navigation bar — the other surface
+ * that content scrolls *beneath*.
+ *
+ * The pill and the search circle float over the matches feed as an overlay, so
+ * the feed passes under them exactly as it passes under a pinned header, and
+ * through the translucent [LightGlassFill] the passing rows stayed legible:
+ * a kickoff time and a Latin team name showed through the sheet and collided
+ * with the bar's own icons and labels, and the row resting half under the bar
+ * read as broken rather than covered. The bar therefore takes the header's
+ * medicine — a fill at full alpha, white settling to the faintest pastel, so
+ * nothing below can show through at all. What keeps it glass rather than a
+ * white slab is what the header also keeps: the bright one-pixel edge and the
+ * scroll-reactive specular that [scrollSpecular] draws over the fill, not a
+ * see-through sheet.
+ */
+val GlassFillBar = Brush.verticalGradient(
+    colors = listOf(
+        Color.White,
+        PastelUpperMid,
+    ),
+)
+
+/**
  * A small pill that rests on glass: confidence levels and short facts.
  *
  * The plain chip is more glass — white at a third, a white rim, secondary ink. The
