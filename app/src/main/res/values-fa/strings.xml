@@ -548,6 +548,9 @@
     <string name="expected_goals_help_body">یعنی در بازی‌هایی شبیه این یکی، این تیم معمولاً این‌قدر گل می‌زند. عدد ۱٫۵ یعنی تقریباً یک گل و نیم در هر بازی، نه این‌که حتماً یک گل بزند.</string>
     <string name="data_coverage_help_body">این درصد نشان می‌دهد چه‌قدر از اطلاعاتی که لازم داریم در دست است. درصد درست بودن پیش‌بینی نیست. بازی‌های بیشتر، ترکیب‌ها، مصدومان و ضریب‌ها این عدد را بالا می‌برند.</string>
     <string name="daily_pick_note_short">انتخاب احتمالی مدل است، نه تضمین نتیجه یا سود.</string>
+    <string name="top_picks_today">مطمئن‌ترین‌های امروز</string>
+    <string name="expected_goals_chip">گل مورد انتظار: %1$s – %2$s</string>
+    <string name="home_prediction_heading">پیش‌بینی ما</string>
     <string name="search_matches">جست‌وجوی مسابقات</string>
     <string name="search_matches_hint">نام لیگ، تیم یا مسابقه…</string>
     <string name="search_local_description">در لیگ‌ها، تیم‌ها و مسابقات دریافت‌شده روی همین دستگاه جست‌وجو کنید.</string>
