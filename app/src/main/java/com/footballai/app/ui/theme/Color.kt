@@ -39,3 +39,27 @@ val NightSurfaceStrong = Color(0xFF1C2320)
 val NightHairline = Color(0xFF262E2B)
 val NightInk = Color(0xFFE8EDEA)
 val NightInkMuted = Color(0xFF98A3A0)
+
+/*
+ * Liquid-glass palette (home feed and match detail).
+ *
+ * A fixed deep ink-blue aurora sits behind translucent white glass. The accent is a
+ * champagne gold rather than the pitch green: on a dark blue ground the green turned
+ * muddy, while the gold keeps the "premium analysis" reading the redesign is built on.
+ * The aurora glows are deliberately muted — they exist so the glass has something to
+ * refract, not to decorate the page themselves.
+ */
+val AuroraBaseTop = Color(0xFF131C2E)
+val AuroraBaseMid = Color(0xFF1B2942)
+val AuroraBaseBottom = Color(0xFF101827)
+val AuroraGlowBlue = Color(0xFF60A5FA)
+val AuroraGlowViolet = Color(0xFFA78BFA)
+val AuroraGlowTeal = Color(0xFF2DD4BF)
+val AuroraGlowAmber = Color(0xFFFB923C)
+
+val GlassGold = Color(0xFFE3C078)
+val GlassGoldBright = Color(0xFFF0D089)
+val GlassSteelBlue = Color(0xFF8FB4D9)
+val GlassInk = Color(0xFFF4F1EA)
+val GlassInkMuted = Color(0xFFB9C4CD)
+val GlassInkFaint = Color(0xFF8FA0AF)

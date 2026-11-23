@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -67,6 +68,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
@@ -83,11 +85,14 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.footballai.app.R
 import com.footballai.app.core.Formatters
+import com.footballai.app.data.repository.DailyAnalysisPolicy
 import com.footballai.app.domain.catalog.NameLocalization
+import com.footballai.app.domain.model.MatchStatus
 import com.footballai.app.domain.model.MatchSummary
 import com.footballai.app.domain.model.TeamRef
 import com.footballai.app.ui.LocalAppContainer
 import com.footballai.app.ui.LocalLanguageTag
+import com.footballai.app.ui.confidenceLevelLabel
 import com.footballai.app.ui.components.CompetitionNameText
 import com.footballai.app.ui.components.EmptyState
 import com.footballai.app.ui.components.LoadingState
@@ -99,7 +104,15 @@ import com.footballai.app.ui.components.TeamNameLines
 import com.footballai.app.ui.matchStatusLabel
 import com.footballai.app.ui.components.RowDivider
 import com.footballai.app.ui.components.SoftCard
+import com.footballai.app.ui.glass.AuroraBackground
+import com.footballai.app.ui.glass.GlassCard
+import com.footballai.app.ui.glass.GlassChip
+import com.footballai.app.ui.glass.GlassProbabilityBar
+import com.footballai.app.ui.theme.FootballAiTheme
 import com.footballai.app.ui.theme.FootballAiThemeExtra
+import com.footballai.app.ui.theme.GlassGold
+import com.footballai.app.ui.theme.GlassGoldBright
+import com.footballai.app.ui.theme.GlassInkMuted
 import com.footballai.app.ui.theme.Radii
 import com.footballai.app.ui.theme.Spacing
 import com.footballai.app.ui.viewmodel.MatchEmptyReason
@@ -110,9 +123,29 @@ import java.time.Instant
 import java.time.ZoneId
 import kotlin.math.abs
 
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * The home screen is the first surface of the liquid-glass redesign: a fixed aurora
+ * behind glass cards, in a forced dark scheme (the material only exists on a dark
+ * ground). The rest of the app keeps the user's theme; this screen and the match
+ * page opt into the glass world locally.
+ */
 @Composable
 fun MatchesScreen(
+    onMatchClick: (String) -> Unit,
+    onCompetitionClick: (String) -> Unit = {},
+) {
+    val languageTag = LocalLanguageTag.current
+    FootballAiTheme(darkTheme = true, languageTag = languageTag) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            AuroraBackground(modifier = Modifier.fillMaxSize())
+            MatchesFeed(onMatchClick = onMatchClick, onCompetitionClick = onCompetitionClick)
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun MatchesFeed(
     onMatchClick: (String) -> Unit,
     onCompetitionClick: (String) -> Unit = {},
 ) {
@@ -132,7 +165,7 @@ fun MatchesScreen(
     var pullActive by remember { mutableStateOf(false) }
 
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = Color.Transparent,
         topBar = {
             CenterAlignedTopAppBar(
                 title = {
@@ -163,7 +196,7 @@ fun MatchesScreen(
                         }
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
             )
         },
     ) { padding ->
@@ -525,13 +558,39 @@ private fun GroupedMatchList(
         ),
         verticalArrangement = Arrangement.spacedBy(Spacing.sm),
     ) {
+        // The day's strongest stored forecasts lead the feed — but only on the Today
+        // tab, and only forecasts the app's own pick rule calls clear (see topPicks).
+        if (state.selectedDayOffset == 0) {
+            val picks = topPicks(state.matches)
+            if (picks.isNotEmpty()) {
+                item(key = "top-picks") {
+                    Column {
+                        Text(
+                            text = stringResource(R.string.top_picks_today),
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            color = GlassGold,
+                        )
+                        Spacer(Modifier.height(Spacing.sm))
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            items(picks, key = { it.id }) { match ->
+                                TopPickCard(
+                                    match = match,
+                                    languageTag = languageTag,
+                                    onClick = { onMatchClick(match.id) },
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
         if (favourites.isNotEmpty()) {
             item(key = "favourites") {
-                Card(
+                GlassCard(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = Radii.cardShape,
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
@@ -601,19 +660,21 @@ private fun CompetitionHeaderBar(
     onClick: () -> Unit = {},
 ) {
     val colors = FootballAiThemeExtra.colors
-    // Opaque page behind the pinned bar, otherwise the rows scroll visibly under it.
+    // The pinned bar is itself glass: rows scrolling under it stay faintly visible
+    // through the sheet instead of being cut off by an opaque strip of page.
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.background)
             .padding(top = Spacing.sm, bottom = Spacing.xs),
     ) {
+        GlassCard(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            onClick = onClick,
+        ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(Radii.small))
-                .background(colors.cardStrong)
-                .clickable(onClick = onClick)
                 .padding(horizontal = Spacing.md, vertical = Spacing.sm),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -624,7 +685,7 @@ private fun CompetitionHeaderBar(
                     .width(3.dp)
                     .height(22.dp)
                     .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primary),
+                    .background(GlassGold),
             )
             Spacer(Modifier.width(10.dp))
             Column(modifier = Modifier.weight(1f)) {
@@ -665,6 +726,7 @@ private fun CompetitionHeaderBar(
                 modifier = Modifier.size(18.dp),
             )
         }
+        }
     }
 }
 
@@ -674,7 +736,7 @@ private fun CompetitionCard(
     languageTag: String,
     onMatchClick: (String) -> Unit,
 ) {
-    SoftCard(modifier = Modifier.fillMaxWidth()) {
+    GlassCard(modifier = Modifier.fillMaxWidth()) {
         matches.forEachIndexed { index, match ->
             RecentMatchRow(
                 match = match,
@@ -688,6 +750,123 @@ private fun CompetitionCard(
     }
 }
 
+/**
+ * Today's strongest stored forecasts, strongest first, at most three.
+ *
+ * A match qualifies only when a forecast was already stored for it (the feed never
+ * computes one), the fixture has not kicked off, and the app's descriptive pick rule
+ * ([DailyAnalysisPolicy.pick]) calls the outcome clear rather than close or
+ * insufficient — the same honesty rule the predictions tab uses. A floor of 40% on
+ * the leading probability keeps a three-way coin flip out of a "most confident" row.
+ */
+internal fun topPicks(matches: List<MatchSummary>): List<MatchSummary> =
+    matches.asSequence()
+        .filter { it.status == MatchStatus.SCHEDULED && it.prediction != null }
+        .mapNotNull { match ->
+            val prediction = match.prediction ?: return@mapNotNull null
+            val pick = DailyAnalysisPolicy.pick(
+                prediction.homeWin, prediction.draw, prediction.awayWin, prediction.qualityLevel,
+            )
+            val top = maxOf(prediction.homeWin, prediction.draw, prediction.awayWin)
+            if (pick in TOP_PICK_OUTCOMES && top >= TOP_PICK_MIN_PROBABILITY) match to top else null
+        }
+        .sortedByDescending { it.second }
+        .map { it.first }
+        .take(3)
+        .toList()
+
+private val TOP_PICK_OUTCOMES = setOf("HOME", "DRAW", "AWAY")
+private const val TOP_PICK_MIN_PROBABILITY = 0.40
+
+/** The pick sentence for a stored forecast, or null when the pick rule stays silent. */
+@Composable
+private fun storedPickLabel(match: MatchSummary, languageTag: String): String? {
+    val prediction = match.prediction ?: return null
+    return when (DailyAnalysisPolicy.pick(
+        prediction.homeWin, prediction.draw, prediction.awayWin, prediction.qualityLevel,
+    )) {
+        "HOME" -> stringResource(
+            R.string.daily_pick_team,
+            NameLocalization.displayName(match.home.name, languageTag, match.home.shortName),
+        )
+        "AWAY" -> stringResource(
+            R.string.daily_pick_team,
+            NameLocalization.displayName(match.away.name, languageTag, match.away.shortName),
+        )
+        "DRAW" -> stringResource(R.string.daily_pick_draw)
+        else -> null
+    }
+}
+
+/** One of the day's strongest forecasts, as a wide hero glass card. */
+@Composable
+private fun TopPickCard(
+    match: MatchSummary,
+    languageTag: String,
+    onClick: () -> Unit,
+) {
+    val prediction = match.prediction ?: return
+    val pickLabel = storedPickLabel(match, languageTag) ?: return
+    val topProbability = maxOf(prediction.homeWin, prediction.draw, prediction.awayWin)
+    GlassCard(
+        modifier = Modifier.width(272.dp),
+        hero = true,
+        onClick = onClick,
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                CompetitionNameText(
+                    name = match.competitionName,
+                    competitionId = match.competitionId,
+                    languageTag = languageTag,
+                    modifier = Modifier.weight(1f),
+                    primaryStyle = MaterialTheme.typography.labelSmall,
+                    primaryMaxLines = 1,
+                    showLatin = false,
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = Formatters.timeOnly(match.kickoffEpochMs, languageTag),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = GlassInkMuted,
+                )
+            }
+            Spacer(Modifier.height(10.dp))
+            Text(
+                text = pickLabel,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Row(
+                modifier = Modifier.padding(top = 2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = Formatters.percent(topProbability, languageTag),
+                    style = MaterialTheme.typography.headlineLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = GlassGoldBright,
+                )
+                prediction.confidenceLevel
+                    ?.takeIf { it == "HIGH" || it == "MEDIUM" || it == "LOW" }
+                    ?.let { level ->
+                        Spacer(Modifier.width(10.dp))
+                        GlassChip(text = confidenceLevelLabel(level))
+                    }
+            }
+            Spacer(Modifier.height(10.dp))
+            GlassProbabilityBar(
+                homeWin = prediction.homeWin,
+                draw = prediction.draw,
+                awayWin = prediction.awayWin,
+                languageTag = languageTag,
+            )
+        }
+    }
+}
+
 @Composable
 private fun RecentMatchRow(
     match: MatchSummary,
@@ -695,33 +874,71 @@ private fun RecentMatchRow(
     onClick: () -> Unit,
     showCompetition: Boolean = false,
 ) {
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 13.dp),
-        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Column(modifier = Modifier.weight(1f)) {
-            if (showCompetition) {
-                // Outside its league section a match needs to say which league it is.
-                CompetitionNameText(
-                    name = match.competitionName,
-                    competitionId = match.competitionId,
-                    languageTag = languageTag,
-                    primaryStyle = MaterialTheme.typography.labelSmall,
-                    secondaryStyle = MaterialTheme.typography.labelSmall,
-                    primaryMaxLines = 1,
-                    showLatin = false,
-                )
-                Spacer(Modifier.height(4.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                if (showCompetition) {
+                    // Outside its league section a match needs to say which league it is.
+                    CompetitionNameText(
+                        name = match.competitionName,
+                        competitionId = match.competitionId,
+                        languageTag = languageTag,
+                        primaryStyle = MaterialTheme.typography.labelSmall,
+                        secondaryStyle = MaterialTheme.typography.labelSmall,
+                        primaryMaxLines = 1,
+                        showLatin = false,
+                    )
+                    Spacer(Modifier.height(4.dp))
+                }
+                // fillMaxWidth, not weight: inside a Column a weight is a *height* weight, and
+                // the team line collapsed to zero height and vanished.
+                MatchTeam(match.home, languageTag, Modifier.fillMaxWidth())
             }
-            // fillMaxWidth, not weight: inside a Column a weight is a *height* weight, and
-            // the team line collapsed to zero height and vanished.
-            MatchTeam(match.home, languageTag, Modifier.fillMaxWidth())
+            MatchMoment(match, languageTag, Modifier.width(72.dp))
+            MatchTeam(match.away, languageTag, Modifier.weight(1f))
         }
-        MatchMoment(match, languageTag, Modifier.width(72.dp))
-        MatchTeam(match.away, languageTag, Modifier.weight(1f))
+        // The stored forecast rides under the fixture line when one exists and the
+        // pick rule calls it clear. Nothing is computed here and nothing is invented:
+        // no stored forecast, no strip. A finished match keeps its score instead —
+        // the forecast for it lives on the predictions tab, with its evaluation.
+        val pickLabel = if (match.status == MatchStatus.SCHEDULED) {
+            storedPickLabel(match, languageTag)
+        } else {
+            null
+        }
+        val prediction = match.prediction
+        if (pickLabel != null && prediction != null) {
+            Spacer(Modifier.height(10.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = pickLabel,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = GlassGoldBright,
+                    modifier = Modifier.weight(1f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                prediction.confidenceLevel
+                    ?.takeIf { it == "HIGH" || it == "MEDIUM" || it == "LOW" }
+                    ?.let { level -> GlassChip(text = confidenceLevelLabel(level)) }
+            }
+            Spacer(Modifier.height(6.dp))
+            GlassProbabilityBar(
+                homeWin = prediction.homeWin,
+                draw = prediction.draw,
+                awayWin = prediction.awayWin,
+                languageTag = languageTag,
+            )
+        }
     }
 }
 

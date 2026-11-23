@@ -6,11 +6,19 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import com.footballai.app.ui.theme.Spacing
 import com.footballai.app.ui.theme.FootballAiThemeExtra
+import com.footballai.app.ui.glass.LocalScrollLight
+import com.footballai.app.ui.glass.ScrollLight
+import com.footballai.app.ui.glass.scrollSpecular
+import com.footballai.app.ui.glass.trackScrollLight
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -31,7 +39,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -128,6 +138,23 @@ fun FootballAiApp() {
 /** The regular app shell, shown once onboarding has been completed or skipped. */
 @Composable
 private fun MainNavigation() {
+    // The glass theme's one fixed light lives here, above every destination, so the
+    // home feed, the match page and the navigation pill all reflect the same lamp.
+    val scrollLight = remember { ScrollLight() }
+    CompositionLocalProvider(LocalScrollLight provides scrollLight) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .trackScrollLight(scrollLight),
+        ) {
+            MainScaffold()
+        }
+    }
+}
+
+@Composable
+private fun MainScaffold() {
+    val scrollLight = LocalScrollLight.current
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
@@ -147,15 +174,17 @@ private fun MainNavigation() {
     Scaffold(
         bottomBar = {
             if (showBottomBar) {
-                // A floating pill instead of a bar glued to the edge: it leaves the page
-                // visible underneath, so the interface never looks cut off at the bottom.
-                Surface(
+                // A floating glass pill instead of a bar glued to the edge: translucent
+                // enough for the page to glow through, edged and lit by the same fixed
+                // light as the glass cards, so it belongs to the same material.
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = Spacing.xl, vertical = Spacing.sm),
-                    shape = RoundedCornerShape(30.dp),
-                    color = MaterialTheme.colorScheme.surface,
-                    shadowElevation = 14.dp,
+                        .padding(horizontal = Spacing.xl, vertical = Spacing.sm)
+                        .shadow(elevation = 14.dp, shape = RoundedCornerShape(30.dp), clip = false)
+                        .clip(RoundedCornerShape(30.dp))
+                        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.82f))
+                        .scrollSpecular(RoundedCornerShape(30.dp), scrollLight),
                 ) {
                     Row(
                         modifier = Modifier

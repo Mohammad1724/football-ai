@@ -65,6 +65,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -137,7 +138,14 @@ import com.footballai.app.ui.marketSelectionLabel
 import com.footballai.app.ui.missingDataLabel
 import com.footballai.app.ui.matchStatusLabel
 import com.footballai.app.ui.qualityNoteLabel
+import com.footballai.app.ui.glass.AuroraBackground
+import com.footballai.app.ui.glass.GlassCard
+import com.footballai.app.ui.glass.GlassChip
+import com.footballai.app.ui.glass.GlassProbabilityBar
+import com.footballai.app.ui.theme.FootballAiTheme
 import com.footballai.app.ui.theme.FootballAiThemeExtra
+import com.footballai.app.ui.theme.GlassGoldBright
+import com.footballai.app.ui.theme.GlassInkMuted
 import com.footballai.app.domain.model.ResultOutcome
 import com.footballai.app.ui.viewmodel.RecentTenSnapshot
 import com.footballai.app.ui.viewmodel.RecentTenSummary
@@ -163,9 +171,35 @@ private const val TAB_HEAD_TO_HEAD = "head_to_head"
 private const val TAB_LINEUPS = "lineups"
 private const val TAB_RECENT_TEN = "recent_ten"
 
-@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+/**
+ * The match page is the second surface of the liquid-glass redesign: same fixed
+ * aurora and forced dark scheme as the home feed, so moving from a fixture card to
+ * its match never leaves the glass world.
+ */
 @Composable
 fun MatchDetailScreen(
+    matchId: String,
+    onBack: () -> Unit,
+    onTeamClick: (String) -> Unit,
+    onCompetitionClick: (String) -> Unit,
+) {
+    val languageTag = LocalLanguageTag.current
+    FootballAiTheme(darkTheme = true, languageTag = languageTag) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            AuroraBackground(modifier = Modifier.fillMaxSize())
+            MatchDetailContent(
+                matchId = matchId,
+                onBack = onBack,
+                onTeamClick = onTeamClick,
+                onCompetitionClick = onCompetitionClick,
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun MatchDetailContent(
     matchId: String,
     onBack: () -> Unit,
     onTeamClick: (String) -> Unit,
@@ -248,6 +282,7 @@ fun MatchDetailScreen(
     val selectedTab = tabKeys.indexOf(selectedTabKey).takeIf { it >= 0 } ?: 0
 
     Scaffold(
+        containerColor = Color.Transparent,
         topBar = {
             CenterAlignedTopAppBar(
                 navigationIcon = {
@@ -282,7 +317,7 @@ fun MatchDetailScreen(
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
             )
         },
     ) { padding ->
@@ -333,11 +368,15 @@ fun MatchDetailScreen(
                 }
             }
             if (tabs.size > 5) {
-                ScrollableTabRow(selectedTabIndex = selectedTab, edgePadding = 4.dp) {
+                ScrollableTabRow(
+                    selectedTabIndex = selectedTab,
+                    edgePadding = 4.dp,
+                    containerColor = Color.Transparent,
+                ) {
                     tabContent()
                 }
             } else {
-                TabRow(selectedTabIndex = selectedTab) { tabContent() }
+                TabRow(selectedTabIndex = selectedTab, containerColor = Color.Transparent) { tabContent() }
             }
 
             // The download can only help when the archive itself is missing; an unknown
@@ -487,12 +526,10 @@ private fun MatchHeader(
 ) {
     val summary = detail.summary
     val colors = FootballAiThemeExtra.colors
-    Card(
+    GlassCard(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Column(modifier = Modifier.padding(if (compact) 12.dp else 16.dp)) {
             Row(
@@ -619,6 +656,46 @@ private fun TeamColumn(
     }
 }
 
+/**
+ * A compact glass notice for the analysis tab's honest dead ends — most often "not
+ * enough history for a forecast". The old full-width empty state read as a broken
+ * page; this is one quiet card with the reason and the one useful action, if any.
+ */
+@Composable
+private fun GlassNoticeCard(
+    title: String?,
+    message: String,
+    actionLabel: String? = null,
+    onAction: (() -> Unit)? = null,
+) {
+    GlassCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 6.dp),
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
+            if (title != null) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Spacer(Modifier.height(4.dp))
+            }
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodyMedium,
+                color = GlassInkMuted,
+            )
+            if (actionLabel != null && onAction != null) {
+                TextButton(onClick = onAction, modifier = Modifier.padding(top = 4.dp)) {
+                    Text(text = actionLabel, color = GlassGoldBright)
+                }
+            }
+        }
+    }
+}
+
 private enum class PredictionGlossary { EXPECTED_GOALS, DATA_COVERAGE }
 
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
@@ -714,7 +791,7 @@ private fun AnalysisTab(
         // A finished game with no stored forecast is an expected empty state, not
         // a retryable calculation error. Never offer an action known to be forbidden.
         if (prediction == null && isFinished) {
-            item { EmptyState(
+            item { GlassNoticeCard(
                 title = stringResource(R.string.finished_no_prediction_title),
                 message = stringResource(R.string.finished_no_prediction_message),
             ) }
@@ -722,8 +799,18 @@ private fun AnalysisTab(
         }
         if (error != null) {
             item {
-                if (canPredict) ErrorState(message = error, onRetry = onPredict)
-                else EmptyState(title = stringResource(R.string.analysis_unavailable), message = error)
+                // A compact glass notice, not a wall of text: the reason (most often
+                // "not enough history") and, when a retry is allowed, the retry.
+                if (canPredict) GlassNoticeCard(
+                    title = null,
+                    message = error,
+                    actionLabel = stringResource(R.string.action_retry),
+                    onAction = onPredict,
+                )
+                else GlassNoticeCard(
+                    title = stringResource(R.string.analysis_unavailable),
+                    message = error,
+                )
             }
             if (needsNationalHistory) {
                 item {
@@ -738,7 +825,7 @@ private fun AnalysisTab(
         if (prediction == null) {
             item {
                 if (isPredicting) LoadingState()
-                else EmptyState(
+                else GlassNoticeCard(
                     title = stringResource(if (canPredict) R.string.no_prediction_title else R.string.analysis_unavailable),
                     message = stringResource(if (canPredict) R.string.no_prediction_message else R.string.error_match_state),
                     actionLabel = if (canPredict) stringResource(R.string.action_analyze) else null,
@@ -952,41 +1039,67 @@ private fun PredictionVerdictCard(
         VerdictOutcome.AWAY -> stringResource(MatchAnalysisPresentation.verdict(isFinished, VerdictOutcome.AWAY), awayTeamName)
         null -> stringResource(if (valid) R.string.analysis_no_clear_leader else R.string.analysis_probabilities_invalid)
     }
-    Card(
+    // The verdict is the hero of the glass redesign: a gold-edged sheet with the
+    // pick and its probability at reading size, everything else below it. All the
+    // words are the ones the old card used — only the stage changed.
+    GlassCard(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        hero = true,
     ) {
-        Column(modifier = Modifier.fillMaxWidth().padding(14.dp)) {
+        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
             Text(stringResource(MatchAnalysisPresentation.title(isFinished)),
-                style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                style = MaterialTheme.typography.labelMedium, color = GlassGoldBright)
             Text(stringResource(MatchAnalysisPresentation.context(prediction.kind),
                 Formatters.dateOnly(prediction.createdAtEpochMs, languageTag),
                 Formatters.timeOnly(prediction.createdAtEpochMs, languageTag)),
-                style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.height(8.dp))
-            Text(outcomeLabel, style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-            val leadingTeam = when (leading) {
-                VerdictOutcome.HOME -> homeTeam
-                VerdictOutcome.AWAY -> awayTeam
-                else -> null
+                style = MaterialTheme.typography.labelSmall, color = GlassInkMuted)
+            Spacer(Modifier.height(10.dp))
+            Row(verticalAlignment = Alignment.Bottom) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(outcomeLabel, style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                    val leadingTeam = when (leading) {
+                        VerdictOutcome.HOME -> homeTeam
+                        VerdictOutcome.AWAY -> awayTeam
+                        else -> null
+                    }
+                    val secondary = if (languageTag.startsWith("fa", ignoreCase = true))
+                        leadingTeam?.let { NameLocalization.namePair(it.name, languageTag, it.shortName).second } else null
+                    if (secondary != null) Text("\u200E" + secondary, style = MaterialTheme.typography.labelSmall,
+                        color = GlassInkMuted, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                }
+                if (valid && leading != null) {
+                    Text(
+                        text = Formatters.percent(
+                            maxOf(prediction.homeWin, prediction.draw, prediction.awayWin),
+                            languageTag,
+                        ),
+                        style = MaterialTheme.typography.displaySmall,
+                        fontWeight = FontWeight.Bold,
+                        color = GlassGoldBright,
+                    )
+                }
             }
-            val secondary = if (languageTag.startsWith("fa", ignoreCase = true))
-                leadingTeam?.let { NameLocalization.namePair(it.name, languageTag, it.shortName).second } else null
-            if (secondary != null) Text("\u200E" + secondary, style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
             if (valid) {
                 Spacer(Modifier.height(12.dp))
-                ProbabilityBar(prediction.homeWin, prediction.draw, prediction.awayWin, languageTag,
-                    homeLabel = homeTeamName, awayLabel = awayTeamName, homeTeam = homeTeam, awayTeam = awayTeam)
+                GlassProbabilityBar(prediction.homeWin, prediction.draw, prediction.awayWin, languageTag,
+                    homeLabel = homeTeamName, awayLabel = awayTeamName)
             }
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(12.dp))
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (prediction.confidence?.level.isNullOrBlank()) {
                     Text(stringResource(R.string.analysis_confidence_unknown), style = MaterialTheme.typography.labelMedium)
                 } else {
                     ConfidenceChip(level = prediction.confidence?.level)
+                }
+                if (prediction.kind == PredictionKind.PRE_MATCH) {
+                    GlassChip(
+                        text = localizedString(
+                            R.string.expected_goals_chip,
+                            Formatters.decimal(prediction.expectedHomeGoals, languageTag),
+                            Formatters.decimal(prediction.expectedAwayGoals, languageTag),
+                        ),
+                    )
                 }
             }
             Text(stringResource(R.string.analysis_confidence_explained), style = MaterialTheme.typography.bodySmall,
@@ -1003,10 +1116,9 @@ private fun PredictionVerdictCard(
 @Composable
 private fun AnalysisDisclosureRow(title: String, subtitle: String, expanded: Boolean, onClick: () -> Unit) {
     val state = stringResource(if (expanded) R.string.analysis_section_open else R.string.analysis_section_closed)
-    Card(
+    GlassCard(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        shape = RoundedCornerShape(20.dp),
     ) {
         Row(modifier = Modifier.fillMaxWidth().heightIn(min = 60.dp)
             .semantics { stateDescription = state }
@@ -1014,11 +1126,11 @@ private fun AnalysisDisclosureRow(title: String, subtitle: String, expanded: Boo
             verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = GlassInkMuted)
             }
             Spacer(Modifier.width(8.dp))
             Icon(if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
-                contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                contentDescription = null, tint = GlassGoldBright)
         }
     }
 }
@@ -1029,9 +1141,7 @@ private fun CompactFormCard(
     home: TeamFormSnapshot?, away: TeamFormSnapshot?, homeTeam: TeamRef, awayTeam: TeamRef,
     languageTag: String, onRecentMatches: (() -> Unit)?, onDetails: () -> Unit, detailsOpen: Boolean,
 ) {
-    Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)) {
+    GlassCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)) {
         Column(modifier = Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, top = 12.dp, bottom = 4.dp)) {
             Text(stringResource(R.string.analysis_form_title), style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold)
