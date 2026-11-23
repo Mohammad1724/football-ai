@@ -671,9 +671,17 @@ private fun CompetitionHeaderBar(
     // their names and badges stayed legible inside the bar — two layers of text in
     // one card. GlassFillOpaque hides whatever passes below; the specular and the
     // bright edge keep it in the same material as the cards it pins over.
-    Row(
+    //
+    // The card alone is not the whole item, though: the item's own padding above
+    // and below the card was left unpainted, and through those transparent strips
+    // the first match row still showed as a faint band attached to the pinned
+    // header. The whole item is therefore painted with the same opaque fill
+    // first — background before padding, so the paint covers the padding too —
+    // and no part of the pinned block can act as a window onto what scrolls under.
+    Box(
         modifier = Modifier
             .fillMaxWidth()
+            .background(GlassFillOpaque)
             .padding(top = Spacing.sm, bottom = Spacing.xs),
     ) {
         GlassCard(
@@ -962,9 +970,16 @@ private fun MatchTeam(team: TeamRef, languageTag: String, modifier: Modifier = M
             languageTag = languageTag,
             modifier = Modifier.weight(1f, fill = false),
             primaryStyle = MaterialTheme.typography.bodyMedium,
+            // The primary name may wrap: two lines of Persian still say which team
+            // this is, where an ellipsis would hide it.
             primaryMaxLines = 2,
-            // Long published names may wrap instead of disappearing behind an ellipsis.
-            secondaryMaxLines = 2,
+            // The Latin sub-name may not. Left to wrap, a long one ("Istanbul
+            // Basaksehir") broke onto a second line at whatever width the column
+            // happened to leave it, at an uneven offset from the one-line names
+            // around it — the card's whole name block looked staggered. One line
+            // with an ellipsis keeps both sides of the fixture the same height
+            // and the same shape; the full name is one tap away on the match page.
+            secondaryMaxLines = 1,
         )
     }
 }
