@@ -48,8 +48,8 @@ import com.footballai.app.ui.theme.GlassSteelBlue
  * core stays visible through the sheet as a phantom inset panel — a hard-edged
  * rectangle floating inside the card, widest at the top where the offset leaves the
  * first rows unshadowed. The same shadow also fell on whatever scrolled beneath a
- * pinned card, dimming a band of the first row under it. Like [SoftCard], a glass
- * card is told apart by its fill, its edge and its sheen, not by a shadow.
+ * pinned card, dimming a band of the first row under it. Like the app's SoftCard,
+ * a glass card is told apart by its fill, its edge and its sheen, not by a shadow.
  */
 @Composable
 fun GlassCard(

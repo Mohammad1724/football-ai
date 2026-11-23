@@ -197,51 +197,51 @@ private fun LeagueTableRowContent(
     matchMark: MatchTableMark?,
 ) {
     val languageTag = LocalLanguageTag.current
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = Spacing.md, vertical = Spacing.sm),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = Formatters.integer(row.rank, languageTag),
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.width(22.dp),
-            )
-            Spacer(Modifier.width(Spacing.xs))
-            TeamBadge(
-                team = TeamRef(id = row.teamId, name = row.teamName, crestUrl = row.crestUrl),
-                size = 22,
-            )
-            Spacer(Modifier.width(Spacing.sm))
-            TeamNameLines(
-                team = TeamRef(id = row.teamId, name = row.teamName, crestUrl = row.crestUrl),
-                languageTag = languageTag,
-                modifier = Modifier.weight(1f),
-                primaryStyle = MaterialTheme.typography.bodyMedium.copy(
-                    fontWeight = if (highlighted || matchMark != null) FontWeight.SemiBold else FontWeight.Normal,
-                ),
-                primaryMaxLines = 3,
-                secondaryMaxLines = 3,
-            )
-            NumberCell(Formatters.integer(row.played, languageTag), 26)
-            NumberCell(row.wins?.let { Formatters.integer(it, languageTag) } ?: DASH, 26)
-            NumberCell(row.draws?.let { Formatters.integer(it, languageTag) } ?: DASH, 26)
-            NumberCell(row.losses?.let { Formatters.integer(it, languageTag) } ?: DASH, 26)
-            // A signed single number rather than "goals for-goals against": a hyphen between
-            // two numbers is read the other way round in a right-to-left row.
-            NumberCell(
-                value = when {
-                    row.goalDifference > 0 -> "+" + Formatters.integer(row.goalDifference, languageTag)
-                    row.goalDifference < 0 -> "−" + Formatters.integer(-row.goalDifference, languageTag)
-                    else -> Formatters.integer(0, languageTag)
-                },
-                width = 32,
-            )
-            NumberCell(Formatters.integer(row.points, languageTag), 26, bold = true)
-        }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = Spacing.md, vertical = Spacing.sm),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = Formatters.integer(row.rank, languageTag),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.width(22.dp),
+        )
+        Spacer(Modifier.width(Spacing.xs))
+        TeamBadge(
+            team = TeamRef(id = row.teamId, name = row.teamName, crestUrl = row.crestUrl),
+            size = 22,
+        )
+        Spacer(Modifier.width(Spacing.sm))
+        TeamNameLines(
+            team = TeamRef(id = row.teamId, name = row.teamName, crestUrl = row.crestUrl),
+            languageTag = languageTag,
+            modifier = Modifier.weight(1f),
+            primaryStyle = MaterialTheme.typography.bodyMedium.copy(
+                fontWeight = if (highlighted || matchMark != null) FontWeight.SemiBold else FontWeight.Normal,
+            ),
+            primaryMaxLines = 3,
+            secondaryMaxLines = 3,
+        )
+        NumberCell(Formatters.integer(row.played, languageTag), 26)
+        NumberCell(row.wins?.let { Formatters.integer(it, languageTag) } ?: DASH, 26)
+        NumberCell(row.draws?.let { Formatters.integer(it, languageTag) } ?: DASH, 26)
+        NumberCell(row.losses?.let { Formatters.integer(it, languageTag) } ?: DASH, 26)
+        // A signed single number rather than "goals for-goals against": a hyphen between
+        // two numbers is read the other way round in a right-to-left row.
+        NumberCell(
+            value = when {
+                row.goalDifference > 0 -> "+" + Formatters.integer(row.goalDifference, languageTag)
+                row.goalDifference < 0 -> "−" + Formatters.integer(-row.goalDifference, languageTag)
+                else -> Formatters.integer(0, languageTag)
+            },
+            width = 32,
+        )
+        NumberCell(Formatters.integer(row.points, languageTag), 26, bold = true)
+    }
 }
 
 /** A number in a fixed-width column, so two-digit and one-digit values line up. */
