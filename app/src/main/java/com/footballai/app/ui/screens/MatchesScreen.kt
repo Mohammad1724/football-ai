@@ -16,8 +16,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -26,6 +24,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -36,26 +35,18 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Sensors
+import androidx.compose.material.icons.filled.SportsSoccer
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.rounded.Search
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Surface
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -69,6 +60,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
@@ -79,6 +71,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
@@ -92,6 +85,7 @@ import com.footballai.app.domain.model.MatchSummary
 import com.footballai.app.domain.model.TeamRef
 import com.footballai.app.ui.LocalAppContainer
 import com.footballai.app.ui.LocalLanguageTag
+import com.footballai.app.ui.LocalMatchesSearchSignal
 import com.footballai.app.ui.confidenceLevelLabel
 import com.footballai.app.ui.components.CompetitionNameText
 import com.footballai.app.ui.components.EmptyState
@@ -101,20 +95,23 @@ import com.footballai.app.ui.components.SwipeRefresh
 import com.footballai.app.ui.components.SyncStatusStrip
 import com.footballai.app.ui.components.TeamBadge
 import com.footballai.app.ui.components.TeamNameLines
+import com.footballai.app.ui.components.isLeftToRightText
 import com.footballai.app.ui.matchStatusLabel
 import com.footballai.app.ui.components.RowDivider
-import com.footballai.app.ui.components.SoftCard
-import com.footballai.app.ui.glass.AuroraBackground
 import com.footballai.app.ui.glass.GlassCard
+import com.footballai.app.ui.glass.LightGlassFill
+import com.footballai.app.ui.glass.LightGlassSelectedFill
+import com.footballai.app.ui.glass.LocalScrollLight
+import com.footballai.app.ui.glass.PastelBackground
+import com.footballai.app.ui.glass.scrollSpecular
 import com.footballai.app.ui.glass.GlassFillHeader
 import com.footballai.app.ui.glass.GlassChip
 import com.footballai.app.ui.glass.GlassProbabilityBar
-import com.footballai.app.ui.theme.FootballAiTheme
 import com.footballai.app.ui.theme.FootballAiThemeExtra
-import com.footballai.app.ui.theme.GlassGold
-import com.footballai.app.ui.theme.GlassGoldBright
-import com.footballai.app.ui.theme.GlassInkMuted
-import com.footballai.app.ui.theme.Radii
+import com.footballai.app.ui.theme.FootballAiLightGlassTheme
+import com.footballai.app.ui.theme.GlassLightInkMuted
+import com.footballai.app.ui.theme.GlassLightInkSecondary
+import com.footballai.app.ui.theme.GlassViolet
 import com.footballai.app.ui.theme.Spacing
 import com.footballai.app.ui.viewmodel.MatchEmptyReason
 import com.footballai.app.ui.viewmodel.MatchesUiState
@@ -125,10 +122,10 @@ import java.time.ZoneId
 import kotlin.math.abs
 
 /**
- * The home screen is the first surface of the liquid-glass redesign: a fixed aurora
- * behind glass cards, in a forced dark scheme (the material only exists on a dark
- * ground). The rest of the app keeps the user's theme; this screen and the match
- * page opt into the glass world locally.
+ * The home screen is the first surface of the light-glass redesign: a fixed pastel
+ * sky behind translucent white glass, in the light-glass scheme (the material only
+ * exists on that ground). The rest of the app keeps the user's theme; this screen
+ * and the match page opt into the glass world locally.
  */
 @Composable
 fun MatchesScreen(
@@ -136,9 +133,9 @@ fun MatchesScreen(
     onCompetitionClick: (String) -> Unit = {},
 ) {
     val languageTag = LocalLanguageTag.current
-    FootballAiTheme(darkTheme = true, languageTag = languageTag) {
+    FootballAiLightGlassTheme(languageTag = languageTag) {
         Box(modifier = Modifier.fillMaxSize()) {
-            AuroraBackground(modifier = Modifier.fillMaxSize())
+            PastelBackground(modifier = Modifier.fillMaxSize())
             MatchesFeed(onMatchClick = onMatchClick, onCompetitionClick = onCompetitionClick)
         }
     }
@@ -161,47 +158,24 @@ private fun MatchesFeed(
     val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     var calendarOpen by remember { mutableStateOf(false) }
     var filtersOpen by remember { mutableStateOf(false) }
-    // True while the pull gesture's own indicator is on screen: the app bar must not spin
-    // as well, or one refresh looks like three.
+    // True while the pull gesture's own indicator is on screen: the refresh action
+    // must not spin as well, or one refresh looks like three.
     var pullActive by remember { mutableStateOf(false) }
+    // Search lives in the shell now — the floating circle beside the navigation
+    // pill — and arrives here as a counted request on the shared signal.
+    val searchSignal = LocalMatchesSearchSignal.current
+    LaunchedEffect(searchSignal.requests) {
+        if (searchSignal.requests > 0) viewModel.setSearchOpen(true)
+    }
 
     Scaffold(
         containerColor = Color.Transparent,
         topBar = {
-            CenterAlignedTopAppBar(
-                title = {
-                    Text(
-                        text = stringResource(R.string.title_matches),
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                },
-                actions = {
-                    IconButton(onClick = { viewModel.setSearchOpen(true) }) {
-                        Icon(Icons.Rounded.Search, contentDescription = stringResource(R.string.search_matches))
-                    }
-                    IconButton(onClick = { calendarOpen = true }) {
-                        Icon(Icons.Default.CalendarMonth, contentDescription = stringResource(R.string.open_calendar))
-                    }
-                    IconButton(
-                        onClick = { viewModel.refresh() },
-                        enabled = !state.isSyncing && !state.autoSyncing,
-                    ) {
-                        if ((state.isSyncing || state.autoSyncing) && !pullActive) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(22.dp),
-                                strokeWidth = 2.dp,
-                                color = GlassGoldBright,
-                            )
-                        } else {
-                            Icon(
-                                Icons.Default.Refresh,
-                                contentDescription = stringResource(R.string.action_sync),
-                            )
-                        }
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
+            MatchesTopBar(
+                filtersActive = state.filters.activeCount > 0,
+                onCalendarClick = { calendarOpen = true },
+                onFiltersClick = { filtersOpen = true },
+                onMarkClick = { viewModel.selectDay(0) },
             )
         },
     ) { padding ->
@@ -211,11 +185,19 @@ private fun MatchesFeed(
                 languageTag = languageTag,
                 onDaySelected = viewModel::selectDay,
             )
-            QuickMatchFilters(
+            QuickActionRow(
                 state = state,
-                onOpen = { filtersOpen = true },
+                syncing = (state.isSyncing || state.autoSyncing) && !pullActive,
+                onDailyAnalysis = {
+                    // Today's analysis is the feed on the Today tab with fresh
+                    // forecasts: go there, then run the pipeline that produces it.
+                    viewModel.selectDay(0)
+                    viewModel.refresh()
+                },
                 onFollowed = viewModel::toggleFollowedOnly,
                 onLive = viewModel::toggleLiveOnly,
+                onFilters = { filtersOpen = true },
+                onRefresh = viewModel::refresh,
                 languageTag = languageTag,
             )
 
@@ -463,7 +445,11 @@ private fun RecentDayTabs(
                     },
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                    color = if (selected) GlassGoldBright else MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = if (selected) {
+                        MaterialTheme.colorScheme.onSurface
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -473,7 +459,7 @@ private fun RecentDayTabs(
                         .width(if (selected) 40.dp else 0.dp)
                         .height(3.dp)
                         .clip(RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp))
-                        .background(GlassGold),
+                        .background(GlassViolet),
                 )
             }
         }
@@ -481,46 +467,231 @@ private fun RecentDayTabs(
     Spacer(Modifier.height(8.dp))
 }
 
-/** The common choices stay visible; the full filter set is one tap away. */
-@OptIn(ExperimentalLayoutApi::class)
+/**
+ * The home feed's own top bar, in the language of the mockups: a glass capsule that
+ * groups the calendar and the filters behind one sheet with a hairline between the
+ * two halves, the screen's name, and the app's mark in a glass circle — tapping the
+ * mark returns to today, the day this screen exists for. Search is not here any
+ * more; it is the shell's floating circle beside the navigation pill.
+ */
 @Composable
-private fun QuickMatchFilters(
+private fun MatchesTopBar(
+    filtersActive: Boolean,
+    onCalendarClick: () -> Unit,
+    onFiltersClick: () -> Unit,
+    onMarkClick: () -> Unit,
+) {
+    val light = LocalScrollLight.current
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .statusBarsPadding()
+            .padding(horizontal = Spacing.page, vertical = Spacing.sm),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        // One capsule, two actions: a hairline, not a gap, separates the halves, so
+        // the pair reads as one control — the grouping is the affordance.
+        Row(
+            modifier = Modifier
+                .clip(CircleShape)
+                .background(LightGlassFill)
+                .scrollSpecular(CircleShape, light)
+                .padding(horizontal = 6.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(38.dp)
+                    .clip(CircleShape)
+                    .clickable(onClick = onCalendarClick),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = Icons.Default.CalendarMonth,
+                    contentDescription = stringResource(R.string.open_calendar),
+                    tint = GlassLightInkSecondary,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+            Box(
+                modifier = Modifier
+                    .width(1.dp)
+                    .height(20.dp)
+                    .background(FootballAiThemeExtra.colors.hairline),
+            )
+            Box(
+                modifier = Modifier
+                    .size(38.dp)
+                    .clip(CircleShape)
+                    .clickable(onClick = onFiltersClick),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Tune,
+                    contentDescription = stringResource(R.string.match_filters_title),
+                    tint = if (filtersActive) GlassViolet else GlassLightInkSecondary,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+        }
+        Text(
+            text = stringResource(R.string.title_matches),
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.weight(1f),
+        )
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(LightGlassFill)
+                .clickable(onClick = onMarkClick)
+                .scrollSpecular(CircleShape, light),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = Icons.Default.SportsSoccer,
+                contentDescription = stringResource(R.string.filter_today),
+                tint = GlassViolet,
+                modifier = Modifier.size(21.dp),
+            )
+        }
+    }
+}
+
+/**
+ * The five quick actions of the home feed, drawn the way the reference wallet app
+ * draws its own: glass circles in an even row, a short label under each, and the
+ * accent reserved for a state that is actually on — a toggle wears violet only
+ * while it filters, so the row can be read at a glance.
+ *
+ * Every circle is an action this screen already had. Daily analysis runs through
+ * the same manual sync the refresh circle triggers — the coordinator runs the
+ * analysis inside it; there is no second pipeline to call — so its circle first
+ * returns to the Today tab, where the analysis belongs, and then runs it.
+ */
+@Composable
+private fun QuickActionRow(
     state: MatchesUiState,
-    onOpen: () -> Unit,
+    syncing: Boolean,
+    onDailyAnalysis: () -> Unit,
     onFollowed: () -> Unit,
     onLive: () -> Unit,
+    onFilters: () -> Unit,
+    onRefresh: () -> Unit,
     languageTag: String,
 ) {
     val active = state.filters.activeCount
-    val followedDescription = stringResource(R.string.match_filter_followed)
-    FlowRow(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.page, vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = Spacing.page, vertical = Spacing.xs),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        FilterChip(
+        QuickActionButton(
+            modifier = Modifier.weight(1f),
+            icon = Icons.Filled.AutoAwesome,
+            label = stringResource(R.string.sync_timing_daily),
+            contentDescription = stringResource(R.string.action_daily_analysis),
+            selected = false,
+            onClick = onDailyAnalysis,
+        )
+        QuickActionButton(
+            modifier = Modifier.weight(1f),
+            icon = Icons.Filled.Star,
+            label = stringResource(R.string.match_filter_followed_short),
+            contentDescription = stringResource(R.string.match_filter_followed),
+            selected = state.followedOnly,
+            onClick = onFollowed,
+        )
+        QuickActionButton(
+            modifier = Modifier.weight(1f),
+            icon = Icons.Filled.Sensors,
+            label = stringResource(R.string.match_filter_live),
+            contentDescription = stringResource(R.string.match_filter_live),
+            selected = state.liveOnly,
+            onClick = onLive,
+        )
+        QuickActionButton(
+            modifier = Modifier.weight(1f),
+            icon = Icons.Default.Tune,
+            label = if (active > 0) {
+                stringResource(R.string.match_filters_count, Formatters.integer(active, languageTag))
+            } else {
+                stringResource(R.string.match_filters_title)
+            },
+            contentDescription = stringResource(R.string.match_filters_title),
             selected = active > 0,
-            onClick = onOpen,
-            colors = matchFilterChipColors(),
-            leadingIcon = { Icon(Icons.Default.Tune, contentDescription = null, modifier = Modifier.size(18.dp)) },
-            label = { Text(if (active > 0) stringResource(R.string.match_filters_count, Formatters.integer(active, languageTag))
-                else stringResource(R.string.match_filters_title), maxLines = 1, overflow = TextOverflow.Ellipsis) },
+            onClick = onFilters,
         )
-        FilterChip(
-            modifier = Modifier.semantics { contentDescription = followedDescription },
-            selected = state.followedOnly, onClick = onFollowed,
-            colors = matchFilterChipColors(),
-            leadingIcon = if (state.followedOnly) {
-                { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
-            } else null,
-            label = { Text(stringResource(R.string.match_filter_followed_short), maxLines = 1, overflow = TextOverflow.Ellipsis) },
+        QuickActionButton(
+            modifier = Modifier.weight(1f),
+            icon = Icons.Default.Refresh,
+            label = stringResource(R.string.action_refresh),
+            contentDescription = stringResource(R.string.action_sync),
+            selected = false,
+            onClick = onRefresh,
+            enabled = !state.isSyncing && !state.autoSyncing,
+            spinning = syncing,
         )
-        FilterChip(
-            selected = state.liveOnly, onClick = onLive,
-            colors = matchFilterChipColors(),
-            leadingIcon = if (state.liveOnly) {
-                { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
-            } else null,
-            label = { Text(stringResource(R.string.match_filter_live), maxLines = 1, overflow = TextOverflow.Ellipsis) },
+    }
+}
+
+/** One quick action: a 58dp glass circle and its label, lit like every glass surface. */
+@Composable
+private fun QuickActionButton(
+    icon: ImageVector,
+    label: String,
+    contentDescription: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    spinning: Boolean = false,
+) {
+    val light = LocalScrollLight.current
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(58.dp)
+                .clip(CircleShape)
+                .background(if (selected) LightGlassSelectedFill else LightGlassFill)
+                .clickable(enabled = enabled, onClick = onClick)
+                .scrollSpecular(CircleShape, light)
+                .semantics { this.contentDescription = contentDescription },
+            contentAlignment = Alignment.Center,
+        ) {
+            if (spinning) {
+                // The refresh circle spins in place while a sync runs, the way the
+                // old app-bar button did — one spinner per refresh, never two.
+                CircularProgressIndicator(
+                    modifier = Modifier.size(22.dp),
+                    strokeWidth = 2.dp,
+                    color = GlassViolet,
+                )
+            } else {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = if (selected) GlassViolet else GlassLightInkSecondary,
+                    modifier = Modifier.size(24.dp),
+                )
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.5.sp),
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+            color = if (selected) GlassViolet else MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center,
         )
     }
 }
@@ -585,9 +756,9 @@ private fun GroupedMatchList(
                 Column {
                     Text(
                         text = stringResource(R.string.top_picks_today),
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.SemiBold,
-                        color = GlassGold,
+                        style = MaterialTheme.typography.titleSmall.copy(fontSize = 15.sp),
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
                     )
                     Spacer(Modifier.height(Spacing.sm))
                     LazyRow(
@@ -677,54 +848,35 @@ private fun CompetitionHeaderBar(
     onClick: () -> Unit = {},
 ) {
     val colors = FootballAiThemeExtra.colors
-    // The pinned bar is glass in finish but opaque in fill: it is a sticky header,
-    // so match rows constantly scroll beneath it, and through the translucent fill
-    // their names and badges stayed legible inside the bar — two layers of text in
-    // one card. GlassFillHeader hides whatever passes below — every stop is
-    // full-alpha — but as an aurora-tinted gradient rather than a flat ink, so
-    // with the specular and the bright edge the bar reads as a darker pane of
-    // the same glass, not a solid navy slab.
-    //
-    // The card alone is not the whole item, though: the item's own padding above
-    // and below the card was left unpainted, and through those transparent strips
-    // the first match row still showed as a faint band attached to the pinned
-    // header. The whole item is therefore painted with the same opaque fill
-    // first — background before padding, so the paint covers the padding too —
-    // and no part of the pinned block can act as a window onto what scrolls under.
+    // The league's name is a text row now, not a card — the mockups' calm comes from
+    // sections being named in type and only the matches sitting on glass. It is
+    // still a sticky header, though, so match rows constantly scroll beneath it:
+    // the whole item, padding included, is painted with GlassFillHeader — the
+    // pastel ground at full alpha — before anything is laid out on it (background
+    // before padding, so the paint covers the padding too). No part of the pinned
+    // block can act as a window onto what scrolls under it, and because the paint
+    // *is* the background's own gradient, the pinned row disappears into the sky
+    // instead of reading as a slab parked over the list.
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .background(GlassFillHeader)
-            .padding(top = Spacing.sm, bottom = Spacing.xs),
+            .clickable(onClick = onClick)
+            .padding(top = Spacing.md, bottom = Spacing.xs),
     ) {
-        GlassCard(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            onClick = onClick,
-            fill = GlassFillHeader,
-        ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = Spacing.md, vertical = Spacing.sm),
+            modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // A short accent rule reads as "new section" from a distance, the way a
-            // header line does in a printed league table.
-            Box(
-                modifier = Modifier
-                    .width(3.dp)
-                    .height(22.dp)
-                    .clip(CircleShape)
-                    .background(GlassGold),
-            )
-            Spacer(Modifier.width(10.dp))
             Column(modifier = Modifier.weight(1f)) {
                 CompetitionNameText(
                     name = competitionName.ifBlank { stringResource(R.string.unknown_competition) },
                     competitionId = competId,
                     languageTag = languageTag,
-                    primaryStyle = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                    primaryStyle = MaterialTheme.typography.titleSmall.copy(
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                    ),
                     primaryMaxLines = 1,
                     primaryColor = MaterialTheme.colorScheme.onSurface,
                 )
@@ -748,15 +900,14 @@ private fun CompetitionHeaderBar(
                 color = colors.iconMuted,
             )
             Spacer(Modifier.width(Spacing.xs))
-            // The bar is the way into the tournament's table. The chevron says so; without
-            // it the header reads as a label and nobody taps a label.
+            // The row is the way into the tournament's table. The chevron says so;
+            // without it the header reads as a label and nobody taps a label.
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
                 contentDescription = stringResource(R.string.action_open_table),
                 tint = colors.iconMuted,
                 modifier = Modifier.size(18.dp),
             )
-        }
         }
     }
 }
@@ -859,7 +1010,7 @@ private fun TopPickCard(
                 Text(
                     text = Formatters.timeOnly(match.kickoffEpochMs, languageTag),
                     style = MaterialTheme.typography.labelSmall,
-                    color = GlassInkMuted,
+                    color = GlassLightInkMuted,
                 )
             }
             Spacer(Modifier.height(10.dp))
@@ -874,17 +1025,19 @@ private fun TopPickCard(
                 modifier = Modifier.padding(top = 2.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                // One hero number per card: the leading probability, at reading
+                // size in the accent — the figure the whole card exists to say.
                 Text(
                     text = Formatters.percent(topProbability, languageTag),
-                    style = MaterialTheme.typography.headlineLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = GlassGoldBright,
+                    style = MaterialTheme.typography.headlineLarge.copy(fontSize = 34.sp),
+                    fontWeight = FontWeight.ExtraBold,
+                    color = GlassViolet,
                 )
                 prediction.confidenceLevel
                     ?.takeIf { it == "HIGH" || it == "MEDIUM" || it == "LOW" }
                     ?.let { level ->
                         Spacer(Modifier.width(10.dp))
-                        GlassChip(text = confidenceLevelLabel(level))
+                        GlassChip(text = confidenceLevelLabel(level), accent = true)
                     }
             }
             Spacer(Modifier.height(10.dp))
@@ -958,14 +1111,14 @@ private fun RecentMatchRow(
                     text = pickLabel,
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.SemiBold,
-                    color = GlassGoldBright,
+                    color = GlassViolet,
                     modifier = Modifier.weight(1f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
                 prediction.confidenceLevel
                     ?.takeIf { it == "HIGH" || it == "MEDIUM" || it == "LOW" }
-                    ?.let { level -> GlassChip(text = confidenceLevelLabel(level)) }
+                    ?.let { level -> GlassChip(text = confidenceLevelLabel(level), accent = true) }
             }
             Spacer(Modifier.height(6.dp))
             GlassProbabilityBar(
@@ -980,23 +1133,30 @@ private fun RecentMatchRow(
 
 @Composable
 private fun MatchTeam(team: TeamRef, languageTag: String, modifier: Modifier = Modifier) {
+    // Whether the name this row leads with is a Latin one: the dictionary's
+    // primary is Latin whenever the team has no Persian name.
+    val primaryIsLatin = NameLocalization.namePair(team.name, languageTag, team.shortName)
+        .first.isLeftToRightText()
     Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
         TeamBadge(team, size = 28)
         Spacer(Modifier.width(6.dp))
         TeamNameLines(
             team = team,
             languageTag = languageTag,
-            modifier = Modifier.weight(1f, fill = false),
+            // The column takes the row's remaining width as a hard bound (fill),
+            // so a long name ellipsizes *inside* its column. With fill = false the
+            // column could size itself to the name's full measure and push the
+            // text past the card's edge, where it was clipped mid-word.
+            modifier = Modifier.weight(1f),
             primaryStyle = MaterialTheme.typography.bodyMedium,
-            // The primary name may wrap: two lines of Persian still say which team
-            // this is, where an ellipsis would hide it.
-            primaryMaxLines = 2,
-            // The Latin sub-name may not. Left to wrap, a long one ("Istanbul
-            // Basaksehir") broke onto a second line at whatever width the column
-            // happened to leave it, at an uneven offset from the one-line names
-            // around it — the card's whole name block looked staggered. One line
-            // with an ellipsis keeps both sides of the fixture the same height
-            // and the same shape; the full name is one tap away on the match page.
+            // A Persian primary may wrap: two lines of Persian still say which
+            // team this is, where an ellipsis would hide it. A Latin primary may
+            // not: left to wrap, a long one broke mid-name at whatever width the
+            // column happened to leave it, and the two sides of the fixture ended
+            // up different heights and different shapes.
+            primaryMaxLines = if (primaryIsLatin) 1 else 2,
+            // The Latin sub-name is one line with an ellipsis for the same reason;
+            // the full name is one tap away on the match page.
             secondaryMaxLines = 1,
         )
     }

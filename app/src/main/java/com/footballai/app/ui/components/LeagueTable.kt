@@ -36,10 +36,9 @@ import com.footballai.app.domain.model.MatchTableMark
 import com.footballai.app.domain.model.TeamRef
 import com.footballai.app.ui.LocalLanguageTag
 import com.footballai.app.ui.glass.GlassCard
-import com.footballai.app.ui.theme.AuroraBaseMid
 import com.footballai.app.ui.theme.FootballAiThemeExtra
-import com.footballai.app.ui.theme.GlassGoldBright
-import com.footballai.app.ui.theme.GlassInkMuted
+import com.footballai.app.ui.theme.GlassLightInkMuted
+import com.footballai.app.ui.theme.GlassViolet
 import com.footballai.app.ui.theme.Spacing
 import com.footballai.app.ui.theme.Radii
 
@@ -124,7 +123,7 @@ fun LeagueTableRow(
     onClick: (() -> Unit)? = null,
     matchMark: MatchTableMark? = null,
     /**
-     * Renders the row as glass on the aurora instead of a grey slab. Only the match
+     * Renders the row as glass on the pastel instead of a grey slab. Only the match
      * page's table opts in; the table page, competition and team pages keep the slab.
      */
     glass: Boolean = false,
@@ -155,18 +154,18 @@ fun LeagueTableRow(
         .semantics { if (matchState != null) stateDescription = matchState }
     if (glass) {
         // The same marks in the glass language: the fixture's own teams get the hero
-        // sheet (stronger fill, gold edge) where the slab used a border, a result
-        // mark tints the sheet its colour over the aurora's ink, and a highlighted
-        // or podium row gets a stronger flat tint where the slab used cardStrong.
+        // sheet (stronger fill, brighter edge) where the slab used a border, a result
+        // mark tints the sheet its colour over a near-white base, and a highlighted
+        // or podium row gets a stronger white where the slab used cardStrong.
         GlassCard(
             modifier = rowModifier,
             onClick = onClick,
             hero = matchMark == MatchTableMark.TEAM,
             fill = when {
                 matchMark != null && matchMark != MatchTableMark.TEAM -> SolidColor(
-                    markColor.copy(alpha = 0.16f).compositeOver(AuroraBaseMid.copy(alpha = 0.82f)),
+                    markColor.copy(alpha = 0.16f).compositeOver(Color.White.copy(alpha = 0.62f)),
                 )
-                highlighted || row.rank <= 3 -> SolidColor(Color.White.copy(alpha = 0.16f))
+                highlighted || row.rank <= 3 -> SolidColor(Color.White.copy(alpha = 0.62f))
                 else -> null
             },
         ) {
@@ -270,7 +269,7 @@ fun LeagueTableBlock(
     highlightTeamIds: Set<String> = emptySet(),
     onTeamClick: ((String) -> Unit)? = null,
     matchMarks: Map<String, MatchTableMark> = emptyMap(),
-    /** Glass rows on the aurora; see [LeagueTableRow]. Only the match page opts in. */
+    /** Glass rows on the pastel; see [LeagueTableRow]. Only the match page opts in. */
     glass: Boolean = false,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
@@ -280,11 +279,10 @@ fun LeagueTableBlock(
                 .fillMaxWidth()
                 .padding(horizontal = Spacing.md)
                 .height(1.dp)
-                // The theme hairline is a near-black line for slabs on a page; on the
-                // aurora it would vanish, so glass draws the divider in white instead.
-                .background(
-                    if (glass) Color.White.copy(alpha = 0.14f) else FootballAiThemeExtra.colors.hairline,
-                ),
+                // One hairline for both renderings: on glass the theme's hairline is
+                // the violet-grey breath of the mockups, which is exactly what a
+                // divider over the pastel needs.
+                .background(FootballAiThemeExtra.colors.hairline),
         )
         rows.forEach { row ->
             LeagueTableRow(
@@ -310,7 +308,7 @@ fun LeagueTableBlock(
 fun VenueChips(
     selected: TableVenue,
     onSelect: (TableVenue) -> Unit,
-    /** Glass chips on the aurora; only the match page's table opts in. */
+    /** Glass chips on the pastel; only the match page's table opts in. */
     glass: Boolean = false,
 ) {
     Row(
@@ -327,8 +325,8 @@ fun VenueChips(
         for ((venue, label) in options) {
             val isSelected = venue == selected
             if (glass) {
-                // The selected chip is the hero sheet — gold edge, gold words — where
-                // the slab tints itself with the theme's primary.
+                // The selected chip is the hero sheet — brighter edge, violet words —
+                // where the slab tints itself with the theme's primary.
                 GlassCard(
                     modifier = Modifier.weight(1f),
                     onClick = { onSelect(venue) },
@@ -338,7 +336,7 @@ fun VenueChips(
                     Text(
                         text = stringResource(label),
                         style = MaterialTheme.typography.labelMedium,
-                        color = if (isSelected) GlassGoldBright else GlassInkMuted,
+                        color = if (isSelected) GlassViolet else GlassLightInkMuted,
                         textAlign = TextAlign.Center,
                         maxLines = 1,
                         modifier = Modifier

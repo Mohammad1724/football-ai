@@ -21,30 +21,37 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.footballai.app.R
 import com.footballai.app.core.Formatters
-import com.footballai.app.ui.theme.AuroraBaseBottom
-import com.footballai.app.ui.theme.AuroraBaseMid
-import com.footballai.app.ui.theme.AuroraGlowBlue
-import com.footballai.app.ui.theme.AuroraGlowViolet
-import com.footballai.app.ui.theme.GlassGold
-import com.footballai.app.ui.theme.GlassGoldBright
-import com.footballai.app.ui.theme.GlassInk
-import com.footballai.app.ui.theme.GlassInkMuted
-import com.footballai.app.ui.theme.GlassSteelBlue
+import com.footballai.app.ui.theme.Amber
+import com.footballai.app.ui.theme.GlassChipAmber
+import com.footballai.app.ui.theme.GlassLightInk
+import com.footballai.app.ui.theme.GlassLightInkMuted
+import com.footballai.app.ui.theme.GlassLightInkSecondary
+import com.footballai.app.ui.theme.GlassSteelBlueLight
+import com.footballai.app.ui.theme.GlassViolet
+import com.footballai.app.ui.theme.GlassVioletBright
+import com.footballai.app.ui.theme.PastelLowerMid
+import com.footballai.app.ui.theme.PastelTop
+import com.footballai.app.ui.theme.PastelUpperMid
 
 /**
- * The glass slab of the redesigned surfaces, counterpart of `SoftCard` on the aurora.
+ * The glass slab of the light redesign, counterpart of `SoftCard` on the pastel.
  *
- * The fill is a translucent white gradient — brighter at the top start, fading down —
- * over the fixed aurora, finished by [scrollSpecular]: a bright edge and a highlight
- * that moves only when the card itself moves under the fixed light. A [hero] card (the
- * prediction verdict) gets a stronger fill and a gold-tinted edge, so the eye lands on
- * the forecast before anything else on the page.
+ * The fill is translucent white — a whisper of a vertical gradient, half-white at the
+ * top settling to 0.40 at the bottom — over the fixed pastel ground, finished by
+ * [scrollSpecular]: a bright one-pixel edge and a highlight that moves only when the
+ * card itself moves under the fixed light. A [hero] card (a top pick, the prediction
+ * verdict) gets a stronger fill and a brighter edge, so the eye lands on the forecast
+ * before anything else on the page.
+ *
+ * Restraint is the material. There are no gloss blobs and no painted reflections:
+ * the earlier dark glass taught that an exaggerated sheen reads as amateur, and the
+ * wallet app this design follows gets its calm from glass that is barely there.
  *
  * There is deliberately no elevation shadow. A shadow is drawn for the card's whole
  * silhouette, blurred and offset downwards; behind a *translucent* fill its darkened
@@ -57,17 +64,17 @@ import com.footballai.app.ui.theme.GlassSteelBlue
 @Composable
 fun GlassCard(
     modifier: Modifier = Modifier,
-    shape: RoundedCornerShape = RoundedCornerShape(26.dp),
+    shape: RoundedCornerShape = RoundedCornerShape(22.dp),
     hero: Boolean = false,
     onClick: (() -> Unit)? = null,
-    /** Overrides the translucent fill; see [GlassFillOpaque] for when that is needed. */
+    /** Overrides the translucent fill; see [GlassFillHeader] for when that is needed. */
     fill: Brush? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val light = LocalScrollLight.current
     var cardModifier = modifier
         .clip(shape)
-        .background(fill ?: if (hero) GlassFillHero else GlassFill)
+        .background(fill ?: if (hero) GlassFillHero else LightGlassFill)
     if (onClick != null) {
         cardModifier = cardModifier.clickable(onClick = onClick)
     }
@@ -77,61 +84,57 @@ fun GlassCard(
     }
 }
 
-private val GlassFill = Brush.linearGradient(
-    colorStops = arrayOf(
-        0.0f to Color.White.copy(alpha = 0.24f),
-        0.45f to Color.White.copy(alpha = 0.08f),
-        1.0f to Color.White.copy(alpha = 0.05f),
+/**
+ * The one glass fill, shared by every translucent surface of the redesign — cards,
+ * the top bar's capsule and circles, the quick-action buttons, the navigation pill —
+ * so the whole app is cut from the same sheet.
+ */
+val LightGlassFill: Brush = Brush.verticalGradient(
+    colors = listOf(
+        Color.White.copy(alpha = 0.50f),
+        Color.White.copy(alpha = 0.40f),
     ),
 )
 
-private val GlassFillHero = Brush.linearGradient(
-    colorStops = arrayOf(
-        0.0f to Color.White.copy(alpha = 0.30f),
-        0.45f to Color.White.copy(alpha = 0.11f),
-        1.0f to Color.White.copy(alpha = 0.07f),
+private val GlassFillHero = Brush.verticalGradient(
+    colors = listOf(
+        Color.White.copy(alpha = 0.58f),
+        Color.White.copy(alpha = 0.46f),
     ),
 )
+
+/** The selected state of a glass control: the accent itself, at a whisper. */
+val LightGlassSelectedFill: Brush = SolidColor(GlassViolet.copy(alpha = 0.13f))
 
 /**
- * Fully opaque dark glass, for a surface that other content scrolls *beneath*.
+ * Fully opaque light glass, for a surface that other content scrolls *beneath*.
  *
  * The translucent fills are the material everywhere else, but a pinned (sticky)
- * header sits on top of moving rows: at 24% white the rows underneath stay legible
- * through the sheet and the two layers of text read as one garbled card, and even
- * at 97–98% a bright badge still ghosted through the last few percent. This fill
- * is the aurora's own ink bases at full alpha — the glass cues (the specular finish
- * and the bright edge drawn by [scrollSpecular]) stay, and nothing passes below
- * can show through at all. Anything that wraps such a surface (a sticky item's
- * padding, for instance) must be painted with it too, or the uncovered strip
- * becomes a window onto the rows scrolling underneath.
+ * header sits on top of moving rows: through a translucent sheet the rows underneath
+ * stay legible and the two layers of text read as one garbled card, and even at
+ * 97–98% a bright badge still ghosted through the last few percent. This fill is the
+ * pastel ground itself at full alpha — the same pink-to-sky settle the background
+ * paints — so the pinned bar reads as a pane of the same sky, frozen, and nothing
+ * passing below can show through at all. Anything that wraps such a surface (a
+ * sticky item's padding, for instance) must be painted with it too, or the uncovered
+ * strip becomes a window onto the rows scrolling underneath.
  */
-val GlassFillOpaque = Brush.linearGradient(
+val GlassFillHeader = Brush.verticalGradient(
     colors = listOf(
-        AuroraBaseMid,
-        AuroraBaseBottom,
+        PastelTop,
+        PastelUpperMid,
+        PastelLowerMid,
     ),
 )
 
 /**
- * The pinned league header's frosted variant of [GlassFillOpaque].
+ * A small pill that rests on glass: confidence levels and short facts.
  *
- * The rule is unchanged — every stop is a full-alpha colour, so nothing scrolling
- * beneath can show through — but instead of a flat ink the fill is a vertical
- * aurora-tinted gradient: a breath of the blue and violet glows near the top,
- * settling into the deep base at the bottom. Under the specular finish and the
- * bright edge the bar then reads as a darker pane of the same glass as the cards
- * it pins over, not as a solid navy slab.
+ * The plain chip is more glass — white at a third, a white rim, secondary ink. The
+ * accent chip is the confidence pill of the mockups: a warm amber wash with amber
+ * words, the one warm note in a violet-and-pastel page, kept for the one judgement
+ * (how much to trust this number) that should never blend into the decoration.
  */
-val GlassFillHeader = Brush.verticalGradient(
-    colorStops = arrayOf(
-        0.0f to lerp(AuroraBaseMid, AuroraGlowBlue, 0.16f),
-        0.55f to lerp(AuroraBaseMid, AuroraGlowViolet, 0.06f),
-        1.0f to AuroraBaseBottom,
-    ),
-)
-
-/** A small pill that rests on glass: confidence levels and short facts. */
 @Composable
 fun GlassChip(
     text: String,
@@ -141,10 +144,12 @@ fun GlassChip(
     Box(
         modifier = modifier
             .clip(CircleShape)
-            .background(Color.White.copy(alpha = 0.10f))
+            .background(
+                if (accent) GlassChipAmber.copy(alpha = 0.82f) else Color.White.copy(alpha = 0.34f),
+            )
             .border(
                 width = 1.dp,
-                color = if (accent) GlassGold.copy(alpha = 0.55f) else Color.White.copy(alpha = 0.22f),
+                color = if (accent) Amber.copy(alpha = 0.25f) else Color.White.copy(alpha = 0.60f),
                 shape = CircleShape,
             )
             .padding(horizontal = 10.dp, vertical = 5.dp),
@@ -153,7 +158,7 @@ fun GlassChip(
             text = text,
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.SemiBold,
-            color = if (accent) GlassGoldBright else GlassInk,
+            color = if (accent) Amber else GlassLightInkSecondary,
             maxLines = 1,
         )
     }
@@ -162,10 +167,10 @@ fun GlassChip(
 /**
  * The 1X2 bar as drawn on glass.
  *
- * The leading outcome is gold — the colour of the verdict everywhere in the redesign —
- * the other side is a soft steel blue and the draw a translucent white, matching the
- * approved mockups. Percentages sit under their segments; in the hero the team names
- * join them.
+ * The leading outcome is violet — the colour of the verdict everywhere in the
+ * redesign — the other side is a soft steel blue and the draw a quiet grey, matching
+ * the approved mockups. Percentages sit under their segments; in the hero the team
+ * names join them.
  */
 @Composable
 fun GlassProbabilityBar(
@@ -181,9 +186,9 @@ fun GlassProbabilityBar(
     val values = listOf(homeWin.glassFraction(), draw.glassFraction(), awayWin.glassFraction())
     val leading = values.indices.maxByOrNull { values[it] } ?: 0
     val fills = listOf(
-        segmentBrush(index = 0, leading = leading, base = GlassSteelBlue),
-        segmentBrush(index = 1, leading = leading, base = Color.White.copy(alpha = 0.45f)),
-        segmentBrush(index = 2, leading = leading, base = GlassSteelBlue),
+        segmentBrush(index = 0, leading = leading, base = GlassSteelBlueLight),
+        segmentBrush(index = 1, leading = leading, base = Color(0xFFC9C4D6)),
+        segmentBrush(index = 2, leading = leading, base = GlassSteelBlueLight),
     )
     Column(modifier = modifier.fillMaxWidth()) {
         Row(
@@ -195,7 +200,7 @@ fun GlassProbabilityBar(
                 Box(
                     modifier = Modifier
                         .weight(value.toFloat().coerceAtLeast(0.001f))
-                        .height(8.dp)
+                        .height(6.dp)
                         .clip(RoundedCornerShape(99.dp))
                         .background(fills[index]),
                 )
@@ -216,13 +221,13 @@ fun GlassProbabilityBar(
                             text = Formatters.percent(raw[index], languageTag),
                             style = MaterialTheme.typography.labelLarge,
                             fontWeight = FontWeight.Bold,
-                            color = if (index == leading) GlassGoldBright else GlassInk,
+                            color = if (index == leading) GlassViolet else GlassLightInk,
                             maxLines = 1,
                         )
                         Text(
                             text = label,
                             style = MaterialTheme.typography.labelSmall,
-                            color = GlassInkMuted,
+                            color = GlassLightInkMuted,
                             maxLines = 1,
                         )
                     }
@@ -234,7 +239,7 @@ fun GlassProbabilityBar(
 
 private fun segmentBrush(index: Int, leading: Int, base: Color): Brush =
     if (index == leading) {
-        Brush.verticalGradient(listOf(GlassGoldBright, GlassGold))
+        Brush.verticalGradient(listOf(GlassVioletBright, GlassViolet))
     } else {
         Brush.verticalGradient(listOf(base, base))
     }

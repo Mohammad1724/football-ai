@@ -41,25 +41,33 @@ val NightInk = Color(0xFFE8EDEA)
 val NightInkMuted = Color(0xFF98A3A0)
 
 /*
- * Liquid-glass palette (home feed and match detail).
+ * Light-glass palette (home feed and match detail, the wallet-style redesign).
  *
- * A fixed deep ink-blue aurora sits behind translucent white glass. The accent is a
- * champagne gold rather than the pitch green: on a dark blue ground the green turned
- * muddy, while the gold keeps the "premium analysis" reading the redesign is built on.
- * The aurora glows are deliberately muted — they exist so the glass has something to
- * refract, not to decorate the page themselves.
+ * The ground is a fixed pastel gradient — pink settling through lavender and sky
+ * into a trace of mint —
+ * with three soft colour pools behind it, and the glass on top is plain translucent
+ * white. The accent is a violet, the colour the reference wallet app builds its
+ * selected states from; the champagne gold does not survive the move, because on a
+ * pastel ground it reads as dirt rather than as jewellery.
+ *
+ * The ink scale is a violet-grey, not a neutral grey: on a lavender ground a pure
+ * grey text turns green at the edges, the same trap the neutral scale above avoids
+ * by going blue-cold against the pitch green.
  */
-val AuroraBaseTop = Color(0xFF131C2E)
-val AuroraBaseMid = Color(0xFF1B2942)
-val AuroraBaseBottom = Color(0xFF101827)
-val AuroraGlowBlue = Color(0xFF60A5FA)
-val AuroraGlowViolet = Color(0xFFA78BFA)
-val AuroraGlowTeal = Color(0xFF2DD4BF)
-val AuroraGlowAmber = Color(0xFFFB923C)
+val PastelTop = Color(0xFFF9E4EE)
+val PastelUpperMid = Color(0xFFEDE8FB)
+val PastelLowerMid = Color(0xFFE2EDFB)
+val PastelBottom = Color(0xFFE9F7F0)
+val PastelGlowViolet = Color(0xFFA082FF)
+val PastelGlowPeach = Color(0xFFFFAA6E)
+val PastelGlowBlue = Color(0xFF8CB4FF)
 
-val GlassGold = Color(0xFFE3C078)
-val GlassGoldBright = Color(0xFFF0D089)
-val GlassSteelBlue = Color(0xFF8FB4D9)
-val GlassInk = Color(0xFFF4F1EA)
-val GlassInkMuted = Color(0xFFB9C4CD)
-val GlassInkFaint = Color(0xFF8FA0AF)
+val GlassLightInk = Color(0xFF26232E)
+val GlassLightInkSecondary = Color(0xFF5A576B)
+val GlassLightInkMuted = Color(0xFF767184)
+val GlassLightInkFaint = Color(0xFF86829A)
+
+val GlassViolet = Color(0xFF6C5CE7)
+val GlassVioletBright = Color(0xFF7D6FE8)
+val GlassSteelBlueLight = Color(0xFF8FB0E8)
+val GlassChipAmber = Color(0xFFFFF1DB)

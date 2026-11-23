@@ -51,7 +51,6 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.TabPosition
 import androidx.compose.material3.TabRow
-import androidx.compose.material3.TabRowDefaults
 import androidx.compose.foundation.layout.offset
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -140,15 +139,15 @@ import com.footballai.app.ui.marketSelectionLabel
 import com.footballai.app.ui.missingDataLabel
 import com.footballai.app.ui.matchStatusLabel
 import com.footballai.app.ui.qualityNoteLabel
-import com.footballai.app.ui.glass.AuroraBackground
+import com.footballai.app.ui.glass.PastelBackground
 import com.footballai.app.ui.glass.GlassCard
 import com.footballai.app.ui.glass.GlassChip
 import com.footballai.app.ui.glass.GlassProbabilityBar
-import com.footballai.app.ui.theme.FootballAiTheme
+import com.footballai.app.ui.theme.FootballAiLightGlassTheme
 import com.footballai.app.ui.theme.FootballAiThemeExtra
-import com.footballai.app.ui.theme.GlassGold
-import com.footballai.app.ui.theme.GlassGoldBright
-import com.footballai.app.ui.theme.GlassInkMuted
+import com.footballai.app.ui.theme.GlassLightInkMuted
+import com.footballai.app.ui.theme.GlassViolet
+import com.footballai.app.ui.theme.GlassLightInkMuted
 import com.footballai.app.domain.model.ResultOutcome
 import com.footballai.app.ui.viewmodel.RecentTenSnapshot
 import com.footballai.app.ui.viewmodel.RecentTenSummary
@@ -175,9 +174,9 @@ private const val TAB_LINEUPS = "lineups"
 private const val TAB_RECENT_TEN = "recent_ten"
 
 /**
- * The match page is the second surface of the liquid-glass redesign: same fixed
- * aurora and forced dark scheme as the home feed, so moving from a fixture card to
- * its match never leaves the glass world.
+ * The match page is the second surface of the light-glass redesign: same fixed
+ * pastel sky and light-glass scheme as the home feed, so moving from a fixture
+ * card to its match never leaves the glass world.
  */
 @Composable
 fun MatchDetailScreen(
@@ -187,9 +186,9 @@ fun MatchDetailScreen(
     onCompetitionClick: (String) -> Unit,
 ) {
     val languageTag = LocalLanguageTag.current
-    FootballAiTheme(darkTheme = true, languageTag = languageTag) {
+    FootballAiLightGlassTheme(languageTag = languageTag) {
         Box(modifier = Modifier.fillMaxSize()) {
-            AuroraBackground(modifier = Modifier.fillMaxSize())
+            PastelBackground(modifier = Modifier.fillMaxSize())
             MatchDetailContent(
                 matchId = matchId,
                 onBack = onBack,
@@ -367,23 +366,23 @@ private fun MatchDetailContent(
                         selected = selectedTab == index,
                         onClick = { selectedTabKey = tabKeys[index] },
                         text = { Text(title, style = MaterialTheme.typography.labelMedium) },
-                        // The glass accent, not the theme's pitch green: on the aurora
-                        // the selected tab and its indicator are champagne gold, the
-                        // resting tabs the muted glass ink.
-                        selectedContentColor = GlassGoldBright,
-                        unselectedContentColor = GlassInkMuted,
+                        // The glass accent, not the theme's pitch green: on the
+                        // pastel the selected tab and its indicator are violet,
+                        // the resting tabs the muted glass ink.
+                        selectedContentColor = GlassViolet,
+                        unselectedContentColor = GlassLightInkMuted,
                     )
                 }
             }
-            // One indicator for both rows: a gold rule under the selected tab, and no
-            // Material divider under the row — a hairline across the aurora reads as
-            // a stray slab edge, not as part of the glass.
+            // One indicator for both rows: a violet rule under the selected tab,
+            // and no Material divider under the row — a hairline across the pastel
+            // reads as a stray slab edge, not as part of the glass.
             //
             // The row measures its indicator with fixed full-row constraints, so the
             // box must first opt out of that size: fillMaxWidth + wrapContentSize lets
             // it shrink back to the selected tab's width and a 3.dp height, pinned to
             // the row's bottom. Without that pair the background fills the whole row
-            // and buries the tab labels under a gold slab.
+            // and buries the tab labels under a violet slab.
             val tabIndicator: @Composable (List<TabPosition>) -> Unit = { positions ->
                 if (selectedTab in positions.indices) {
                     val position = positions[selectedTab]
@@ -395,7 +394,7 @@ private fun MatchDetailContent(
                             .width(position.width)
                             .height(3.dp)
                             .background(
-                                GlassGold,
+                                GlassViolet,
                                 RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp),
                             ),
                     )
@@ -595,7 +594,7 @@ private fun MatchHeader(
                     } else {
                         matchStatusLabel(summary.status)
                     },
-                    color = if (summary.status.isLive) colors.live else GlassGold,
+                    color = if (summary.status.isLive) colors.live else GlassViolet,
                 )
             }
             Spacer(Modifier.height(if (compact) 6.dp else 14.dp))
@@ -691,7 +690,7 @@ private fun TeamColumn(
                 contentDescription = stringResource(
                     if (isFavourite) R.string.action_unfollow_team else R.string.action_follow_team,
                 ),
-                tint = if (isFavourite) GlassGoldBright else MaterialTheme.colorScheme.onSurfaceVariant,
+                tint = if (isFavourite) GlassViolet else MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
@@ -726,11 +725,11 @@ private fun GlassNoticeCard(
             Text(
                 text = message,
                 style = MaterialTheme.typography.bodyMedium,
-                color = GlassInkMuted,
+                color = GlassLightInkMuted,
             )
             if (actionLabel != null && onAction != null) {
                 TextButton(onClick = onAction, modifier = Modifier.padding(top = 4.dp)) {
-                    Text(text = actionLabel, color = GlassGoldBright)
+                    Text(text = actionLabel, color = GlassViolet)
                 }
             }
         }
@@ -788,7 +787,7 @@ private fun AnalysisTab(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     TextButton(onClick = onRetryRefresh) {
-                        Text(stringResource(R.string.action_retry), color = GlassGoldBright)
+                        Text(stringResource(R.string.action_retry), color = GlassViolet)
                     }
                 }
             }
@@ -910,7 +909,7 @@ private fun AnalysisTab(
                         ExpectedGoals(stringResource(if (prediction.kind == PredictionKind.LIVE) R.string.remaining_total_goals else R.string.expected_total_goals), prediction.expectedHomeGoals + prediction.expectedAwayGoals, languageTag)
                     }
                     TextButton(onClick = { glossary = PredictionGlossary.EXPECTED_GOALS }) {
-                        Text(stringResource(R.string.expected_goals_help), color = GlassGoldBright)
+                        Text(stringResource(R.string.expected_goals_help), color = GlassViolet)
                     }
                     prediction.live?.let { live ->
                         Text(stringResource(R.string.live_remaining_goals,
@@ -937,7 +936,7 @@ private fun AnalysisTab(
                     modifier = Modifier
                         .size(6.dp)
                         .clip(RoundedCornerShape(3.dp))
-                        .background(GlassGold),
+                        .background(GlassViolet),
                 )
                 Spacer(Modifier.width(8.dp))
                 Text(
@@ -1042,7 +1041,7 @@ private fun AnalysisTab(
         if (canPredict) {
             item {
                 TextButton(onClick = onPredict, enabled = !isPredicting, modifier = Modifier.padding(horizontal = 8.dp)) {
-                    Text(stringResource(R.string.action_recalculate), color = GlassGoldBright)
+                    Text(stringResource(R.string.action_recalculate), color = GlassViolet)
                 }
             }
         }
@@ -1056,7 +1055,7 @@ private fun AnalysisTab(
             else R.string.expected_goals_help_body)
         AlertDialog(
             onDismissRequest = { glossary = null },
-            confirmButton = { TextButton(onClick = { glossary = null }) { Text(closeText, color = GlassGoldBright) } },
+            confirmButton = { TextButton(onClick = { glossary = null }) { Text(closeText, color = GlassViolet) } },
             title = { Text(titleText) },
             text = { Text(bodyText) },
         )
@@ -1082,8 +1081,8 @@ private fun PredictionVerdictCard(
         VerdictOutcome.AWAY -> stringResource(MatchAnalysisPresentation.verdict(isFinished, VerdictOutcome.AWAY), awayTeamName)
         null -> stringResource(if (valid) R.string.analysis_no_clear_leader else R.string.analysis_probabilities_invalid)
     }
-    // The verdict is the hero of the glass redesign: a gold-edged sheet with the
-    // pick and its probability at reading size, everything else below it. All the
+    // The verdict is the hero of the glass redesign: a hero sheet with the pick
+    // and its probability at reading size, everything else below it. All the
     // words are the ones the old card used — only the stage changed.
     GlassCard(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
@@ -1091,11 +1090,11 @@ private fun PredictionVerdictCard(
     ) {
         Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
             Text(stringResource(MatchAnalysisPresentation.title(isFinished)),
-                style = MaterialTheme.typography.labelMedium, color = GlassGoldBright)
+                style = MaterialTheme.typography.labelMedium, color = GlassViolet)
             Text(stringResource(MatchAnalysisPresentation.context(prediction.kind),
                 Formatters.dateOnly(prediction.createdAtEpochMs, languageTag),
                 Formatters.timeOnly(prediction.createdAtEpochMs, languageTag)),
-                style = MaterialTheme.typography.labelSmall, color = GlassInkMuted)
+                style = MaterialTheme.typography.labelSmall, color = GlassLightInkMuted)
             Spacer(Modifier.height(10.dp))
             Row(verticalAlignment = Alignment.Bottom) {
                 Column(modifier = Modifier.weight(1f)) {
@@ -1109,7 +1108,7 @@ private fun PredictionVerdictCard(
                     val secondary = if (languageTag.startsWith("fa", ignoreCase = true))
                         leadingTeam?.let { NameLocalization.namePair(it.name, languageTag, it.shortName).second } else null
                     if (secondary != null) Text("\u200E" + secondary, style = MaterialTheme.typography.labelSmall,
-                        color = GlassInkMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        color = GlassLightInkMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 if (valid && leading != null) {
                     Text(
@@ -1119,7 +1118,7 @@ private fun PredictionVerdictCard(
                         ),
                         style = MaterialTheme.typography.displaySmall,
                         fontWeight = FontWeight.Bold,
-                        color = GlassGoldBright,
+                        color = GlassViolet,
                     )
                 }
             }
@@ -1169,11 +1168,11 @@ private fun AnalysisDisclosureRow(title: String, subtitle: String, expanded: Boo
             verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = GlassInkMuted)
+                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = GlassLightInkMuted)
             }
             Spacer(Modifier.width(8.dp))
             Icon(if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
-                contentDescription = null, tint = GlassGoldBright)
+                contentDescription = null, tint = GlassViolet)
         }
     }
 }
@@ -1205,10 +1204,10 @@ private fun CompactFormCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 7.dp))
             // Two separate actions, each with its own touch target and no hidden tab promise.
             TextButton(onClick = onDetails) {
-                Text(stringResource(if (detailsOpen) R.string.analysis_form_hide else R.string.analysis_form_details), color = GlassGoldBright)
+                Text(stringResource(if (detailsOpen) R.string.analysis_form_hide else R.string.analysis_form_details), color = GlassViolet)
             }
             if (onRecentMatches != null) TextButton(onClick = onRecentMatches) {
-                Text(stringResource(R.string.analysis_recent_matches), color = GlassGoldBright)
+                Text(stringResource(R.string.analysis_recent_matches), color = GlassViolet)
             }
         }
     }
@@ -1430,7 +1429,7 @@ private fun TeamFormCard(
     // table underneath contradicted.
     val window = listOfNotNull(home, away).maxOf { it.played }
     // Glass, like every other card on this page: as a surfaceVariant slab it was a
-    // black panel floating on the aurora.
+    // grey panel floating on the pastel.
     GlassCard(
         modifier = Modifier
             .fillMaxWidth()
@@ -2395,7 +2394,7 @@ private fun NationalHistoryCard(
                     CircularProgressIndicator(
                         modifier = Modifier.size(18.dp),
                         strokeWidth = 2.dp,
-                        color = GlassGoldBright,
+                        color = GlassViolet,
                     )
                     Spacer(Modifier.width(10.dp))
                     Text(
@@ -2407,8 +2406,8 @@ private fun NationalHistoryCard(
                 Button(
                     onClick = onImport,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = GlassGold,
-                        contentColor = Color(0xFF241A04),
+                        containerColor = GlassViolet,
+                        contentColor = Color.White,
                     ),
                 ) {
                     Text(stringResource(R.string.national_history_action))
@@ -2579,7 +2578,7 @@ private fun LineupPlayerRow(
                     if (isFavourite) R.string.action_unfollow_player else R.string.action_follow_player,
                 ),
                 tint = if (isFavourite) {
-                    GlassGoldBright
+                    GlassViolet
                 } else {
                     MaterialTheme.colorScheme.onSurfaceVariant
                 },
