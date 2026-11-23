@@ -51,7 +51,7 @@ import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.TabPosition
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.TabRowDefaults
-import androidx.compose.material3.tabIndicatorOffset
+import androidx.compose.foundation.layout.offset
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -378,10 +378,19 @@ private fun MatchDetailContent(
             // Material divider under the row — a hairline across the aurora reads as
             // a stray slab edge, not as part of the glass.
             val tabIndicator: @Composable (List<TabPosition>) -> Unit = { positions ->
-                TabRowDefaults.Indicator(
-                    modifier = Modifier.tabIndicatorOffset(positions[selectedTab]),
-                    color = GlassGold,
-                )
+                if (selectedTab in positions.indices) {
+                    val position = positions[selectedTab]
+                    Box(
+                        modifier = Modifier
+                            .offset(x = position.left)
+                            .width(position.width)
+                            .height(3.dp)
+                            .background(
+                                GlassGold,
+                                RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp),
+                            ),
+                    )
+                }
             }
             if (tabs.size > 5) {
                 ScrollableTabRow(
