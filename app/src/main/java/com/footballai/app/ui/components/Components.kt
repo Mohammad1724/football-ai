@@ -346,6 +346,13 @@ fun CompetitionNameText(
     showLatin: Boolean = true,
     primaryColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
     /**
+     * Colour of the Latin sub-line. The default keeps the long-standing softened
+     * secondary; the glass match page passes the solid secondary, because there the
+     * sub-line is a real name on a pale ground and the softened version fell below
+     * reading contrast.
+     */
+    secondaryColor: Color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+    /**
      * Opens the competition's table. The name of the competition is the one place on a match
      * or a team page that already says which league this is, so it is also the place to go
      * from there to the table — with a small table mark, because a plain name does not look
@@ -377,7 +384,7 @@ fun CompetitionNameText(
                 Text(
                     text = "\u200E" + secondary,
                     style = secondaryStyle,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    color = secondaryColor,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
