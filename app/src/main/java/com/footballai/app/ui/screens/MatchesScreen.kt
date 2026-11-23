@@ -552,7 +552,21 @@ private fun GroupedMatchList(
     val listState = rememberLazyListState()
     val sections = matchSections(state)
     val favourites = sections.favourites
-    val groups = sections.groups
+    // Today's top picks lead the feed, so on the Today tab they leave the league
+    // groups: a match is shown once, in the row that says why it matters, not
+    // again a screenful below under its league. A group the picks empty out is
+    // dropped entirely, header and all, and the counts on the headers that stay
+    // count only the matches actually listed under them. Other days have no
+    // top-picks row, so their groups pass through untouched.
+    val picks = if (state.selectedDayOffset == 0) topPicks(state.matches) else emptyList()
+    val groups = if (picks.isEmpty()) {
+        sections.groups
+    } else {
+        val pickIds = picks.mapTo(HashSet()) { it.id }
+        sections.groups
+            .map { group -> group.filter { match -> match.id !in pickIds } }
+            .filter { group -> group.isNotEmpty() }
+    }
     LazyColumn(
         state = listState,
         modifier = Modifier.fillMaxSize(),
@@ -566,28 +580,25 @@ private fun GroupedMatchList(
     ) {
         // The day's strongest stored forecasts lead the feed — but only on the Today
         // tab, and only forecasts the app's own pick rule calls clear (see topPicks).
-        if (state.selectedDayOffset == 0) {
-            val picks = topPicks(state.matches)
-            if (picks.isNotEmpty()) {
-                item(key = "top-picks") {
-                    Column {
-                        Text(
-                            text = stringResource(R.string.top_picks_today),
-                            style = MaterialTheme.typography.labelLarge,
-                            fontWeight = FontWeight.SemiBold,
-                            color = GlassGold,
-                        )
-                        Spacer(Modifier.height(Spacing.sm))
-                        LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        ) {
-                            items(picks, key = { it.id }) { match ->
-                                TopPickCard(
-                                    match = match,
-                                    languageTag = languageTag,
-                                    onClick = { onMatchClick(match.id) },
-                                )
-                            }
+        if (picks.isNotEmpty()) {
+            item(key = "top-picks") {
+                Column {
+                    Text(
+                        text = stringResource(R.string.top_picks_today),
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = GlassGold,
+                    )
+                    Spacer(Modifier.height(Spacing.sm))
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        items(picks, key = { it.id }) { match ->
+                            TopPickCard(
+                                match = match,
+                                languageTag = languageTag,
+                                onClick = { onMatchClick(match.id) },
+                            )
                         }
                     }
                 }
