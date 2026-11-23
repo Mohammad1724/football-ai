@@ -84,7 +84,7 @@ class FootballDataCoUkProvider(
                 )
             }
         }
-        if (competitionKey in ExpandedFootballCatalog.MIRROR_HISTORY_LEAGUES) {
+        if (competitionKey in ExpandedFootballCatalog.FOTMOB_MIRROR_HISTORY_LEAGUES) {
             // Not a football-data.co.uk file at all: the football-ai-data
             // mirror publishes this competition (FotMob source) in the same
             // per-season layout, so the same parser and import path apply.

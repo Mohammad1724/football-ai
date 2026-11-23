@@ -20,7 +20,7 @@ class ExpandedFootballCatalogTest {
             ExpandedFootballCatalog.OPEN_MATCHDAY_LEAGUES.keys + "UCL")
         // The Champions League is the one non-league admission, and only
         // because the mirror makes its regulation score scope explicit.
-        assertEquals(setOf("UCL"), ExpandedFootballCatalog.MIRROR_HISTORY_LEAGUES)
+        assertEquals(setOf("UCL"), ExpandedFootballCatalog.FOTMOB_MIRROR_HISTORY_LEAGUES)
     }
 
     @Test
