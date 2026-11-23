@@ -19,7 +19,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
@@ -43,6 +42,14 @@ import com.footballai.app.ui.theme.GlassSteelBlue
  * that moves only when the card itself moves under the fixed light. A [hero] card (the
  * prediction verdict) gets a stronger fill and a gold-tinted edge, so the eye lands on
  * the forecast before anything else on the page.
+ *
+ * There is deliberately no elevation shadow. A shadow is drawn for the card's whole
+ * silhouette, blurred and offset downwards; behind a *translucent* fill its darkened
+ * core stays visible through the sheet as a phantom inset panel — a hard-edged
+ * rectangle floating inside the card, widest at the top where the offset leaves the
+ * first rows unshadowed. The same shadow also fell on whatever scrolled beneath a
+ * pinned card, dimming a band of the first row under it. Like [SoftCard], a glass
+ * card is told apart by its fill, its edge and its sheen, not by a shadow.
  */
 @Composable
 fun GlassCard(
@@ -56,7 +63,6 @@ fun GlassCard(
 ) {
     val light = LocalScrollLight.current
     var cardModifier = modifier
-        .shadow(elevation = 16.dp, shape = shape, clip = false)
         .clip(shape)
         .background(fill ?: if (hero) GlassFillHero else GlassFill)
     if (onClick != null) {
@@ -85,18 +91,22 @@ private val GlassFillHero = Brush.linearGradient(
 )
 
 /**
- * Near-opaque dark glass, for a surface that other content scrolls *beneath*.
+ * Fully opaque dark glass, for a surface that other content scrolls *beneath*.
  *
  * The translucent fills are the material everywhere else, but a pinned (sticky)
  * header sits on top of moving rows: at 24% white the rows underneath stay legible
- * through the sheet and the two layers of text read as one garbled card. This fill
- * keeps the glass cues — the ink-blue depth of the aurora bases, the specular finish
- * and the bright edge drawn by [scrollSpecular] — while hiding what passes below.
+ * through the sheet and the two layers of text read as one garbled card, and even
+ * at 97–98% a bright badge still ghosted through the last few percent. This fill
+ * is the aurora's own ink bases at full alpha — the glass cues (the specular finish
+ * and the bright edge drawn by [scrollSpecular]) stay, and nothing passes below
+ * can show through at all. Anything that wraps such a surface (a sticky item's
+ * padding, for instance) must be painted with it too, or the uncovered strip
+ * becomes a window onto the rows scrolling underneath.
  */
 val GlassFillOpaque = Brush.linearGradient(
     colors = listOf(
-        AuroraBaseMid.copy(alpha = 0.97f),
-        AuroraBaseBottom.copy(alpha = 0.98f),
+        AuroraBaseMid,
+        AuroraBaseBottom,
     ),
 )
 
