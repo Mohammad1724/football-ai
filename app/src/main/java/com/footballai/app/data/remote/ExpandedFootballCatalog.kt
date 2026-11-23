@@ -14,6 +14,10 @@ internal data class ExtraLeagueSource(
 /**
  * League-only open-matchday catalogue. Knockout competitions are deliberately
  * excluded until their regulation/extra-time score scope is explicit upstream.
+ * The one exception is the UEFA Champions League, admitted via
+ * [FOTMOB_MIRROR_HISTORY_LEAGUES]: its mirror collector reconstructs the 90-minute
+ * score of extra-time/penalty matches from goal events, which makes the
+ * scope explicit rather than assumed.
  */
 internal object ExpandedFootballCatalog {
     val OPEN_MATCHDAY_LEAGUES: Map<String, String> = linkedMapOf(
@@ -147,7 +151,15 @@ internal object ExpandedFootballCatalog {
     val COMPETITIONS: List<CsvCompetition> = OPEN_MATCHDAY_LEAGUES.keys.map { key ->
         val (name, country) = names.getValue(key)
         CsvCompetition(key, name, country)
-    }
+    } + listOf(CsvCompetition("UCL", "UEFA Champions League", "Europe"))
+
+    /**
+     * Competitions football-data.co.uk does not publish, whose per-season
+     * history files the football-ai-data mirror serves instead (FotMob
+     * source, regulation scores only — see collect_ucl.py in that repo).
+     * The key doubles as the mirror's file stem (`UCL-2021-22.csv`).
+     */
+    val FOTMOB_MIRROR_HISTORY_LEAGUES = setOf("UCL")
 
     /** Leagues with the original per-season football-data.co.uk URL contract. */
     val MAIN_HISTORY_LEAGUES = setOf(

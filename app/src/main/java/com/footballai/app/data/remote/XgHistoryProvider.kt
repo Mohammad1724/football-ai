@@ -73,8 +73,8 @@ class XgHistoryProvider(
         const val DEFAULT_BASE_URL =
             "https://raw.githubusercontent.com/Mohammad1724/football-ai-data/main/data/xg"
 
-        /** Competitions the mirror publishes: the big five, football-data.co.uk codes. */
-        val COVERED_COMPETITIONS = setOf("E0", "SP1", "D1", "I1", "F1")
+        /** Competitions the mirror publishes: the big five (football-data.co.uk codes) plus the Champions League. */
+        val COVERED_COMPETITIONS = setOf("E0", "SP1", "D1", "I1", "F1", "UCL")
 
         private val CSV_HEADERS = mapOf(
             "User-Agent" to "FootballAI/0.4 (Android; personal football CSV reader)",

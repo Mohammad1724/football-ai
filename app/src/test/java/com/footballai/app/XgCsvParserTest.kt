@@ -57,9 +57,9 @@ class XgCsvParserTest {
     }
 
     @Test
-    fun `coverage is exactly the big five`() {
+    fun `coverage is exactly the big five plus the Champions League`() {
         assertEquals(
-            setOf("E0", "SP1", "D1", "I1", "F1"),
+            setOf("E0", "SP1", "D1", "I1", "F1", "UCL"),
             XgHistoryProvider.COVERED_COMPETITIONS,
         )
     }

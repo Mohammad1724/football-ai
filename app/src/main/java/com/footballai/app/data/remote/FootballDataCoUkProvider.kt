@@ -59,7 +59,7 @@ class FootballDataCoUkProvider(
             historicalSeasons = 25,
         ),
         quota = QuotaPolicy(requestsPerMinute = 480, requestsPerDay = 0),
-        attribution = "Current fixtures/results: open-matchday (github.com/oladeeayo/open-matchday). Historical results and odds: football-data.co.uk. Transport mirrors: TuncErdoganlar/futbol-veri-aynasi and huhao930422-debug/football-odds-mirror. Personal, non-commercial use; upstream terms apply.",
+        attribution = "Current fixtures/results: open-matchday (github.com/oladeeayo/open-matchday). Historical results and odds: football-data.co.uk. Transport mirrors: TuncErdoganlar/futbol-veri-aynasi and huhao930422-debug/football-odds-mirror. UEFA Champions League history: FotMob, mirrored by football-ai-data (github.com/Mohammad1724/football-ai-data). Personal, non-commercial use; upstream terms apply.",
     )
 
     override fun availableCompetitions(): List<CsvCompetition> = COMPETITIONS
@@ -82,6 +82,27 @@ class FootballDataCoUkProvider(
                 is Outcome.Success -> Outcome.Success(
                     ExtraCsvHistoryParser.parse(response.value, competition!!, seasonStartYear),
                 )
+            }
+        }
+        if (competitionKey in ExpandedFootballCatalog.FOTMOB_MIRROR_HISTORY_LEAGUES) {
+            // Not a football-data.co.uk file at all: the football-ai-data
+            // mirror publishes this competition (FotMob source) in the same
+            // per-season layout, so the same parser and import path apply.
+            val url = "$MIRROR_HISTORY_BASE_URL/${XgHistoryProvider.fileName(competitionKey, seasonStartYear)}"
+            return when (val response = downloadCsv(url, url)) {
+                is Outcome.Failure -> response
+                is Outcome.Success -> try {
+                    Outcome.Success(
+                        CsvHistoryParser.parse(
+                            csv = response.value,
+                            competitionKey = competitionKey,
+                            competitionName = competition?.name ?: competitionKey,
+                            seasonStartYear = seasonStartYear,
+                        ),
+                    )
+                } catch (error: Exception) {
+                    Outcome.Failure(AppError(ErrorCode.PARSE_ERROR, detail = error.message, cause = error))
+                }
             }
         }
         if (competitionKey !in ExpandedFootballCatalog.MAIN_HISTORY_LEAGUES) {
@@ -314,6 +335,8 @@ class FootballDataCoUkProvider(
             "https://raw.githubusercontent.com/oladeeayo/open-matchday/master/data"
         internal const val HISTORY_MIRROR_BASE_URL =
             "https://raw.githubusercontent.com/TuncErdoganlar/futbol-veri-aynasi/main/data/fd"
+        internal const val MIRROR_HISTORY_BASE_URL =
+            "https://raw.githubusercontent.com/Mohammad1724/football-ai-data/main/data/history"
         internal const val EXTRA_HISTORY_MIRROR_BASE_URL =
             "https://raw.githubusercontent.com/huhao930422-debug/football-odds-mirror/main/data"
         internal val HISTORY_MIRROR_LEAGUES = ExpandedFootballCatalog.MIRROR_HISTORY_LEAGUES

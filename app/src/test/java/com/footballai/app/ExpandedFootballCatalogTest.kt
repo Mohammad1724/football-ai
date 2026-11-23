@@ -12,12 +12,15 @@ import kotlin.test.assertTrue
 class ExpandedFootballCatalogTest {
 
     @Test
-    fun `expanded catalogue contains only mapped league competitions`() {
-        assertEquals(61, FootballDataCoUkProvider.COMPETITIONS.size)
+    fun `expanded catalogue contains only mapped league competitions plus mirrored UCL`() {
+        assertEquals(62, FootballDataCoUkProvider.COMPETITIONS.size)
         assertEquals(61, ExpandedFootballCatalog.OPEN_MATCHDAY_LEAGUES.size)
         assertTrue(ExpandedFootballCatalog.OPEN_MATCHDAY_LEAGUES.values.none { "_CUP_" in it })
         assertEquals(FootballDataCoUkProvider.COMPETITIONS.map { it.key }.toSet(),
-            ExpandedFootballCatalog.OPEN_MATCHDAY_LEAGUES.keys)
+            ExpandedFootballCatalog.OPEN_MATCHDAY_LEAGUES.keys + "UCL")
+        // The Champions League is the one non-league admission, and only
+        // because the mirror makes its regulation score scope explicit.
+        assertEquals(setOf("UCL"), ExpandedFootballCatalog.FOTMOB_MIRROR_HISTORY_LEAGUES)
     }
 
     @Test
