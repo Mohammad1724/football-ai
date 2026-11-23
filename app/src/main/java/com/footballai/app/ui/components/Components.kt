@@ -362,7 +362,11 @@ fun CompetitionNameText(
     Row(modifier = rowModifier, verticalAlignment = Alignment.CenterVertically) {
         Column(modifier = Modifier.weight(1f, fill = false)) {
             Text(
-                text = pair.first,
+                // A left-to-right primary (a league with no Persian name) gets the
+                // same mark the Latin sub-line gets below: without it, a trailing
+                // full stop in "Termalica B-B." is direction-neutral and jumps to
+                // the front of the line inside a Persian paragraph.
+                text = if (pair.first.isLeftToRightText()) "\u200E" + pair.first else pair.first,
                 style = primaryStyle,
                 color = primaryColor,
                 maxLines = primaryMaxLines,
@@ -412,7 +416,12 @@ fun TeamNameLines(
     val pair = NameLocalization.namePair(team.name, languageTag, team.shortName)
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(1.dp)) {
         Text(
-            text = pair.first,
+            // The primary is the Latin name itself whenever the dictionary has no
+            // Persian one, and then it needs the left-to-right mark the sub-line
+            // below already gets: inside a Persian paragraph a bare "Termalica
+            // B-B." has its full stop — a direction-neutral character — reordered
+            // to the front of the line, where it read as a clipped name.
+            text = if (pair.first.isLeftToRightText()) "\u200E" + pair.first else pair.first,
             style = primaryStyle,
             color = MaterialTheme.colorScheme.onSurface,
             maxLines = primaryMaxLines,
@@ -682,7 +691,7 @@ fun InfoCard(
     modifier: Modifier = Modifier,
     icon: androidx.compose.ui.graphics.vector.ImageVector = Icons.Default.Inbox,
     containerColor: Color? = null,
-    /** On the aurora surfaces the card is glass instead of a grey slab. */
+    /** On the pastel surfaces the card is glass instead of a grey slab. */
     glass: Boolean = false,
 ) {
     val content: @Composable () -> Unit = {
@@ -985,6 +994,17 @@ fun ConfidenceChip(level: String?, modifier: Modifier = Modifier) {
     }
     StatusChip(text = confidenceLevelLabel(level), color = color)
 }
+
+/**
+ * True when a name carries no right-to-left letters, so it is read left-to-right
+ * even inside a right-to-left paragraph: a Latin club name on a Persian screen.
+ * Persian and Arabic names contain Arabic-script letters and answer false.
+ */
+internal fun String.isLeftToRightText(): Boolean =
+    filter { it.isLetter() }.none {
+        val script = Character.UnicodeScript.of(it.code)
+        script == Character.UnicodeScript.ARABIC || script == Character.UnicodeScript.HEBREW
+    }
 
 /**
  * A value that is safe to hand to Compose as a layout fraction.

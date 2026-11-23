@@ -19,7 +19,6 @@ import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.unit.dp
-import com.footballai.app.ui.theme.GlassGold
 
 /**
  * The one fixed light source of the glass theme.
@@ -82,7 +81,11 @@ fun Modifier.scrollSpecular(
                 y = light.positionInWindow.y - cardOrigin.y,
             )
             val radius = size.maxDimension * 1.25f
-            val sheenAlpha = if (hero) 0.22f else 0.15f
+            // On the light ground the pool is a brightening, not a glow: white on
+            // white at a whisper of alpha, there so a card passing under the light
+            // is felt rather than seen. Anything stronger read as a painted blob —
+            // the amateur version of this material the redesign replaces.
+            val sheenAlpha = if (hero) 0.10f else 0.07f
             clipPath(path) {
                 // The specular pool: brightest where the surface passes nearest the light.
                 drawRect(
@@ -100,7 +103,7 @@ fun Modifier.scrollSpecular(
                 drawRect(
                     brush = Brush.verticalGradient(
                         colors = listOf(
-                            Color.White.copy(alpha = if (hero) 0.10f else 0.07f),
+                            Color.White.copy(alpha = if (hero) 0.08f else 0.05f),
                             Color.Transparent,
                         ),
                         startY = 0f,
@@ -108,10 +111,13 @@ fun Modifier.scrollSpecular(
                     ),
                 )
             }
-            // The edge is drawn last and unclipped, so it stays a full one-pixel line.
+            // The edge is drawn last and unclipped, so it stays a full one-pixel
+            // line: on light glass the bright rim *is* the material — it is what
+            // separates one translucent sheet from the pastel behind it — so it
+            // sits at the mockups' 0.70 white, stronger still on a hero sheet.
             drawPath(
                 path = path,
-                color = if (hero) GlassGold.copy(alpha = 0.55f) else Color.White.copy(alpha = 0.32f),
+                color = Color.White.copy(alpha = if (hero) 0.85f else 0.70f),
                 style = Stroke(width = 1.dp.toPx()),
             )
         }
