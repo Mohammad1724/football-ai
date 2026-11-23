@@ -127,6 +127,61 @@ private val FootballAiShapes = Shapes(
     extraLarge = RoundedCornerShape(32.dp),
 )
 
+/*
+ * The light-glass scheme of the home feed and the match page.
+ *
+ * These two screens live in their own material world — translucent white over a
+ * pastel ground — so they take a scheme of their own rather than bending the app's
+ * light scheme: the primary is the glass violet (every accent on those screens,
+ * from the selected tab to the confidence number, is that violet), the ink is the
+ * violet-grey of the glass palette, and the surfaces the shared components reach
+ * for (surfaceVariant under a team badge, primaryContainer behind a highlighted
+ * score chip) are the soft lavender-greys of the mockups. Everything the screens
+ * draw themselves is glass; this scheme is what the *shared* components see.
+ */
+private val LightGlassColors = lightColorScheme(
+    primary = GlassViolet,
+    onPrimary = Color.White,
+    primaryContainer = Color(0xFFE4DFFF),
+    onPrimaryContainer = Color(0xFF2E2470),
+    secondary = GlassLightInkSecondary,
+    onSecondary = Color.White,
+    secondaryContainer = Color(0xFFE9E5F5),
+    onSecondaryContainer = GlassLightInk,
+    tertiary = Amber,
+    onTertiary = Color.White,
+    background = Color(0xFFF5F1FA),
+    onBackground = GlassLightInk,
+    surface = Color.White,
+    onSurface = GlassLightInk,
+    surfaceVariant = Color(0xFFEAE6F4),
+    onSurfaceVariant = GlassLightInkSecondary,
+    surfaceTint = Color.Transparent,
+    outline = Color(0xFFB7B0CC),
+    outlineVariant = Color(0xFFDCD7EA),
+    error = DangerRed,
+    onError = Color.White,
+)
+
+private val LightGlassExtra = FootballAiColors(
+    positive = PositiveGreen,
+    warning = WarningAmber,
+    danger = DangerRed,
+    live = Color(0xFFD32F2F),
+    homeSeries = GlassViolet,
+    drawSeries = Color(0xFF9A94AD),
+    awaySeries = Color(0xFF5B8DD9),
+    chartGrid = Color(0xFFE3DEF0),
+    // A slab on glass is the glass fill itself: translucent white, told apart from
+    // the ground by its edge and its sheen, exactly like the glass cards.
+    card = Color.White.copy(alpha = 0.46f),
+    cardStrong = Color.White.copy(alpha = 0.62f),
+    // rgba(120,110,160,0.13): the hairline of the mockups, a violet-grey breath
+    // between two rows of one card rather than a ruled line.
+    hairline = Color(0x21786EA0),
+    iconMuted = GlassLightInkMuted,
+)
+
 val LocalFootballAiColors = staticCompositionLocalOf { LightExtra }
 
 @Composable
@@ -151,6 +206,39 @@ fun FootballAiTheme(
     ) {
         MaterialTheme(
             colorScheme = colors,
+            typography = FootballAiTypography,
+            shapes = FootballAiShapes,
+            content = content,
+        )
+    }
+}
+
+/**
+ * The theme of the two light-glass screens (home feed, match page).
+ *
+ * Same shape as [FootballAiTheme] — same typography, same shapes, same
+ * language-driven layout direction — with the glass scheme and glass extras
+ * above. The rest of the app keeps the user's own theme; these screens opt into
+ * the glass world locally, the way they used to opt into the dark one.
+ */
+@Composable
+fun FootballAiLightGlassTheme(
+    /** Forces the layout direction; used by the in-app language override. */
+    languageTag: String = Locale.getDefault().language,
+    content: @Composable () -> Unit,
+) {
+    val layoutDirection = if (languageTag.lowercase(Locale.ROOT).startsWith("fa")) {
+        LayoutDirection.Rtl
+    } else {
+        LayoutDirection.Ltr
+    }
+
+    CompositionLocalProvider(
+        LocalFootballAiColors provides LightGlassExtra,
+        LocalLayoutDirection provides layoutDirection,
+    ) {
+        MaterialTheme(
+            colorScheme = LightGlassColors,
             typography = FootballAiTypography,
             shapes = FootballAiShapes,
             content = content,

@@ -63,3 +63,35 @@ val GlassSteelBlue = Color(0xFF8FB4D9)
 val GlassInk = Color(0xFFF4F1EA)
 val GlassInkMuted = Color(0xFFB9C4CD)
 val GlassInkFaint = Color(0xFF8FA0AF)
+
+/*
+ * Light-glass palette (home feed and match detail, the wallet-style redesign).
+ *
+ * The dark aurora above is retired on these two screens: the ground is now a fixed
+ * pastel gradient — pink settling through lavender and sky into a trace of mint —
+ * with three soft colour pools behind it, and the glass on top is plain translucent
+ * white. The accent is a violet, the colour the reference wallet app builds its
+ * selected states from; the champagne gold does not survive the move, because on a
+ * pastel ground it reads as dirt rather than as jewellery.
+ *
+ * The ink scale is a violet-grey, not a neutral grey: on a lavender ground a pure
+ * grey text turns green at the edges, the same trap the neutral scale above avoids
+ * by going blue-cold against the pitch green.
+ */
+val PastelTop = Color(0xFFF9E4EE)
+val PastelUpperMid = Color(0xFFEDE8FB)
+val PastelLowerMid = Color(0xFFE2EDFB)
+val PastelBottom = Color(0xFFE9F7F0)
+val PastelGlowViolet = Color(0xFFA082FF)
+val PastelGlowPeach = Color(0xFFFFAA6E)
+val PastelGlowBlue = Color(0xFF8CB4FF)
+
+val GlassLightInk = Color(0xFF26232E)
+val GlassLightInkSecondary = Color(0xFF5A576B)
+val GlassLightInkMuted = Color(0xFF767184)
+val GlassLightInkFaint = Color(0xFF86829A)
+
+val GlassViolet = Color(0xFF6C5CE7)
+val GlassVioletBright = Color(0xFF7D6FE8)
+val GlassSteelBlueLight = Color(0xFF8FB0E8)
+val GlassChipAmber = Color(0xFFFFF1DB)
