@@ -43,24 +43,28 @@ val NightInkMuted = Color(0xFF98A3A0)
 /*
  * Light-glass palette (home feed and match detail, the wallet-style redesign).
  *
- * The ground is a fixed pastel gradient — pink settling through lavender and sky
- * into a trace of mint —
- * with three soft colour pools behind it, and the glass on top is plain translucent
- * white. The accent is a violet, the colour the reference wallet app builds its
- * selected states from; the champagne gold does not survive the move, because on a
- * pastel ground it reads as dirt rather than as jewellery.
+ * The ground is a near-white page with only a whisper of pastel on it — a faint
+ * pink-lavender wash near the top settling into plain paper — with three very pale
+ * colour pools behind it, and the glass on top is plain translucent white. The
+ * first version of this ground ran the full pastel rainbow (pink, lavender, sky,
+ * mint, all at full strength) and on device it shouted: the reference wallet app
+ * is calm because its ground is almost white, so the gradient stops now sit within
+ * a few points of white and the mint stop is gone entirely. The accent is a
+ * violet, the colour the reference app builds its selected states from; the
+ * champagne gold does not survive the move, because on a pale ground it reads as
+ * dirt rather than as jewellery.
  *
  * The ink scale is a violet-grey, not a neutral grey: on a lavender ground a pure
  * grey text turns green at the edges, the same trap the neutral scale above avoids
  * by going blue-cold against the pitch green.
  */
-val PastelTop = Color(0xFFF9E4EE)
-val PastelUpperMid = Color(0xFFEDE8FB)
-val PastelLowerMid = Color(0xFFE2EDFB)
-val PastelBottom = Color(0xFFE9F7F0)
-val PastelGlowViolet = Color(0xFFA082FF)
-val PastelGlowPeach = Color(0xFFFFAA6E)
-val PastelGlowBlue = Color(0xFF8CB4FF)
+val PastelTop = Color(0xFFFBF3F8)
+val PastelUpperMid = Color(0xFFF7F5FC)
+val PastelLowerMid = Color(0xFFF4F8FC)
+val PastelBottom = Color(0xFFFCFBFD)
+val PastelGlowViolet = Color(0xFFB79CFF)
+val PastelGlowPeach = Color(0xFFFFBE8F)
+val PastelGlowBlue = Color(0xFFA9C6FF)
 
 val GlassLightInk = Color(0xFF26232E)
 val GlassLightInkSecondary = Color(0xFF5A576B)

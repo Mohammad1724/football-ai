@@ -22,11 +22,12 @@ import com.footballai.app.ui.theme.PastelUpperMid
  *
  * It is drawn once, behind the scrolling content, and never moves: the whole point of
  * the material is that the *cards* travel over a still background, so their sheen has
- * something to change against. The ground is the mockups' pastel gradient — pink at
- * the top settling through lavender and sky into a trace of mint — with three soft
- * colour pools on it: violet at the top corner, a light blue down the end side, peach
- * at the bottom corner. They are paler than the gradient itself is colourful; this is
- * the light in the room, not a poster.
+ * something to change against. The ground is a near-white page — the palette stops
+ * sit within a few points of white, with a faint pink-lavender wash near the top —
+ * and the three colour pools on it (violet at the top corner, a light blue down the
+ * end side, peach at the bottom corner) are drawn at a whisper of alpha, roughly a
+ * third of what the first version used. On device that first version read as a
+ * rainbow; this is the light in the room, not a poster.
  *
  * (The file keeps the name of the dark aurora it replaces; the sky is pastel now.)
  */
@@ -45,9 +46,9 @@ fun PastelBackground(modifier: Modifier = Modifier) {
                 ),
             )
             .drawBehind {
-                drawGlow(PastelGlowViolet, Offset(size.width * 0.04f, size.height * 0.02f), size.width * 0.78f, alpha = 0.28f)
-                drawGlow(PastelGlowBlue, Offset(size.width * 0.96f, size.height * 0.38f), size.width * 0.72f, alpha = 0.22f)
-                drawGlow(PastelGlowPeach, Offset(size.width * 0.94f, size.height * 1.02f), size.width * 0.76f, alpha = 0.24f)
+                drawGlow(PastelGlowViolet, Offset(size.width * 0.04f, size.height * 0.02f), size.width * 0.78f, alpha = 0.10f)
+                drawGlow(PastelGlowBlue, Offset(size.width * 0.96f, size.height * 0.38f), size.width * 0.72f, alpha = 0.08f)
+                drawGlow(PastelGlowPeach, Offset(size.width * 0.94f, size.height * 1.02f), size.width * 0.76f, alpha = 0.09f)
             },
     )
 }

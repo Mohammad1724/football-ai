@@ -13,8 +13,10 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -64,6 +66,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -745,7 +748,11 @@ private fun GroupedMatchList(
             start = Spacing.page,
             end = Spacing.page,
             top = Spacing.sm,
-            bottom = Spacing.xxl,
+            // The shell's glass navigation floats over the feed now instead of
+            // reserving a slot under it, so the list needs the bar's height in
+            // bottom padding (plus a breath) or its last group could never
+            // scroll fully clear of the pill.
+            bottom = 104.dp,
         ),
         verticalArrangement = Arrangement.spacedBy(Spacing.sm),
     ) {
@@ -761,15 +768,31 @@ private fun GroupedMatchList(
                         color = MaterialTheme.colorScheme.onSurface,
                     )
                     Spacer(Modifier.height(Spacing.sm))
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    ) {
-                        items(picks, key = { it.id }) { match ->
-                            TopPickCard(
-                                match = match,
-                                languageTag = languageTag,
-                                onClick = { onMatchClick(match.id) },
-                            )
+                    // One whole card per view, and a row that snaps to it. The first
+                    // version dealt the cards a fixed 272.dp and let the next one
+                    // peek by whatever width happened to remain, which sliced that
+                    // card through its text — and with no snap behaviour the row
+                    // never settled anywhere clean, so at rest both cards sat cut
+                    // at once and the section read as broken rather than as a
+                    // carousel. The card now takes the item's own width, measured
+                    // here, and the fling behaviour parks the row exactly on a
+                    // card boundary after every swipe.
+                    val picksRowState = rememberLazyListState()
+                    BoxWithConstraints {
+                        val cardWidth = maxWidth
+                        LazyRow(
+                            state = picksRowState,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            flingBehavior = rememberSnapFlingBehavior(lazyListState = picksRowState),
+                        ) {
+                            items(picks, key = { it.id }) { match ->
+                                TopPickCard(
+                                    match = match,
+                                    languageTag = languageTag,
+                                    cardWidth = cardWidth,
+                                    onClick = { onMatchClick(match.id) },
+                                )
+                            }
                         }
                     }
                 }
@@ -980,18 +1003,23 @@ private fun storedPickLabel(match: MatchSummary, languageTag: String): String? {
     }
 }
 
-/** One of the day's strongest forecasts, as a wide hero glass card. */
+/**
+ * One of the day's strongest forecasts, as a hero glass card. The width is the
+ * picks row's own width, handed down by the caller: one card fills the view
+ * exactly, so nothing of it can sit outside the page padding.
+ */
 @Composable
 private fun TopPickCard(
     match: MatchSummary,
     languageTag: String,
+    cardWidth: Dp,
     onClick: () -> Unit,
 ) {
     val prediction = match.prediction ?: return
     val pickLabel = storedPickLabel(match, languageTag) ?: return
     val topProbability = maxOf(prediction.homeWin, prediction.draw, prediction.awayWin)
     GlassCard(
-        modifier = Modifier.width(272.dp),
+        modifier = Modifier.width(cardWidth),
         hero = true,
         onClick = onClick,
     ) {

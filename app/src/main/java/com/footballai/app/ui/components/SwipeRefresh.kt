@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloudOff
@@ -38,8 +39,8 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
@@ -58,6 +59,7 @@ import com.footballai.app.ui.glass.scrollSpecular
 import com.footballai.app.ui.relativeLabel
 import com.footballai.app.ui.theme.GlassLightInk
 import com.footballai.app.ui.theme.GlassLightInkMuted
+import com.footballai.app.ui.theme.Spacing
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -311,12 +313,19 @@ fun SyncStatusStrip(
         // The same words on glass: a translucent sheet over the pastel, finished by
         // the shared scroll light, instead of the solid surfaceVariant slab — a
         // solid slab would sit on the sky like a grey bar and break the material.
+        // The sheet is inset to the page margin and rounded like the cards: the
+        // first version stretched the fill edge to edge as a full-bleed rectangle,
+        // a shape no other glass surface has, and over the pale top of the sky the
+        // white fill had almost nothing to blend with, so it read as an opaque
+        // white band rather than as glass.
         CompositionLocalProvider(LocalContentColor provides GlassLightInk) {
             Box(
                 modifier = modifier
                     .fillMaxWidth()
+                    .padding(horizontal = Spacing.page, vertical = Spacing.xs)
+                    .clip(GlassStripShape)
                     .background(LightGlassFill)
-                    .scrollSpecular(RectangleShape, LocalScrollLight.current),
+                    .scrollSpecular(GlassStripShape, LocalScrollLight.current),
             ) {
                 stripContent()
             }
@@ -332,14 +341,19 @@ fun SyncStatusStrip(
     }
 }
 
+/** The shape of the glass strip: a small sheet, rounded like the cards it sits above. */
+private val GlassStripShape = RoundedCornerShape(16.dp)
+
 /** The offline state of the strip, in glass: same icon and words as [OfflineBanner]. */
 @Composable
 private fun GlassOfflineStrip(modifier: Modifier = Modifier) {
     Box(
         modifier = modifier
             .fillMaxWidth()
+            .padding(horizontal = Spacing.page, vertical = Spacing.xs)
+            .clip(GlassStripShape)
             .background(LightGlassFill)
-            .scrollSpecular(RectangleShape, LocalScrollLight.current),
+            .scrollSpecular(GlassStripShape, LocalScrollLight.current),
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
