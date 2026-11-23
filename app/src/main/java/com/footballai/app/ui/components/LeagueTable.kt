@@ -21,6 +21,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
@@ -34,7 +35,11 @@ import com.footballai.app.domain.model.TableVenue
 import com.footballai.app.domain.model.MatchTableMark
 import com.footballai.app.domain.model.TeamRef
 import com.footballai.app.ui.LocalLanguageTag
+import com.footballai.app.ui.glass.GlassCard
+import com.footballai.app.ui.theme.AuroraBaseMid
 import com.footballai.app.ui.theme.FootballAiThemeExtra
+import com.footballai.app.ui.theme.GlassGoldBright
+import com.footballai.app.ui.theme.GlassInkMuted
 import com.footballai.app.ui.theme.Spacing
 import com.footballai.app.ui.theme.Radii
 
@@ -118,9 +123,13 @@ fun LeagueTableRow(
     highlighted: Boolean = false,
     onClick: (() -> Unit)? = null,
     matchMark: MatchTableMark? = null,
+    /**
+     * Renders the row as glass on the aurora instead of a grey slab. Only the match
+     * page's table opts in; the table page, competition and team pages keep the slab.
+     */
+    glass: Boolean = false,
 ) {
     val colors = FootballAiThemeExtra.colors
-    val languageTag = LocalLanguageTag.current
     val markColor = when (matchMark) {
         MatchTableMark.WIN, MatchTableMark.LEADING -> colors.positive
         MatchTableMark.LOSS, MatchTableMark.TRAILING -> colors.danger
@@ -139,12 +148,34 @@ fun LeagueTableRow(
         null -> null
     }
     val matchState = markLabel?.let { stringResource(it) }
+    val rowModifier = modifier.fillMaxWidth()
+        .then(if (!glass && matchMark == MatchTableMark.TEAM)
+            Modifier.border(1.dp, MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f), Radii.cardShape)
+            else Modifier)
+        .semantics { if (matchState != null) stateDescription = matchState }
+    if (glass) {
+        // The same marks in the glass language: the fixture's own teams get the hero
+        // sheet (stronger fill, gold edge) where the slab used a border, a result
+        // mark tints the sheet its colour over the aurora's ink, and a highlighted
+        // or podium row gets a stronger flat tint where the slab used cardStrong.
+        GlassCard(
+            modifier = rowModifier,
+            onClick = onClick,
+            hero = matchMark == MatchTableMark.TEAM,
+            fill = when {
+                matchMark != null && matchMark != MatchTableMark.TEAM -> SolidColor(
+                    markColor.copy(alpha = 0.16f).compositeOver(AuroraBaseMid.copy(alpha = 0.82f)),
+                )
+                highlighted || row.rank <= 3 -> SolidColor(Color.White.copy(alpha = 0.16f))
+                else -> null
+            },
+        ) {
+            LeagueTableRowContent(row = row, highlighted = highlighted, matchMark = matchMark)
+        }
+        return
+    }
     SoftCard(
-        modifier = modifier.fillMaxWidth()
-            .then(if (matchMark == MatchTableMark.TEAM)
-                Modifier.border(1.dp, MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f), Radii.cardShape)
-                else Modifier)
-            .semantics { if (matchState != null) stateDescription = matchState },
+        modifier = rowModifier,
         onClick = onClick,
         containerColor = when {
             matchMark == MatchTableMark.TEAM -> colors.card
@@ -154,51 +185,62 @@ fun LeagueTableRow(
             else -> colors.card
         },
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = Spacing.md, vertical = Spacing.sm),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = Formatters.integer(row.rank, languageTag),
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.width(22.dp),
-            )
-            Spacer(Modifier.width(Spacing.xs))
-            TeamBadge(
-                team = TeamRef(id = row.teamId, name = row.teamName, crestUrl = row.crestUrl),
-                size = 22,
-            )
-            Spacer(Modifier.width(Spacing.sm))
-            TeamNameLines(
-                team = TeamRef(id = row.teamId, name = row.teamName, crestUrl = row.crestUrl),
-                languageTag = languageTag,
-                modifier = Modifier.weight(1f),
-                primaryStyle = MaterialTheme.typography.bodyMedium.copy(
-                    fontWeight = if (highlighted || matchMark != null) FontWeight.SemiBold else FontWeight.Normal,
-                ),
-                primaryMaxLines = 3,
-                secondaryMaxLines = 3,
-            )
-            NumberCell(Formatters.integer(row.played, languageTag), 26)
-            NumberCell(row.wins?.let { Formatters.integer(it, languageTag) } ?: DASH, 26)
-            NumberCell(row.draws?.let { Formatters.integer(it, languageTag) } ?: DASH, 26)
-            NumberCell(row.losses?.let { Formatters.integer(it, languageTag) } ?: DASH, 26)
-            // A signed single number rather than "goals for-goals against": a hyphen between
-            // two numbers is read the other way round in a right-to-left row.
-            NumberCell(
-                value = when {
-                    row.goalDifference > 0 -> "+" + Formatters.integer(row.goalDifference, languageTag)
-                    row.goalDifference < 0 -> "−" + Formatters.integer(-row.goalDifference, languageTag)
-                    else -> Formatters.integer(0, languageTag)
-                },
-                width = 32,
-            )
-            NumberCell(Formatters.integer(row.points, languageTag), 26, bold = true)
-        }
+        LeagueTableRowContent(row = row, highlighted = highlighted, matchMark = matchMark)
+    }
+}
+
+/** The cells of a table row, shared by its slab and glass renderings. */
+@Composable
+private fun LeagueTableRowContent(
+    row: TableRow,
+    highlighted: Boolean,
+    matchMark: MatchTableMark?,
+) {
+    val languageTag = LocalLanguageTag.current
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = Spacing.md, vertical = Spacing.sm),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = Formatters.integer(row.rank, languageTag),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.width(22.dp),
+        )
+        Spacer(Modifier.width(Spacing.xs))
+        TeamBadge(
+            team = TeamRef(id = row.teamId, name = row.teamName, crestUrl = row.crestUrl),
+            size = 22,
+        )
+        Spacer(Modifier.width(Spacing.sm))
+        TeamNameLines(
+            team = TeamRef(id = row.teamId, name = row.teamName, crestUrl = row.crestUrl),
+            languageTag = languageTag,
+            modifier = Modifier.weight(1f),
+            primaryStyle = MaterialTheme.typography.bodyMedium.copy(
+                fontWeight = if (highlighted || matchMark != null) FontWeight.SemiBold else FontWeight.Normal,
+            ),
+            primaryMaxLines = 3,
+            secondaryMaxLines = 3,
+        )
+        NumberCell(Formatters.integer(row.played, languageTag), 26)
+        NumberCell(row.wins?.let { Formatters.integer(it, languageTag) } ?: DASH, 26)
+        NumberCell(row.draws?.let { Formatters.integer(it, languageTag) } ?: DASH, 26)
+        NumberCell(row.losses?.let { Formatters.integer(it, languageTag) } ?: DASH, 26)
+        // A signed single number rather than "goals for-goals against": a hyphen between
+        // two numbers is read the other way round in a right-to-left row.
+        NumberCell(
+            value = when {
+                row.goalDifference > 0 -> "+" + Formatters.integer(row.goalDifference, languageTag)
+                row.goalDifference < 0 -> "−" + Formatters.integer(-row.goalDifference, languageTag)
+                else -> Formatters.integer(0, languageTag)
+            },
+            width = 32,
+        )
+        NumberCell(Formatters.integer(row.points, languageTag), 26, bold = true)
     }
 }
 
@@ -228,6 +270,8 @@ fun LeagueTableBlock(
     highlightTeamIds: Set<String> = emptySet(),
     onTeamClick: ((String) -> Unit)? = null,
     matchMarks: Map<String, MatchTableMark> = emptyMap(),
+    /** Glass rows on the aurora; see [LeagueTableRow]. Only the match page opts in. */
+    glass: Boolean = false,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
         LeagueTableHeader()
@@ -236,7 +280,11 @@ fun LeagueTableBlock(
                 .fillMaxWidth()
                 .padding(horizontal = Spacing.md)
                 .height(1.dp)
-                .background(FootballAiThemeExtra.colors.hairline),
+                // The theme hairline is a near-black line for slabs on a page; on the
+                // aurora it would vanish, so glass draws the divider in white instead.
+                .background(
+                    if (glass) Color.White.copy(alpha = 0.14f) else FootballAiThemeExtra.colors.hairline,
+                ),
         )
         rows.forEach { row ->
             LeagueTableRow(
@@ -245,6 +293,7 @@ fun LeagueTableBlock(
                 highlighted = row.teamId in highlightTeamIds,
                 matchMark = matchMarks[row.teamId],
                 onClick = onTeamClick?.takeIf { row.navigable }?.let { click -> { click(row.teamId) } },
+                glass = glass,
             )
         }
     }
@@ -261,6 +310,8 @@ fun LeagueTableBlock(
 fun VenueChips(
     selected: TableVenue,
     onSelect: (TableVenue) -> Unit,
+    /** Glass chips on the aurora; only the match page's table opts in. */
+    glass: Boolean = false,
 ) {
     Row(
         modifier = Modifier
@@ -275,6 +326,28 @@ fun VenueChips(
         )
         for ((venue, label) in options) {
             val isSelected = venue == selected
+            if (glass) {
+                // The selected chip is the hero sheet — gold edge, gold words — where
+                // the slab tints itself with the theme's primary.
+                GlassCard(
+                    modifier = Modifier.weight(1f),
+                    onClick = { onSelect(venue) },
+                    hero = isSelected,
+                    shape = Radii.cardShape,
+                ) {
+                    Text(
+                        text = stringResource(label),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = if (isSelected) GlassGoldBright else GlassInkMuted,
+                        textAlign = TextAlign.Center,
+                        maxLines = 1,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = Spacing.sm, horizontal = Spacing.xs),
+                    )
+                }
+                continue
+            }
             SoftCard(
                 modifier = Modifier.weight(1f),
                 onClick = { onSelect(venue) },
@@ -306,11 +379,8 @@ fun VenueChips(
  * so and names the size of the sample: a table over eight matches is a shape, not a verdict.
  */
 @Composable
-fun TableProvenanceNote(matches: Int) {
-    SoftCard(
-        modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.sm),
-        containerColor = FootballAiThemeExtra.colors.cardStrong,
-    ) {
+fun TableProvenanceNote(matches: Int, glass: Boolean = false) {
+    val content: @Composable () -> Unit = {
         Row(
             modifier = Modifier.fillMaxWidth().padding(Spacing.md),
             verticalAlignment = Alignment.CenterVertically,
@@ -331,6 +401,14 @@ fun TableProvenanceNote(matches: Int) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+    }
+    if (glass) {
+        GlassCard(modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.sm)) { content() }
+    } else {
+        SoftCard(
+            modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.sm),
+            containerColor = FootballAiThemeExtra.colors.cardStrong,
+        ) { content() }
     }
 }
 

@@ -37,8 +37,6 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -47,9 +45,13 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Tab
 import androidx.compose.material3.ScrollableTabRow
+import androidx.compose.material3.TabPosition
 import androidx.compose.material3.TabRow
+import androidx.compose.material3.TabRowDefaults
+import androidx.compose.foundation.layout.offset
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -127,7 +129,6 @@ import com.footballai.app.ui.components.LeagueTableBlock
 import com.footballai.app.ui.components.TableProvenanceNote
 import com.footballai.app.ui.components.PublishedTableCaution
 import com.footballai.app.ui.components.VenueChips
-import com.footballai.app.ui.components.SoftCard
 import com.footballai.app.ui.components.TeamMonogram
 import com.footballai.app.ui.components.TimelineRow
 import com.footballai.app.ui.components.TeamNameLines
@@ -144,6 +145,7 @@ import com.footballai.app.ui.glass.GlassChip
 import com.footballai.app.ui.glass.GlassProbabilityBar
 import com.footballai.app.ui.theme.FootballAiTheme
 import com.footballai.app.ui.theme.FootballAiThemeExtra
+import com.footballai.app.ui.theme.GlassGold
 import com.footballai.app.ui.theme.GlassGoldBright
 import com.footballai.app.ui.theme.GlassInkMuted
 import com.footballai.app.domain.model.ResultOutcome
@@ -364,6 +366,29 @@ private fun MatchDetailContent(
                         selected = selectedTab == index,
                         onClick = { selectedTabKey = tabKeys[index] },
                         text = { Text(title, style = MaterialTheme.typography.labelMedium) },
+                        // The glass accent, not the theme's pitch green: on the aurora
+                        // the selected tab and its indicator are champagne gold, the
+                        // resting tabs the muted glass ink.
+                        selectedContentColor = GlassGoldBright,
+                        unselectedContentColor = GlassInkMuted,
+                    )
+                }
+            }
+            // One indicator for both rows: a gold rule under the selected tab, and no
+            // Material divider under the row — a hairline across the aurora reads as
+            // a stray slab edge, not as part of the glass.
+            val tabIndicator: @Composable (List<TabPosition>) -> Unit = { positions ->
+                if (selectedTab in positions.indices) {
+                    val position = positions[selectedTab]
+                    Box(
+                        modifier = Modifier
+                            .offset(x = position.left)
+                            .width(position.width)
+                            .height(3.dp)
+                            .background(
+                                GlassGold,
+                                RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp),
+                            ),
                     )
                 }
             }
@@ -372,11 +397,18 @@ private fun MatchDetailContent(
                     selectedTabIndex = selectedTab,
                     edgePadding = 4.dp,
                     containerColor = Color.Transparent,
+                    indicator = tabIndicator,
+                    divider = {},
                 ) {
                     tabContent()
                 }
             } else {
-                TabRow(selectedTabIndex = selectedTab, containerColor = Color.Transparent) { tabContent() }
+                TabRow(
+                    selectedTabIndex = selectedTab,
+                    containerColor = Color.Transparent,
+                    indicator = tabIndicator,
+                    divider = {},
+                ) { tabContent() }
             }
 
             // The download can only help when the archive itself is missing; an unknown
@@ -554,7 +586,7 @@ private fun MatchHeader(
                     } else {
                         matchStatusLabel(summary.status)
                     },
-                    color = if (summary.status.isLive) colors.live else MaterialTheme.colorScheme.primary,
+                    color = if (summary.status.isLive) colors.live else GlassGold,
                 )
             }
             Spacer(Modifier.height(if (compact) 6.dp else 14.dp))
@@ -650,7 +682,7 @@ private fun TeamColumn(
                 contentDescription = stringResource(
                     if (isFavourite) R.string.action_unfollow_team else R.string.action_follow_team,
                 ),
-                tint = if (isFavourite) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                tint = if (isFavourite) GlassGoldBright else MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
@@ -896,7 +928,7 @@ private fun AnalysisTab(
                     modifier = Modifier
                         .size(6.dp)
                         .clip(RoundedCornerShape(3.dp))
-                        .background(MaterialTheme.colorScheme.primary),
+                        .background(GlassGold),
                 )
                 Spacer(Modifier.width(8.dp))
                 Text(
@@ -965,12 +997,14 @@ private fun AnalysisTab(
                     Formatters.kickoffDateTime(prediction.createdAtEpochMs, languageTag),
                 ),
                 containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                glass = true,
             )
         }
             item { InfoCard(
                 title = stringResource(R.string.disclaimer_title),
                 body = stringResource(R.string.disclaimer_body),
                 containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                glass = true,
             ) }
         }
 
@@ -1066,7 +1100,7 @@ private fun PredictionVerdictCard(
                     val secondary = if (languageTag.startsWith("fa", ignoreCase = true))
                         leadingTeam?.let { NameLocalization.namePair(it.name, languageTag, it.shortName).second } else null
                     if (secondary != null) Text("\u200E" + secondary, style = MaterialTheme.typography.labelSmall,
-                        color = GlassInkMuted, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        color = GlassInkMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 if (valid && leading != null) {
                     Text(
@@ -1148,7 +1182,7 @@ private fun CompactFormCard(
             listOf(homeTeam to home, awayTeam to away).forEach { (team, form) ->
                 Row(modifier = Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     TeamNameLines(team = team, languageTag = languageTag, modifier = Modifier.weight(1f),
-                        primaryStyle = MaterialTheme.typography.labelMedium, primaryMaxLines = 2, secondaryMaxLines = 2)
+                        primaryStyle = MaterialTheme.typography.labelMedium, primaryMaxLines = 2, secondaryMaxLines = 1)
                     Spacer(Modifier.width(8.dp))
                     Text(if (form == null || form.played == 0) stringResource(R.string.analysis_form_unavailable)
                         else stringResource(R.string.analysis_form_summary,
@@ -1386,12 +1420,12 @@ private fun TeamFormCard(
     // The heading counts what is there: "last 10" over a single match was a claim the
     // table underneath contradicted.
     val window = listOfNotNull(home, away).maxOf { it.played }
-    Card(
+    // Glass, like every other card on this page: as a surfaceVariant slab it was a
+    // black panel floating on the aurora.
+    GlassCard(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 6.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp)) {
             Text(
@@ -1409,7 +1443,7 @@ private fun TeamFormCard(
                         TeamNameLines(team = team, languageTag = languageTag,
                             primaryStyle = MaterialTheme.typography.labelMedium.copy(textAlign = TextAlign.Center),
                             secondaryStyle = MaterialTheme.typography.labelSmall.copy(textAlign = TextAlign.Center),
-                            primaryMaxLines = 2, secondaryMaxLines = 2)
+                            primaryMaxLines = 2, secondaryMaxLines = 1)
                     }
                 }
             }
@@ -1749,6 +1783,7 @@ private fun LiveTab(
                     title = stringResource(R.string.live_method_title),
                     body = stringResource(R.string.live_method_body),
                     containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    glass = true,
                 )
             }
         }
@@ -1784,7 +1819,7 @@ private fun MatchTableTab(
         item { header() }
         item {
             Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-                if (table.isComputed) TableProvenanceNote(matches = table.matches)
+                if (table.isComputed) TableProvenanceNote(matches = table.matches, glass = true)
                 else if (!table.isEmpty) PublishedTableCaution()
                 val seasonNote = when (compareTableSeason(matchSeason, tableSeason)) {
                     TableSeasonComparison.UNKNOWN -> stringResource(R.string.table_season_unknown)
@@ -1800,7 +1835,7 @@ private fun MatchTableTab(
                 if (foundTeams < 2) Text(stringResource(R.string.table_match_teams_missing),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(bottom = 8.dp))
-                if (table.canSplitByVenue) VenueChips(selected = table.venue, onSelect = onVenue)
+                if (table.canSplitByVenue) VenueChips(selected = table.venue, onSelect = onVenue, glass = true)
             }
         }
         item {
@@ -1809,10 +1844,11 @@ private fun MatchTableTab(
                 modifier = Modifier.padding(horizontal = 16.dp),
                 matchMarks = marks,
                 onTeamClick = onTeamClick,
+                glass = true,
             )
         }
         item {
-            SoftCard(
+            GlassCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 16.dp),
@@ -1968,12 +2004,10 @@ private fun HeadToHeadTab(
             return@LazyColumn
         }
         items(matches) { match ->
-            Card(
+            GlassCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 5.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
             ) {
                 Column(modifier = Modifier.padding(12.dp)) {
                     Text(
@@ -1987,14 +2021,14 @@ private fun HeadToHeadTab(
                         horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
                         TeamNameLines(team = match.home, languageTag = languageTag, modifier = Modifier.weight(1f),
-                            primaryStyle = MaterialTheme.typography.bodyMedium, primaryMaxLines = 2, secondaryMaxLines = 2)
+                            primaryStyle = MaterialTheme.typography.bodyMedium, primaryMaxLines = 2, secondaryMaxLines = 1)
                         Text(
                             text = Formatters.scoreOrNull(match.homeGoals, match.awayGoals, languageTag) ?: "—",
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.Bold,
                         )
                         TeamNameLines(team = match.away, languageTag = languageTag, modifier = Modifier.weight(1f),
-                            primaryStyle = MaterialTheme.typography.bodyMedium, primaryMaxLines = 2, secondaryMaxLines = 2)
+                            primaryStyle = MaterialTheme.typography.bodyMedium, primaryMaxLines = 2, secondaryMaxLines = 1)
                     }
                 }
             }
@@ -2117,12 +2151,10 @@ private fun RecentTenSummaryCard(
     played: Int,
     languageTag: String,
 ) {
-    Card(
+    GlassCard(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 4.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
             RecentTenStat(
@@ -2232,12 +2264,10 @@ private fun RecentTenResultCard(
             if (result.wasHome) R.string.recent_ten_home_tag else R.string.recent_ten_away_tag,
         ),
     ).joinToString(" · ")
-    Card(
+    GlassCard(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 3.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -2335,11 +2365,10 @@ private fun NationalHistoryCard(
     isImporting: Boolean,
     onImport: () -> Unit,
 ) {
-    Card(
+    GlassCard(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
@@ -2354,7 +2383,11 @@ private fun NationalHistoryCard(
             Spacer(Modifier.height(10.dp))
             if (isImporting) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        strokeWidth = 2.dp,
+                        color = GlassGoldBright,
+                    )
                     Spacer(Modifier.width(10.dp))
                     Text(
                         text = stringResource(R.string.national_history_running),
@@ -2362,7 +2395,13 @@ private fun NationalHistoryCard(
                     )
                 }
             } else {
-                Button(onClick = onImport) {
+                Button(
+                    onClick = onImport,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = GlassGold,
+                        contentColor = Color(0xFF241A04),
+                    ),
+                ) {
                     Text(stringResource(R.string.national_history_action))
                 }
             }
@@ -2531,7 +2570,7 @@ private fun LineupPlayerRow(
                     if (isFavourite) R.string.action_unfollow_player else R.string.action_follow_player,
                 ),
                 tint = if (isFavourite) {
-                    MaterialTheme.colorScheme.primary
+                    GlassGoldBright
                 } else {
                     MaterialTheme.colorScheme.onSurfaceVariant
                 },

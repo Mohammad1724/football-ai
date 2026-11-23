@@ -61,6 +61,7 @@ import com.footballai.app.domain.model.TeamRef
 import com.footballai.app.data.remote.CrestImages
 import com.footballai.app.ui.LocalLanguageTag
 import com.footballai.app.ui.confidenceLevelLabel
+import com.footballai.app.ui.glass.GlassCard
 import com.footballai.app.ui.matchStatusLabel
 import com.footballai.app.ui.qualityLevelLabel
 import com.footballai.app.ui.theme.FootballAiThemeExtra
@@ -681,8 +682,10 @@ fun InfoCard(
     modifier: Modifier = Modifier,
     icon: androidx.compose.ui.graphics.vector.ImageVector = Icons.Default.Inbox,
     containerColor: Color? = null,
+    /** On the aurora surfaces the card is glass instead of a grey slab. */
+    glass: Boolean = false,
 ) {
-    SoftCard(modifier = modifier.fillMaxWidth(), containerColor = containerColor) {
+    val content: @Composable () -> Unit = {
         Row(modifier = Modifier.padding(16.dp)) {
             Icon(
                 imageVector = icon,
@@ -701,6 +704,11 @@ fun InfoCard(
                 )
             }
         }
+    }
+    if (glass) {
+        GlassCard(modifier = modifier.fillMaxWidth()) { content() }
+    } else {
+        SoftCard(modifier = modifier.fillMaxWidth(), containerColor = containerColor) { content() }
     }
 }
 
