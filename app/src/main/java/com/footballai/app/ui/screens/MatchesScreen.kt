@@ -106,7 +106,7 @@ import com.footballai.app.ui.components.RowDivider
 import com.footballai.app.ui.components.SoftCard
 import com.footballai.app.ui.glass.AuroraBackground
 import com.footballai.app.ui.glass.GlassCard
-import com.footballai.app.ui.glass.GlassFillOpaque
+import com.footballai.app.ui.glass.GlassFillHeader
 import com.footballai.app.ui.glass.GlassChip
 import com.footballai.app.ui.glass.GlassProbabilityBar
 import com.footballai.app.ui.theme.FootballAiTheme
@@ -669,8 +669,10 @@ private fun CompetitionHeaderBar(
     // The pinned bar is glass in finish but opaque in fill: it is a sticky header,
     // so match rows constantly scroll beneath it, and through the translucent fill
     // their names and badges stayed legible inside the bar — two layers of text in
-    // one card. GlassFillOpaque hides whatever passes below; the specular and the
-    // bright edge keep it in the same material as the cards it pins over.
+    // one card. GlassFillHeader hides whatever passes below — every stop is
+    // full-alpha — but as an aurora-tinted gradient rather than a flat ink, so
+    // with the specular and the bright edge the bar reads as a darker pane of
+    // the same glass, not a solid navy slab.
     //
     // The card alone is not the whole item, though: the item's own padding above
     // and below the card was left unpainted, and through those transparent strips
@@ -681,14 +683,14 @@ private fun CompetitionHeaderBar(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .background(GlassFillOpaque)
+            .background(GlassFillHeader)
             .padding(top = Spacing.sm, bottom = Spacing.xs),
     ) {
         GlassCard(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
             onClick = onClick,
-            fill = GlassFillOpaque,
+            fill = GlassFillHeader,
         ) {
         Row(
             modifier = Modifier
