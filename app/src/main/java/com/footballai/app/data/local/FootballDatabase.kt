@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import com.footballai.app.data.local.dao.AvailabilityDao
 import com.footballai.app.data.local.dao.CompetitionDao
 import com.footballai.app.data.local.dao.EventDao
 import com.footballai.app.data.local.dao.HistoricalDao
@@ -17,6 +18,7 @@ import com.footballai.app.data.local.dao.TeamDao
 import com.footballai.app.data.local.entity.CompetitionEntity
 import com.footballai.app.data.local.entity.HistoricalMatchEntity
 import com.footballai.app.data.local.entity.LineupPlayerEntity
+import com.footballai.app.data.local.entity.MatchAvailabilityEntity
 import com.footballai.app.data.local.entity.MatchEntity
 import com.footballai.app.data.local.entity.MatchEventEntity
 import com.footballai.app.data.local.entity.MatchStatisticsEntity
@@ -32,6 +34,7 @@ import com.footballai.app.data.local.entity.TeamEntity
         CompetitionEntity::class,
         TeamEntity::class,
         MatchEntity::class,
+        MatchAvailabilityEntity::class,
         MatchStatisticsEntity::class,
         MatchEventEntity::class,
         LineupPlayerEntity::class,
@@ -42,13 +45,14 @@ import com.footballai.app.data.local.entity.TeamEntity
         StandingEntity::class,
         SyncMetaEntity::class,
     ],
-    version = 7,
+    version = 8,
     exportSchema = false,
 )
 abstract class FootballDatabase : RoomDatabase() {
     abstract fun competitionDao(): CompetitionDao
     abstract fun teamDao(): TeamDao
     abstract fun matchDao(): MatchDao
+    abstract fun availabilityDao(): AvailabilityDao
     abstract fun statisticsDao(): StatisticsDao
     abstract fun eventDao(): EventDao
     abstract fun lineupDao(): LineupDao
@@ -71,6 +75,7 @@ abstract class FootballDatabase : RoomDatabase() {
             HistoryMigration.MIGRATION_4_5,
             HistoryMigration.MIGRATION_5_6,
             HistoryMigration.MIGRATION_6_7,
+            HistoryMigration.MIGRATION_7_8,
         ).build()
     }
 }

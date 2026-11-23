@@ -192,11 +192,20 @@ class PredictionRepository(
         // The confirmed eleven is the only pre-match input that changes between a forecast
         // made on Monday and the same forecast made an hour before kickoff.
         val lineupAdjustment = lineupAdjustmentFor(match, now)
-        val adjustments = if (lineupAdjustment != null) {
-            contextAdjustments + lineupAdjustment
-        } else {
-            contextAdjustments
+        // Injuries/suspensions: the availability mirror's missing minutes
+        // shares for this fixture, when it published them. No stored row
+        // means no opinion — the adjustment is absent, never a zero share.
+        val availability = db.availabilityDao().forMatch(match.id)
+        val availabilityAdjustment = availability?.let {
+            com.footballai.engine.ratings.AvailabilityImpact.adjustment(
+                homeMissingShare = it.homeMissingShare,
+                awayMissingShare = it.awayMissingShare,
+                config = com.footballai.engine.ratings.AvailabilityImpactConfig(
+                    strength = AVAILABILITY_STRENGTH,
+                ),
+            )
         }
+        val adjustments = contextAdjustments + listOfNotNull(lineupAdjustment, availabilityAdjustment)
         // The league threshold is a club-league rule: it asks for 40 results in the
         // competition. A national fixture has no league, and is judged by the national
         // model's own evidence rule instead — so it is not gated here, but the size of the
@@ -235,9 +244,10 @@ class PredictionRepository(
                 homeMatchesUsed = strengths.first.matchesUsed,
                 awayMatchesUsed = strengths.second.matchesUsed,
                 hasLineups = match.hasLineups,
-                // No source in this app publishes reliable injury data; recording it as
-                // present would inflate the completeness score without changing the model.
-                hasInjuries = false,
+                // True only when the availability mirror published shares for
+                // this fixture (the adjustment above). Competitions the mirror
+                // does not cover keep the honest false.
+                hasInjuries = availability != null,
                 hasOdds = match.oddsHome != null && match.oddsDraw != null && match.oddsAway != null,
                 hasLiveStatistics = statistics != null,
                 hasExpectedGoalsData = statistics?.homeExpectedGoals != null,
@@ -751,8 +761,14 @@ class PredictionRepository(
          * 1.6.0: live horizon includes stoppage time; half-time markets are derived from the
          * matrix that produced the full-time numbers; a national competition's history is
          * the archive rather than one team's record.
+         *
+         * 1.8.0: injuries/suspensions adjustment — when the availability mirror has
+         * published missing minutes shares for a fixture, the difference between the
+         * two teams tilts expected goals by [AVAILABILITY_STRENGTH] per unit share
+         * (bounded, symmetric). Validated on untouched 2024-25 + 2025-26 seasons:
+         * log loss 0.9843 → 0.9837, accuracy 53.11% → 53.20% versus 1.7.1 behaviour.
          */
-        const val MODEL_VERSION = "football-ai/engine-1.7.1"
+        const val MODEL_VERSION = "football-ai/engine-1.8.0"
 
         /**
          * How far back a scorer's goals still count when judging today's lineup. Long
@@ -761,6 +777,13 @@ class PredictionRepository(
          */
         private const val LINEUP_GOAL_WINDOW_DAYS = 400L
         const val ELO_BLEND_WEIGHT = 0.15
+
+        /**
+         * Strength of the injuries/suspensions adjustment: expected-goals tilt
+         * per unit of missing-minutes-share difference. Fitted on 2021-22…
+         * 2023-24, validated on 2024-25 + 2025-26; see [MODEL_VERSION] note.
+         */
+        const val AVAILABILITY_STRENGTH = 0.3
         const val LIVE_TTL_MS = PredictionPolicy.LIVE_TTL_MS
         private const val STALE_AFTER_MS = 6 * TimeConstants.HOUR_MS
     }

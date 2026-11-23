@@ -120,6 +120,20 @@ data class RemoteMatchXg(
     val awayXg: Double,
 )
 
+/**
+ * Pre-match availability for one fixture: the share of each team's season
+ * minutes belonging to players listed unavailable for it (injured/suspended).
+ * Shares are computed by the publisher from data available before kickoff;
+ * a fixture absent from the feed has no row, never a zero.
+ */
+data class RemoteMatchAvailability(
+    val date: java.time.LocalDate,
+    val homeTeamName: String,
+    val awayTeamName: String,
+    val homeMissingShare: Double,
+    val awayMissingShare: Double,
+)
+
 /** Contract every data provider implements; new sources only need this interface. */
 interface FootballDataProvider {
     val info: ProviderInfo

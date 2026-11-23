@@ -34,6 +34,14 @@ data class HistoricalRecord(
     /** Post-match expected goals, when the data source carries them. See [BacktestConfig.xgBlendWeight]. */
     val homeXg: Double? = null,
     val awayXg: Double? = null,
+    /**
+     * Share of the team's season minutes belonging to players listed
+     * unavailable for this fixture (injured/suspended), known before kickoff.
+     * See [BacktestConfig.availabilityStrength]. Null means the source
+     * published no availability list for the team — never a zero.
+     */
+    val homeMissingShare: Double? = null,
+    val awayMissingShare: Double? = null,
 ) {
     init {
         require(homeGoals >= 0 && awayGoals >= 0) { "Goals must be non-negative" }
@@ -66,6 +74,14 @@ data class BacktestConfig(
      * walk-forward leakage controls apply to xG exactly as they do to goals.
      */
     val xgBlendWeight: Double = 0.0,
+    /**
+     * Strength of the injuries/suspensions adjustment (0.0 = off, the default,
+     * so existing backtests are unchanged). A record's missing shares describe
+     * the fixture itself and were published before its kickoff, so — unlike a
+     * record's goals — they are applied to that fixture's own forecast, exactly
+     * as production applies them. See [com.footballai.engine.ratings.AvailabilityImpact].
+     */
+    val availabilityStrength: Double = 0.0,
     /** Conservative result availability when historic completion timestamps are absent. */
     val resultAvailabilityDelayMinutes: Int = 120,
 )
@@ -242,15 +258,26 @@ class Backtester(private val config: BacktestConfig = BacktestConfig()) {
                         home = home,
                         away = away,
                         baseline = baseline,
-                        adjustments = if (config.contextFeaturesEnabled) {
-                            ContextFeatures.adjustments(
-                                history = prior,
-                                homeTeamId = record.homeTeamId,
-                                awayTeamId = record.awayTeamId,
-                                asOfEpochMs = record.kickoffEpochMs,
-                            )
-                        } else {
-                            emptyList()
+                        adjustments = buildList {
+                            if (config.contextFeaturesEnabled) {
+                                addAll(
+                                    ContextFeatures.adjustments(
+                                        history = prior,
+                                        homeTeamId = record.homeTeamId,
+                                        awayTeamId = record.awayTeamId,
+                                        asOfEpochMs = record.kickoffEpochMs,
+                                    ),
+                                )
+                            }
+                            if (config.availabilityStrength > 0.0) {
+                                com.footballai.engine.ratings.AvailabilityImpact.adjustment(
+                                    homeMissingShare = record.homeMissingShare,
+                                    awayMissingShare = record.awayMissingShare,
+                                    config = com.footballai.engine.ratings.AvailabilityImpactConfig(
+                                        strength = config.availabilityStrength,
+                                    ),
+                                )?.let { add(it) }
+                            }
                         },
                         market = MarketCalculator.impliedProbabilities(
                             record.oddsHome, record.oddsDraw, record.oddsAway,

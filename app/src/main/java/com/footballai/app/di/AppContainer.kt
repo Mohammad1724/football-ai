@@ -138,6 +138,7 @@ class AppContainer(context: Context) {
         sportsDbCrests = com.footballai.app.data.remote.SportsDbCrests(apiClient),
         leagueCrestIndex = com.footballai.app.data.remote.LeagueCrestIndex(apiClient),
         xgProvider = com.footballai.app.data.remote.XgHistoryProvider(apiClient),
+        availabilityProvider = com.footballai.app.data.remote.AvailabilityHistoryProvider(apiClient),
     )
 
     val dailyAnalysisRepository = com.footballai.app.data.repository.DailyAnalysisRepository(

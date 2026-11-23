@@ -86,6 +86,20 @@ data class MatchEntity(
     val isNeutralVenue: Boolean = false,
 )
 
+/**
+ * Pre-match availability synced from the football-ai-data mirror: the share
+ * of each team's season minutes belonging to players listed unavailable for
+ * this fixture. Absence of a row means the mirror published nothing usable —
+ * never that nobody is missing.
+ */
+@Entity(tableName = "match_availability")
+data class MatchAvailabilityEntity(
+    @PrimaryKey val matchId: String,
+    val homeMissingShare: Double,
+    val awayMissingShare: Double,
+    val updatedAt: Long,
+)
+
 @Entity(tableName = "match_statistics", primaryKeys = ["matchId"])
 data class MatchStatisticsEntity(
     val matchId: String,
