@@ -26,7 +26,8 @@ fun PreMatchVerdict(prediction: PredictionView, home: TeamRef, away: TeamRef, la
         val team = when (pick) { "HOME" -> home; "AWAY" -> away; else -> null }
         val secondary = team?.let { NameLocalization.namePair(it.name, languageTag, it.shortName).second }
         if (languageTag.startsWith("fa", ignoreCase = true) && secondary != null) {
-            Text("\u200E" + secondary, style = MaterialTheme.typography.labelSmall,
+            Text("\u200E" + secondary + if (secondary.isLeftToRightText()) "\u200E" else "",
+                style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         if (showNote) Text(stringResource(R.string.daily_pick_note_short), style = MaterialTheme.typography.bodySmall,

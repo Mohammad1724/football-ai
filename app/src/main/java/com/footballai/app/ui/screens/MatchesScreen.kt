@@ -112,6 +112,7 @@ import com.footballai.app.ui.glass.GlassChip
 import com.footballai.app.ui.glass.GlassProbabilityBar
 import com.footballai.app.ui.theme.FootballAiThemeExtra
 import com.footballai.app.ui.theme.FootballAiLightGlassTheme
+import com.footballai.app.ui.theme.GlassLightInk
 import com.footballai.app.ui.theme.GlassLightInkMuted
 import com.footballai.app.ui.theme.GlassLightInkSecondary
 import com.footballai.app.ui.theme.GlassViolet
@@ -173,6 +174,14 @@ private fun MatchesFeed(
 
     Scaffold(
         containerColor = Color.Transparent,
+        // The content colour has to be said out loud: for a transparent container
+        // Material derives Color.Unspecified, the scaffold's surface then publishes
+        // that as the ambient content colour, and every text that does not carry a
+        // colour of its own renders with no ink at all — the pale ghosts the glass
+        // screens showed for their times, scores and section titles. Naming the ink
+        // here gives the whole screen the colour its uncoloured texts were always
+        // supposed to inherit.
+        contentColor = GlassLightInk,
         topBar = {
             MatchesTopBar(
                 filtersActive = state.filters.activeCount > 0,
@@ -817,6 +826,7 @@ private fun GroupedMatchList(
                         Text(
                             text = stringResource(R.string.favourite_teams_section),
                             style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.onSurface,
                         )
                     }
                     RowDivider()
@@ -1046,6 +1056,7 @@ private fun TopPickCard(
                 text = pickLabel,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -1224,6 +1235,7 @@ private fun MatchMoment(match: MatchSummary, languageTag: String, modifier: Modi
             },
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface,
             textAlign = TextAlign.Center,
             maxLines = 1,
         )

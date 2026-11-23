@@ -132,6 +132,7 @@ import com.footballai.app.ui.components.VenueChips
 import com.footballai.app.ui.components.TeamMonogram
 import com.footballai.app.ui.components.TimelineRow
 import com.footballai.app.ui.components.TeamNameLines
+import com.footballai.app.ui.components.isLeftToRightText
 import com.footballai.app.ui.errorLabel
 import com.footballai.app.ui.evidenceGapLabel
 import com.footballai.app.ui.explanationLabel
@@ -145,6 +146,7 @@ import com.footballai.app.ui.glass.GlassChip
 import com.footballai.app.ui.glass.GlassProbabilityBar
 import com.footballai.app.ui.theme.FootballAiLightGlassTheme
 import com.footballai.app.ui.theme.FootballAiThemeExtra
+import com.footballai.app.ui.theme.GlassLightInk
 import com.footballai.app.ui.theme.GlassLightInkMuted
 import com.footballai.app.ui.theme.GlassViolet
 import com.footballai.app.ui.theme.GlassLightInkMuted
@@ -285,6 +287,11 @@ private fun MatchDetailContent(
 
     Scaffold(
         containerColor = Color.Transparent,
+        // Same reasoning as the home feed's scaffold: a transparent container makes
+        // Material derive an unspecified content colour, which the scaffold then
+        // publishes to everything inside it, so texts without a colour of their own
+        // (this page's kickoff time, its section titles) rendered with no ink.
+        contentColor = GlassLightInk,
         topBar = {
             CenterAlignedTopAppBar(
                 navigationIcon = {
@@ -583,6 +590,7 @@ private fun MatchHeader(
                     languageTag = languageTag,
                     modifier = Modifier.weight(1f),
                     primaryStyle = MaterialTheme.typography.labelMedium,
+                    secondaryColor = MaterialTheme.colorScheme.onSurfaceVariant,
                     // The league name is the only place on this page that says which
                     // competition this is, so it is also the way into its table.
                     onTableClick = { onCompetitionClick(summary.competitionId) },
@@ -621,6 +629,7 @@ private fun MatchHeader(
                             text = Formatters.timeOnly(summary.kickoffEpochMs, languageTag),
                             style = MaterialTheme.typography.headlineSmall,
                             fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
                         )
                     }
                     Text(
@@ -719,6 +728,7 @@ private fun GlassNoticeCard(
                     text = title,
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
                 Spacer(Modifier.height(4.dp))
             }
@@ -1107,7 +1117,8 @@ private fun PredictionVerdictCard(
                     }
                     val secondary = if (languageTag.startsWith("fa", ignoreCase = true))
                         leadingTeam?.let { NameLocalization.namePair(it.name, languageTag, it.shortName).second } else null
-                    if (secondary != null) Text("\u200E" + secondary, style = MaterialTheme.typography.labelSmall,
+                    if (secondary != null) Text("\u200E" + secondary + if (secondary.isLeftToRightText()) "\u200E" else "",
+                        style = MaterialTheme.typography.labelSmall,
                         color = GlassLightInkMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 if (valid && leading != null) {
@@ -1167,7 +1178,8 @@ private fun AnalysisDisclosureRow(title: String, subtitle: String, expanded: Boo
             .clickable(role = Role.Button, onClick = onClick).padding(horizontal = 14.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface)
                 Text(subtitle, style = MaterialTheme.typography.bodySmall, color = GlassLightInkMuted)
             }
             Spacer(Modifier.width(8.dp))
@@ -1186,7 +1198,7 @@ private fun CompactFormCard(
     GlassCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)) {
         Column(modifier = Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, top = 12.dp, bottom = 4.dp)) {
             Text(stringResource(R.string.analysis_form_title), style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold)
+                fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
             listOf(homeTeam to home, awayTeam to away).forEach { (team, form) ->
                 Row(modifier = Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     TeamNameLines(team = team, languageTag = languageTag, modifier = Modifier.weight(1f),
@@ -2248,7 +2260,7 @@ private fun RecentTenStat(label: String, value: String, secondary: String? = nul
         Column(horizontalAlignment = Alignment.End) {
             Text(text = value, style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            if (secondary != null) Text("\u200E" + secondary,
+            if (secondary != null) Text("\u200E" + secondary + if (secondary.isLeftToRightText()) "\u200E" else "",
                 style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 2, overflow = TextOverflow.Ellipsis)
         }

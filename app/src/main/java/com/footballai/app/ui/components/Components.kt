@@ -346,6 +346,13 @@ fun CompetitionNameText(
     showLatin: Boolean = true,
     primaryColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
     /**
+     * Colour of the Latin sub-line. The default keeps the long-standing softened
+     * secondary; the glass match page passes the solid secondary, because there the
+     * sub-line is a real name on a pale ground and the softened version fell below
+     * reading contrast.
+     */
+    secondaryColor: Color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+    /**
      * Opens the competition's table. The name of the competition is the one place on a match
      * or a team page that already says which league this is, so it is also the place to go
      * from there to the table — with a small table mark, because a plain name does not look
@@ -363,10 +370,14 @@ fun CompetitionNameText(
         Column(modifier = Modifier.weight(1f, fill = false)) {
             Text(
                 // A left-to-right primary (a league with no Persian name) gets the
-                // same mark the Latin sub-line gets below: without it, a trailing
-                // full stop in "Termalica B-B." is direction-neutral and jumps to
-                // the front of the line inside a Persian paragraph.
-                text = if (pair.first.isLeftToRightText()) "\u200E" + pair.first else pair.first,
+                // same wrap the Latin sub-line gets below: a left-to-right mark on
+                // both sides. The leading mark alone is not enough — a trailing
+                // full stop in "Termalica B-B." is direction-neutral, and the bidi
+                // algorithm settles a neutral at the end of a run from the
+                // paragraph's own direction, so inside a Persian paragraph it
+                // still jumped to the front of the line. Between two strong
+                // left-to-right characters it keeps the name's own order instead.
+                text = if (pair.first.isLeftToRightText()) "\u200E" + pair.first + "\u200E" else pair.first,
                 style = primaryStyle,
                 color = primaryColor,
                 maxLines = primaryMaxLines,
@@ -375,9 +386,9 @@ fun CompetitionNameText(
             val secondary = pair.second
             if (showLatin && secondary != null && secondary != pair.first) {
                 Text(
-                    text = "\u200E" + secondary,
+                    text = "\u200E" + secondary + if (secondary.isLeftToRightText()) "\u200E" else "",
                     style = secondaryStyle,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    color = secondaryColor,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -417,11 +428,16 @@ fun TeamNameLines(
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(1.dp)) {
         Text(
             // The primary is the Latin name itself whenever the dictionary has no
-            // Persian one, and then it needs the left-to-right mark the sub-line
-            // below already gets: inside a Persian paragraph a bare "Termalica
-            // B-B." has its full stop — a direction-neutral character — reordered
-            // to the front of the line, where it read as a clipped name.
-            text = if (pair.first.isLeftToRightText()) "\u200E" + pair.first else pair.first,
+            // Persian one, and then it needs the left-to-right marks the sub-line
+            // below already gets — on both sides of the name. The leading mark
+            // alone (all this line used to add) did not hold the end of the name:
+            // a trailing full stop, as in "Termalica B-B.", is direction-neutral,
+            // and the bidi algorithm settles a neutral at the end of a run from
+            // the paragraph's direction, so inside a Persian paragraph it was
+            // still reordered to the front of the line, where it read as a
+            // clipped name. With a mark after the name too, the stop sits between
+            // two strong left-to-right characters and stays where it was typed.
+            text = if (pair.first.isLeftToRightText()) "\u200E" + pair.first + "\u200E" else pair.first,
             style = primaryStyle,
             color = MaterialTheme.colorScheme.onSurface,
             maxLines = primaryMaxLines,
@@ -430,7 +446,7 @@ fun TeamNameLines(
         val secondary = pair.second
         if (secondary != null && secondary != pair.first) {
             Text(
-                text = "\u200E" + secondary,
+                text = "\u200E" + secondary + if (secondary.isLeftToRightText()) "\u200E" else "",
                 style = secondaryStyle,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = secondaryMaxLines,
