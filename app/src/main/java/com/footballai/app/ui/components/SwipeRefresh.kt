@@ -18,13 +18,16 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -36,6 +39,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
@@ -48,7 +54,11 @@ import com.footballai.app.R
 import com.footballai.app.core.AppError
 import com.footballai.app.core.Formatters
 import com.footballai.app.ui.errorLabel
+import com.footballai.app.ui.glass.LocalScrollLight
+import com.footballai.app.ui.glass.scrollSpecular
 import com.footballai.app.ui.relativeLabel
+import com.footballai.app.ui.theme.GlassInk
+import com.footballai.app.ui.theme.GlassInkMuted
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -226,19 +236,17 @@ fun SyncStatusStrip(
     languageTag: String,
     modifier: Modifier = Modifier,
     sourceName: String? = null,
+    /** Glass screens (the aurora surfaces) opt into a translucent strip with light ink. */
+    glass: Boolean = false,
 ) {
     if (!isOnline) {
-        OfflineBanner(modifier = modifier)
+        if (glass) GlassOfflineStrip(modifier = modifier) else OfflineBanner(modifier = modifier)
         return
     }
     val refreshing = isSyncing || isAuto
     if (!refreshing && error == null && lastSyncEpochMs == null && sourceName.isNullOrBlank()) return
 
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surfaceVariant,
-        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-    ) {
+    val stripContent: @Composable () -> Unit = {
         Row(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -291,12 +299,73 @@ fun SyncStatusStrip(
                 Text(
                     text = stringResource(R.string.source_label, sourceName),
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = if (glass) GlassInkMuted else MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f, fill = false),
                 )
             }
+        }
+    }
+
+    if (glass) {
+        // The same words on glass: a translucent sheet over the aurora, finished by
+        // the shared scroll light, instead of the solid surfaceVariant slab — under
+        // the forced dark scheme that slab reads as a black bar across the sky.
+        CompositionLocalProvider(LocalContentColor provides GlassInk) {
+            Box(
+                modifier = modifier
+                    .fillMaxWidth()
+                    .background(GlassStripFill)
+                    .scrollSpecular(RectangleShape, LocalScrollLight.current),
+            ) {
+                stripContent()
+            }
+        }
+    } else {
+        Surface(
+            modifier = modifier.fillMaxWidth(),
+            color = MaterialTheme.colorScheme.surfaceVariant,
+            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        ) {
+            stripContent()
+        }
+    }
+}
+
+private val GlassStripFill = Brush.linearGradient(
+    colors = listOf(
+        Color.White.copy(alpha = 0.14f),
+        Color.White.copy(alpha = 0.07f),
+        Color.White.copy(alpha = 0.05f),
+    ),
+)
+
+/** The offline state of the strip, in glass: same icon and words as [OfflineBanner]. */
+@Composable
+private fun GlassOfflineStrip(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(GlassStripFill)
+            .scrollSpecular(RectangleShape, LocalScrollLight.current),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = Icons.Default.CloudOff,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp),
+                tint = GlassInk,
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = stringResource(R.string.offline_notice),
+                style = MaterialTheme.typography.bodySmall,
+                color = GlassInk,
+            )
         }
     }
 }

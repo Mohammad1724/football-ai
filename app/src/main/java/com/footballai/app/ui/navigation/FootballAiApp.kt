@@ -9,12 +9,18 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import com.footballai.app.ui.theme.AuroraBaseBottom
+import com.footballai.app.ui.theme.AuroraBaseMid
+import com.footballai.app.ui.theme.GlassGold
+import com.footballai.app.ui.theme.GlassGoldBright
+import com.footballai.app.ui.theme.GlassInkMuted
 import com.footballai.app.ui.theme.Spacing
 import com.footballai.app.ui.theme.FootballAiThemeExtra
 import com.footballai.app.ui.glass.LocalScrollLight
 import com.footballai.app.ui.glass.ScrollLight
 import com.footballai.app.ui.glass.scrollSpecular
 import com.footballai.app.ui.glass.trackScrollLight
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
@@ -159,6 +165,9 @@ private fun MainScaffold() {
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
     val showBottomBar = bottomDestinations.any { it.route == currentRoute }
+    // Destinations that live in the glass world (aurora ground, dark scheme). The
+    // pill over them must be dark glass too; the light pill below is for the rest.
+    val glassBar = currentRoute == Routes.MATCHES || currentRoute == Routes.MATCH_DETAIL
     val themeColors = FootballAiThemeExtra.colors
     // Forward is to the left when the interface is right-to-left, so the slide follows
     // the direction the user reads in.
@@ -174,16 +183,35 @@ private fun MainScaffold() {
     Scaffold(
         bottomBar = {
             if (showBottomBar) {
-                // A floating glass pill instead of a bar glued to the edge: translucent
-                // enough for the page to glow through, edged and lit by the same fixed
-                // light as the glass cards, so it belongs to the same material.
+                // A floating pill instead of a bar glued to the edge, edged and lit by
+                // the same fixed light as the glass cards. Two finishes: over the
+                // glass destinations the pill is dark glass — a deep ink fill under
+                // the shared specular — because the light finish there (the app
+                // surface at 82%) sits on the aurora like a white slab; over the
+                // light destinations the light pill stays as it was.
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = Spacing.xl, vertical = Spacing.sm)
                         .shadow(elevation = 14.dp, shape = RoundedCornerShape(30.dp), clip = false)
                         .clip(RoundedCornerShape(30.dp))
-                        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.82f))
+                        .background(
+                            if (glassBar) {
+                                Brush.verticalGradient(
+                                    listOf(
+                                        AuroraBaseMid.copy(alpha = 0.92f),
+                                        AuroraBaseBottom.copy(alpha = 0.95f),
+                                    ),
+                                )
+                            } else {
+                                Brush.verticalGradient(
+                                    listOf(
+                                        MaterialTheme.colorScheme.surface.copy(alpha = 0.82f),
+                                        MaterialTheme.colorScheme.surface.copy(alpha = 0.82f),
+                                    ),
+                                )
+                            },
+                        )
                         .scrollSpecular(RoundedCornerShape(30.dp), scrollLight),
                 ) {
                     Row(
@@ -201,7 +229,11 @@ private fun MainScaffold() {
                                 },
                                 shape = RoundedCornerShape(22.dp),
                                 color = if (selected) {
-                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                                    if (glassBar) {
+                                        GlassGold.copy(alpha = 0.20f)
+                                    } else {
+                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                                    }
                                 } else {
                                     Color.Transparent
                                 },
@@ -214,9 +246,9 @@ private fun MainScaffold() {
                                         imageVector = destination.icon,
                                         contentDescription = null,
                                         tint = if (selected) {
-                                            MaterialTheme.colorScheme.primary
+                                            if (glassBar) GlassGoldBright else MaterialTheme.colorScheme.primary
                                         } else {
-                                            themeColors.iconMuted
+                                            if (glassBar) GlassInkMuted else themeColors.iconMuted
                                         },
                                         modifier = Modifier.size(23.dp),
                                     )
@@ -225,9 +257,9 @@ private fun MainScaffold() {
                                         text = stringResource(destination.labelRes),
                                         style = MaterialTheme.typography.labelSmall,
                                         color = if (selected) {
-                                            MaterialTheme.colorScheme.primary
+                                            if (glassBar) GlassGoldBright else MaterialTheme.colorScheme.primary
                                         } else {
-                                            themeColors.iconMuted
+                                            if (glassBar) GlassInkMuted else themeColors.iconMuted
                                         },
                                     )
                                 }

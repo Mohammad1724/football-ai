@@ -27,6 +27,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.footballai.app.R
 import com.footballai.app.core.Formatters
+import com.footballai.app.ui.theme.AuroraBaseBottom
+import com.footballai.app.ui.theme.AuroraBaseMid
 import com.footballai.app.ui.theme.GlassGold
 import com.footballai.app.ui.theme.GlassGoldBright
 import com.footballai.app.ui.theme.GlassInk
@@ -48,13 +50,15 @@ fun GlassCard(
     shape: RoundedCornerShape = RoundedCornerShape(26.dp),
     hero: Boolean = false,
     onClick: (() -> Unit)? = null,
+    /** Overrides the translucent fill; see [GlassFillOpaque] for when that is needed. */
+    fill: Brush? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val light = LocalScrollLight.current
     var cardModifier = modifier
         .shadow(elevation = 16.dp, shape = shape, clip = false)
         .clip(shape)
-        .background(if (hero) GlassFillHero else GlassFill)
+        .background(fill ?: if (hero) GlassFillHero else GlassFill)
     if (onClick != null) {
         cardModifier = cardModifier.clickable(onClick = onClick)
     }
@@ -77,6 +81,22 @@ private val GlassFillHero = Brush.linearGradient(
         0.0f to Color.White.copy(alpha = 0.30f),
         0.45f to Color.White.copy(alpha = 0.11f),
         1.0f to Color.White.copy(alpha = 0.07f),
+    ),
+)
+
+/**
+ * Near-opaque dark glass, for a surface that other content scrolls *beneath*.
+ *
+ * The translucent fills are the material everywhere else, but a pinned (sticky)
+ * header sits on top of moving rows: at 24% white the rows underneath stay legible
+ * through the sheet and the two layers of text read as one garbled card. This fill
+ * keeps the glass cues — the ink-blue depth of the aurora bases, the specular finish
+ * and the bright edge drawn by [scrollSpecular] — while hiding what passes below.
+ */
+val GlassFillOpaque = Brush.linearGradient(
+    colors = listOf(
+        AuroraBaseMid.copy(alpha = 0.97f),
+        AuroraBaseBottom.copy(alpha = 0.98f),
     ),
 )
 

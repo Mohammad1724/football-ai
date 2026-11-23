@@ -106,6 +106,7 @@ import com.footballai.app.ui.components.RowDivider
 import com.footballai.app.ui.components.SoftCard
 import com.footballai.app.ui.glass.AuroraBackground
 import com.footballai.app.ui.glass.GlassCard
+import com.footballai.app.ui.glass.GlassFillOpaque
 import com.footballai.app.ui.glass.GlassChip
 import com.footballai.app.ui.glass.GlassProbabilityBar
 import com.footballai.app.ui.theme.FootballAiTheme
@@ -187,7 +188,11 @@ private fun MatchesFeed(
                         enabled = !state.isSyncing && !state.autoSyncing,
                     ) {
                         if ((state.isSyncing || state.autoSyncing) && !pullActive) {
-                            CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(22.dp),
+                                strokeWidth = 2.dp,
+                                color = GlassGoldBright,
+                            )
                         } else {
                             Icon(
                                 Icons.Default.Refresh,
@@ -226,6 +231,7 @@ private fun MatchesFeed(
                 isOnline = state.isOnline,
                 languageTag = languageTag,
                 sourceName = state.sourceName,
+                glass = true,
             )
 
             SwipeRefresh(
@@ -457,7 +463,7 @@ private fun RecentDayTabs(
                     },
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                    color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = if (selected) GlassGoldBright else MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -467,7 +473,7 @@ private fun RecentDayTabs(
                         .width(if (selected) 40.dp else 0.dp)
                         .height(3.dp)
                         .clip(RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp))
-                        .background(MaterialTheme.colorScheme.primary),
+                        .background(GlassGold),
                 )
             }
         }
@@ -660,8 +666,11 @@ private fun CompetitionHeaderBar(
     onClick: () -> Unit = {},
 ) {
     val colors = FootballAiThemeExtra.colors
-    // The pinned bar is itself glass: rows scrolling under it stay faintly visible
-    // through the sheet instead of being cut off by an opaque strip of page.
+    // The pinned bar is glass in finish but opaque in fill: it is a sticky header,
+    // so match rows constantly scroll beneath it, and through the translucent fill
+    // their names and badges stayed legible inside the bar — two layers of text in
+    // one card. GlassFillOpaque hides whatever passes below; the specular and the
+    // bright edge keep it in the same material as the cards it pins over.
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -671,6 +680,7 @@ private fun CompetitionHeaderBar(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
             onClick = onClick,
+            fill = GlassFillOpaque,
         ) {
         Row(
             modifier = Modifier
