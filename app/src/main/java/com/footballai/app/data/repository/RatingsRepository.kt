@@ -42,15 +42,21 @@ class RatingsRepository(
         /**
          * Production blend of xG into the Dixon–Coles strength fit.
          *
-         * Validated by walk-forward backtest on the big-5 (6,566 forecasts,
-         * 2021-22…2024-25): log loss 0.9939 → 0.9871 and top-pick accuracy
-         * 52.2% → 52.8% versus goals-only, with the response flat between
-         * 0.5 and 1.0. The weight only bites on matches that carry xG (the
-         * big-5, via the football-ai-data mirror); every other match — and
-         * every other competition — contributes goals-only evidence, so for
-         * uncovered competitions this is bit-for-bit the old behaviour.
+         * Originally validated at 0.5 by walk-forward backtest on the big-5
+         * (6,566 forecasts, 2021-22…2024-25): log loss 0.9939 → 0.9871 and
+         * top-pick accuracy 52.2% → 52.8% versus goals-only. Retuned to 0.7
+         * in the 2026-11-23 hyperparameter study (FotMob xG, ~100% coverage,
+         * 8,289 forecasts): selected on 2021-22…2023-24 only, where the
+         * response rises monotonically to a flat plateau at 0.7–1.0, and
+         * confirmed on the untouched 2024-25 + 2025-26 validation window —
+         * log loss 0.9855 → 0.9843 (paired z −2.7), accuracy 52.93% → 53.11%,
+         * ECE 0.0155 → 0.0130, gains in both seasons. The weight only bites
+         * on matches that carry xG (the big-5, via the football-ai-data
+         * mirror); every other match — and every other competition —
+         * contributes goals-only evidence, so for uncovered competitions
+         * this is bit-for-bit the old behaviour.
          */
-        const val PRODUCTION_XG_BLEND_WEIGHT = 0.5
+        const val PRODUCTION_XG_BLEND_WEIGHT = 0.7
     }
 
     private data class Key(val source: String, val competitionId: String)

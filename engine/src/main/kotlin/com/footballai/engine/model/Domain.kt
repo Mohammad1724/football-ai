@@ -259,7 +259,7 @@ data class PreMatchInput(
     val quality: DataQuality,
     val asOfEpochMs: Long,
     /** See PredictionRepository.MODEL_VERSION: this must move with any change to the numbers. */
-    val modelVersion: String = "football-ai/engine-1.7.0",
+    val modelVersion: String = "football-ai/engine-1.7.1",
     val fittedMatches: Int = 0,
     /** Competition context: league / knockout / international, neutral ground, gender. */
     val competition: CompetitionProfile = CompetitionProfile.DEFAULT,

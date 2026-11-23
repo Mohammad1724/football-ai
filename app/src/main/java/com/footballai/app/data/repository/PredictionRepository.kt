@@ -752,7 +752,7 @@ class PredictionRepository(
          * matrix that produced the full-time numbers; a national competition's history is
          * the archive rather than one team's record.
          */
-        const val MODEL_VERSION = "football-ai/engine-1.7.0"
+        const val MODEL_VERSION = "football-ai/engine-1.7.1"
 
         /**
          * How far back a scorer's goals still count when judging today's lineup. Long
