@@ -139,4 +139,22 @@ object HistoryMigration {
             db.execSQL("ALTER TABLE historical_matches ADD COLUMN awayXg REAL")
         }
     }
+
+    /**
+     * 7 -> 8: per-fixture availability (missing minutes shares) synced from
+     * the football-ai-data mirror. A new table rather than new columns on
+     * matches: availability is keyed by fixture but refreshed on its own
+     * cadence, and most fixtures will never have a row.
+     */
+    val MIGRATION_7_8 = object : Migration(7, 8) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS match_availability (" +
+                    "matchId TEXT NOT NULL PRIMARY KEY, " +
+                    "homeMissingShare REAL NOT NULL, " +
+                    "awayMissingShare REAL NOT NULL, " +
+                    "updatedAt INTEGER NOT NULL)",
+            )
+        }
+    }
 }

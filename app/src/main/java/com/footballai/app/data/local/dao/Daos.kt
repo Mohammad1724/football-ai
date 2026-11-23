@@ -10,6 +10,7 @@ import com.footballai.app.data.local.LateForecastPolicy
 import com.footballai.app.data.local.entity.CompetitionEntity
 import com.footballai.app.data.local.entity.HistoricalMatchEntity
 import com.footballai.app.data.local.entity.LineupPlayerEntity
+import com.footballai.app.data.local.entity.MatchAvailabilityEntity
 import com.footballai.app.data.local.entity.MatchEntity
 import com.footballai.app.data.local.entity.MatchEventEntity
 import com.footballai.app.data.local.entity.MatchStatisticsEntity
@@ -273,6 +274,9 @@ interface MatchDao {
         """
     )
     suspend fun recentForCompetition(competitionId: String, limit: Int): List<MatchEntity>
+
+    @Query("SELECT * FROM matches WHERE competitionId = :competitionId")
+    suspend fun forCompetition(competitionId: String): List<MatchEntity>
 
     @Query(
         """
@@ -703,6 +707,15 @@ interface StandingDao {
     /** The newest season stored for a competition: the table to fall back to, never a guess. */
     @Query("SELECT MAX(season) FROM standings WHERE competitionId = :competitionId")
     suspend fun latestSeason(competitionId: String): Int?
+}
+
+@Dao
+interface AvailabilityDao {
+    @Upsert
+    suspend fun upsertAll(rows: List<MatchAvailabilityEntity>)
+
+    @Query("SELECT * FROM match_availability WHERE matchId = :matchId")
+    suspend fun forMatch(matchId: String): MatchAvailabilityEntity?
 }
 
 @Dao

@@ -140,6 +140,7 @@
     <string name="explanation_fixture_congestion">Difference in rest days and recent fixture congestion</string>
     <string name="explanation_lineup_absence_home">Confirmed lineups: some of the home scorers are not starting</string>
     <string name="explanation_lineup_absence_away">Confirmed lineups: some of the away scorers are not starting</string>
+    <string name="explanation_injury_absence">Injuries and suspensions: a side is missing players who account for a share of its minutes this season</string>
     <string name="explanation_elo_edge_home">Elo ratings favour the home team</string>
     <string name="explanation_evenly_matched">The two teams are closely matched</string>
     <string name="explanation_favourite_away">The away side is the clear favourite</string>

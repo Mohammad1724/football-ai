@@ -200,6 +200,7 @@ enum class ExplanationCode {
     FIXTURE_CONGESTION,
     LINEUP_ABSENCE_HOME,
     LINEUP_ABSENCE_AWAY,
+    INJURY_ABSENCE,
     NEUTRAL_VENUE_ADJUSTMENT,
     NATIONAL_TEAM_ELO,
     CALIBRATION_ADJUSTMENT,
@@ -259,7 +260,7 @@ data class PreMatchInput(
     val quality: DataQuality,
     val asOfEpochMs: Long,
     /** See PredictionRepository.MODEL_VERSION: this must move with any change to the numbers. */
-    val modelVersion: String = "football-ai/engine-1.7.1",
+    val modelVersion: String = "football-ai/engine-1.8.0",
     val fittedMatches: Int = 0,
     /** Competition context: league / knockout / international, neutral ground, gender. */
     val competition: CompetitionProfile = CompetitionProfile.DEFAULT,

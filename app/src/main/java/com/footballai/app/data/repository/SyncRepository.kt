@@ -91,6 +91,7 @@ class SyncRepository(
     private val sportsDbCrests: com.footballai.app.data.remote.SportsDbCrests,
     private val leagueCrestIndex: com.footballai.app.data.remote.LeagueCrestIndex,
     private val xgProvider: com.footballai.app.data.remote.XgHistoryProvider,
+    private val availabilityProvider: com.footballai.app.data.remote.AvailabilityHistoryProvider,
 ) {
 
     private val crestBackfillMutex = Mutex()
@@ -948,6 +949,7 @@ class SyncRepository(
                             now = now,
                         )
                         applyXg(key, competitionId, season)
+                        applyAvailability(key, season)
                         summary = summary + SyncSummary(historical = inserted)
                     }
                 }
@@ -994,6 +996,65 @@ class SyncRepository(
                     ?: continue
                 db.historicalDao().updateXg(row.id, xg.first, xg.second)
             }
+        }
+    }
+
+    /**
+     * Best-effort availability sync for one competition season.
+     *
+     * The mirror names teams exactly as football-data.co.uk does, so a row is
+     * matched to a stored fixture on (home name, away name, kickoff date in
+     * Europe/London) with a one-day tolerance — the same discipline [applyXg]
+     * uses for history rows. Fixtures stored under another provider's naming
+     * simply do not match and keep no availability row, which prediction
+     * treats as "no data", never as "nobody missing". Any failure (mirror
+     * unreachable, competition not covered) leaves the sync exactly as it was.
+     */
+    private suspend fun applyAvailability(competitionKey: String, seasonStartYear: Int) {
+        if (competitionKey !in com.footballai.app.data.remote.AvailabilityHistoryProvider.COVERED_COMPETITIONS) return
+        val rows = when (val result = availabilityProvider.availability(competitionKey, seasonStartYear)) {
+            is Outcome.Failure -> return
+            is Outcome.Success -> result.value
+        }
+        if (rows.isEmpty()) return
+        val byFixture = HashMap<Triple<String, String, LocalDate>, Pair<Double, Double>>()
+        for (row in rows) {
+            byFixture[Triple(row.homeTeamName, row.awayTeamName, row.date)] =
+                row.homeMissingShare to row.awayMissingShare
+        }
+        val competitionIds = db.competitionDao().allOnce()
+            .filter { it.providerKey == competitionKey }
+            .map { it.id }
+        if (competitionIds.isEmpty()) return
+        val now = clock.nowEpochMs()
+        val entities = ArrayList<com.footballai.app.data.local.entity.MatchAvailabilityEntity>()
+        for (competitionId in competitionIds) {
+            val matches = db.matchDao().forCompetition(competitionId)
+            if (matches.isEmpty()) continue
+            val teamNames = db.teamDao()
+                .byIds(matches.flatMap { listOf(it.homeTeamId, it.awayTeamId) }.distinct())
+                .associate { it.id to it.name }
+            for (match in matches) {
+                val homeName = teamNames[match.homeTeamId] ?: continue
+                val awayName = teamNames[match.awayTeamId] ?: continue
+                val date = Instant.ofEpochMilli(match.kickoffEpochMs)
+                    .atZone(ZoneId.of("Europe/London")).toLocalDate()
+                val shares = byFixture[Triple(homeName, awayName, date)]
+                    ?: byFixture[Triple(homeName, awayName, date.minusDays(1))]
+                    ?: byFixture[Triple(homeName, awayName, date.plusDays(1))]
+                    ?: continue
+                entities.add(
+                    com.footballai.app.data.local.entity.MatchAvailabilityEntity(
+                        matchId = match.id,
+                        homeMissingShare = shares.first,
+                        awayMissingShare = shares.second,
+                        updatedAt = now,
+                    ),
+                )
+            }
+        }
+        if (entities.isNotEmpty()) {
+            db.withTransaction { db.availabilityDao().upsertAll(entities) }
         }
     }
 

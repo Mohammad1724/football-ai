@@ -135,6 +135,7 @@ fun explanationLabel(code: String): String = text(
         "MARKET_ALIGNED" -> R.string.explanation_market_aligned
         "LINEUP_ABSENCE_HOME" -> R.string.explanation_lineup_absence_home
         "LINEUP_ABSENCE_AWAY" -> R.string.explanation_lineup_absence_away
+        "INJURY_ABSENCE" -> R.string.explanation_injury_absence
         "DIXON_COLES_LOW_SCORE_ADJUSTMENT" -> R.string.explanation_dixon_coles
         "LIMITED_HISTORY" -> R.string.explanation_limited_history
         "LARGE_SAMPLE" -> R.string.explanation_large_sample
