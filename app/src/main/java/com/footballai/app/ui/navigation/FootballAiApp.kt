@@ -7,15 +7,15 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import com.footballai.app.ui.theme.AuroraBaseBottom
-import com.footballai.app.ui.theme.AuroraBaseMid
-import com.footballai.app.ui.theme.GlassGold
-import com.footballai.app.ui.theme.GlassGoldBright
-import com.footballai.app.ui.theme.GlassInkMuted
+import com.footballai.app.ui.theme.GlassLightInkFaint
+import com.footballai.app.ui.theme.GlassLightInkSecondary
+import com.footballai.app.ui.theme.GlassViolet
 import com.footballai.app.ui.theme.Spacing
 import com.footballai.app.ui.theme.FootballAiThemeExtra
+import com.footballai.app.ui.glass.LightGlassFill
 import com.footballai.app.ui.glass.LocalScrollLight
 import com.footballai.app.ui.glass.ScrollLight
 import com.footballai.app.ui.glass.scrollSpecular
@@ -27,6 +27,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.height
@@ -41,6 +42,7 @@ import androidx.compose.material.icons.filled.QueryStats
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SportsSoccer
 import androidx.compose.material.icons.filled.StackedLineChart
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -66,6 +68,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.footballai.app.R
 import com.footballai.app.data.settings.AppSettings
 import com.footballai.app.ui.LocalAppContainer
+import com.footballai.app.ui.LocalMatchesSearchSignal
+import com.footballai.app.ui.MatchesSearchSignal
 import com.footballai.app.ui.components.LoadingState
 import com.footballai.app.ui.screens.CompetitionOrderScreen
 import com.footballai.app.ui.screens.CompetitionScreen
@@ -146,8 +150,14 @@ fun FootballAiApp() {
 private fun MainNavigation() {
     // The glass theme's one fixed light lives here, above every destination, so the
     // home feed, the match page and the navigation pill all reflect the same lamp.
+    // So does the shell's search signal: the pill's search circle is counted here
+    // and the matches feed, deep in the NavHost, watches the count.
     val scrollLight = remember { ScrollLight() }
-    CompositionLocalProvider(LocalScrollLight provides scrollLight) {
+    val searchSignal = remember { MatchesSearchSignal() }
+    CompositionLocalProvider(
+        LocalScrollLight provides scrollLight,
+        LocalMatchesSearchSignal provides searchSignal,
+    ) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -161,12 +171,14 @@ private fun MainNavigation() {
 @Composable
 private fun MainScaffold() {
     val scrollLight = LocalScrollLight.current
+    val searchSignal = LocalMatchesSearchSignal.current
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
     val showBottomBar = bottomDestinations.any { it.route == currentRoute }
-    // Destinations that live in the glass world (aurora ground, dark scheme). The
-    // pill over them must be dark glass too; the light pill below is for the rest.
+    // Destinations that live in the glass world (pastel ground, light glass). The
+    // pill over them must be light glass too, with the search circle beside it;
+    // the light pill below is for the rest of the app, unchanged.
     val glassBar = currentRoute == Routes.MATCHES || currentRoute == Routes.MATCH_DETAIL
     val themeColors = FootballAiThemeExtra.colors
     // Forward is to the left when the interface is right-to-left, so the slide follows
@@ -180,91 +192,143 @@ private fun MainScaffold() {
         }
     }
 
+    // The destinations row, shared by both pill finishes: the same four tabs, the
+    // same selected-pill language, only the colours change with the world below.
+    val pillContent: @Composable () -> Unit = {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = Spacing.sm, vertical = Spacing.sm),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            bottomDestinations.forEach { destination ->
+                val selected = currentRoute == destination.route
+                Surface(
+                    onClick = {
+                        if (currentRoute != destination.route) openTab(destination.route)
+                    },
+                    shape = RoundedCornerShape(22.dp),
+                    color = if (selected) {
+                        if (glassBar) {
+                            GlassViolet.copy(alpha = 0.13f)
+                        } else {
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                        }
+                    } else {
+                        Color.Transparent
+                    },
+                ) {
+                    Column(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Icon(
+                            imageVector = destination.icon,
+                            contentDescription = null,
+                            tint = if (selected) {
+                                if (glassBar) GlassViolet else MaterialTheme.colorScheme.primary
+                            } else {
+                                if (glassBar) GlassLightInkFaint else themeColors.iconMuted
+                            },
+                            modifier = Modifier.size(23.dp),
+                        )
+                        Spacer(Modifier.height(3.dp))
+                        Text(
+                            text = stringResource(destination.labelRes),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (selected) {
+                                if (glassBar) GlassViolet else MaterialTheme.colorScheme.primary
+                            } else {
+                                if (glassBar) GlassLightInkFaint else themeColors.iconMuted
+                            },
+                        )
+                    }
+                }
+            }
+        }
+    }
+
     Scaffold(
         bottomBar = {
             if (showBottomBar) {
                 // A floating pill instead of a bar glued to the edge, edged and lit by
-                // the same fixed light as the glass cards. Two finishes: over the
-                // glass destinations the pill is dark glass — a deep ink fill under
-                // the shared specular — because the light finish there (the app
-                // surface at 82%) sits on the aurora like a white slab; over the
-                // light destinations the light pill stays as it was.
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = Spacing.xl, vertical = Spacing.sm)
-                        .shadow(elevation = 14.dp, shape = RoundedCornerShape(30.dp), clip = false)
-                        .clip(RoundedCornerShape(30.dp))
-                        .background(
-                            if (glassBar) {
-                                Brush.verticalGradient(
-                                    listOf(
-                                        AuroraBaseMid.copy(alpha = 0.92f),
-                                        AuroraBaseBottom.copy(alpha = 0.95f),
-                                    ),
-                                )
-                            } else {
-                                Brush.verticalGradient(
-                                    listOf(
-                                        MaterialTheme.colorScheme.surface.copy(alpha = 0.82f),
-                                        MaterialTheme.colorScheme.surface.copy(alpha = 0.82f),
-                                    ),
-                                )
-                            },
-                        )
-                        .scrollSpecular(RoundedCornerShape(30.dp), scrollLight),
-                ) {
+                // the same fixed light as the glass cards. Two finishes. Over the
+                // glass destinations the pill is light glass — the shared translucent
+                // fill under the shared specular, the selected tab a whisper of
+                // violet — and it no longer spans the screen: a separate glass
+                // circle beside it carries search, the way the reference wallet app
+                // floats its own search beside its pill. Over the light destinations
+                // the light pill stays exactly as it was.
+                if (glassBar) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = Spacing.sm, vertical = Spacing.sm),
-                        horizontalArrangement = Arrangement.SpaceEvenly,
+                            .padding(horizontal = Spacing.page, vertical = Spacing.sm),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        bottomDestinations.forEach { destination ->
-                            val selected = currentRoute == destination.route
-                            Surface(
-                                onClick = {
-                                    if (currentRoute != destination.route) openTab(destination.route)
-                                },
-                                shape = RoundedCornerShape(22.dp),
-                                color = if (selected) {
-                                    if (glassBar) {
-                                        GlassGold.copy(alpha = 0.20f)
-                                    } else {
-                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
-                                    }
-                                } else {
-                                    Color.Transparent
-                                },
-                            ) {
-                                Column(
-                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                ) {
-                                    Icon(
-                                        imageVector = destination.icon,
-                                        contentDescription = null,
-                                        tint = if (selected) {
-                                            if (glassBar) GlassGoldBright else MaterialTheme.colorScheme.primary
-                                        } else {
-                                            if (glassBar) GlassInkMuted else themeColors.iconMuted
-                                        },
-                                        modifier = Modifier.size(23.dp),
-                                    )
-                                    Spacer(Modifier.height(3.dp))
-                                    Text(
-                                        text = stringResource(destination.labelRes),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = if (selected) {
-                                            if (glassBar) GlassGoldBright else MaterialTheme.colorScheme.primary
-                                        } else {
-                                            if (glassBar) GlassInkMuted else themeColors.iconMuted
-                                        },
-                                    )
-                                }
-                            }
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .shadow(
+                                    elevation = 4.dp,
+                                    shape = RoundedCornerShape(30.dp),
+                                    clip = false,
+                                    ambientColor = GlassViolet.copy(alpha = 0.18f),
+                                    spotColor = GlassViolet.copy(alpha = 0.18f),
+                                )
+                                .clip(RoundedCornerShape(30.dp))
+                                .background(LightGlassFill)
+                                .scrollSpecular(RoundedCornerShape(30.dp), scrollLight),
+                        ) {
+                            pillContent()
                         }
+                        // Search, as its own floating circle. It counts a request on
+                        // the shared signal; the matches feed — the only glass
+                        // destination with a bar — opens its search dialog.
+                        Box(
+                            modifier = Modifier
+                                .size(52.dp)
+                                .shadow(
+                                    elevation = 4.dp,
+                                    shape = CircleShape,
+                                    clip = false,
+                                    ambientColor = GlassViolet.copy(alpha = 0.18f),
+                                    spotColor = GlassViolet.copy(alpha = 0.18f),
+                                )
+                                .clip(CircleShape)
+                                .background(LightGlassFill)
+                                .clickable { searchSignal.request() }
+                                .scrollSpecular(CircleShape, scrollLight),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Search,
+                                contentDescription = stringResource(R.string.search_matches),
+                                tint = GlassLightInkSecondary,
+                                modifier = Modifier.size(22.dp),
+                            )
+                        }
+                    }
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = Spacing.xl, vertical = Spacing.sm)
+                            .shadow(elevation = 14.dp, shape = RoundedCornerShape(30.dp), clip = false)
+                            .clip(RoundedCornerShape(30.dp))
+                            .background(
+                                Brush.verticalGradient(
+                                    listOf(
+                                        MaterialTheme.colorScheme.surface.copy(alpha = 0.82f),
+                                        MaterialTheme.colorScheme.surface.copy(alpha = 0.82f),
+                                    ),
+                                ),
+                            )
+                            .scrollSpecular(RoundedCornerShape(30.dp), scrollLight),
+                    ) {
+                        pillContent()
                     }
                 }
             }
