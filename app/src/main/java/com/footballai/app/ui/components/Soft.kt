@@ -30,6 +30,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.footballai.app.ui.glass.GlassCard
 import com.footballai.app.ui.theme.FootballAiThemeExtra
 import com.footballai.app.ui.theme.Radii
 
@@ -47,8 +48,19 @@ fun SoftCard(
     onClick: (() -> Unit)? = null,
     shape: RoundedCornerShape = Radii.cardShape,
     containerColor: Color? = null,
+    /**
+     * On the pastel surfaces the slab is glass instead of a flat fill: the same
+     * translucent sheet, bright edge and scroll-reactive sheen as the glass
+     * screens' own cards. [containerColor] does not apply there — glass has one
+     * fill. Off by default, so every existing caller renders exactly as before.
+     */
+    glass: Boolean = false,
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    if (glass) {
+        GlassCard(modifier = modifier, shape = shape, onClick = onClick) { content() }
+        return
+    }
     val colors = FootballAiThemeExtra.colors
     val color = containerColor ?: colors.card
     // The content slot is a Column, not a bare Box: a card that holds a list of rows must

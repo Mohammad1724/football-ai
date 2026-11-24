@@ -1,6 +1,7 @@
 package com.footballai.app.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -48,6 +49,7 @@ import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -67,6 +69,9 @@ import com.footballai.app.core.CrashLog
 import com.footballai.app.ui.LocalAppContainer
 import com.footballai.app.ui.LocalLanguageTag
 import com.footballai.app.ui.localizedString
+import com.footballai.app.ui.glass.PastelBackground
+import com.footballai.app.ui.theme.FootballAiLightGlassTheme
+import com.footballai.app.ui.theme.GlassLightInk
 import com.footballai.app.ui.theme.Spacing
 import com.footballai.app.ui.components.InfoCard
 import com.footballai.app.ui.components.NavigationRow
@@ -76,9 +81,29 @@ import com.footballai.app.ui.theme.FootballAiThemeExtra
 import com.footballai.app.ui.components.SoftCard
 import com.footballai.app.ui.viewmodel.SettingsViewModel
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+/**
+ * Settings joins the light-glass world of the home feed and the match page: the
+ * same fixed pastel sky, the same glass scheme, the same floating bar in the
+ * shell. Every control — switches, chips, rows, dialogs — is the control it
+ * always was; only the material changed.
+ */
 @Composable
 fun SettingsScreen(onOpenDataSources: () -> Unit, onOpenCompetitionOrder: () -> Unit) {
+    val languageTag = LocalLanguageTag.current
+    FootballAiLightGlassTheme(languageTag = languageTag) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            PastelBackground(modifier = Modifier.fillMaxSize())
+            SettingsContent(
+                onOpenDataSources = onOpenDataSources,
+                onOpenCompetitionOrder = onOpenCompetitionOrder,
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Composable
+private fun SettingsContent(onOpenDataSources: () -> Unit, onOpenCompetitionOrder: () -> Unit) {
     val container = LocalAppContainer.current
     val viewModel: SettingsViewModel = viewModel(
         factory = viewModelFactory { initializer { SettingsViewModel(container) } },
@@ -90,17 +115,25 @@ fun SettingsScreen(onOpenDataSources: () -> Unit, onOpenCompetitionOrder: () -> 
     var crashReport by remember(context) { mutableStateOf(CrashLog.last(context)) }
 
     Scaffold(
+        // Transparent, like the other glass screens: the pastel sky drawn behind
+        // the scaffold is the ground, and the ink is named outright — for a
+        // transparent container Material derives an unspecified content colour,
+        // and every uncoloured text on the screen then renders with no ink.
+        containerColor = Color.Transparent,
+        contentColor = GlassLightInk,
         topBar = {
             CenterAlignedTopAppBar(
                 title = { Text(stringResource(R.string.title_settings)) },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
             )
         },
     ) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding),
-            // Keeps the last row off the floating pill bar.
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 24.dp),
+            // Keeps the last row off the floating pill bar: the bar floats over
+            // this list as an overlay with an 83dp footprint, and 104dp of end
+            // padding (the home feed's measure) lets the last row scroll clear.
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 104.dp),
         ) {
             item {
                 ToggleRow(title = stringResource(R.string.daily_mode_title),
@@ -130,6 +163,7 @@ fun SettingsScreen(onOpenDataSources: () -> Unit, onOpenCompetitionOrder: () -> 
                     title = stringResource(R.string.title_data_sources),
                     subtitle = stringResource(R.string.data_sources_hint),
                     onClick = onOpenDataSources,
+                    glass = true,
                 )
             }
             item {
@@ -137,6 +171,7 @@ fun SettingsScreen(onOpenDataSources: () -> Unit, onOpenCompetitionOrder: () -> 
                     title = stringResource(R.string.title_competition_order),
                     subtitle = stringResource(R.string.competition_order_hint_short),
                     onClick = onOpenCompetitionOrder,
+                    glass = true,
                 )
             }
 
@@ -281,7 +316,7 @@ fun SettingsScreen(onOpenDataSources: () -> Unit, onOpenCompetitionOrder: () -> 
                 InfoCard(
                     title = stringResource(R.string.about_data_title),
                     body = stringResource(R.string.about_data_body),
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    glass = true,
                 )
             }
             // A crash closes the app before anything can be shown, so the record of the
@@ -320,7 +355,7 @@ fun SettingsScreen(onOpenDataSources: () -> Unit, onOpenCompetitionOrder: () -> 
                     }
                     lines.add(stringResource(R.string.sync_timing_explanation))
                     InfoCard(title = stringResource(R.string.sync_timing_title), body = lines.joinToString("\n"),
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                        glass = true)
                 }
             }
             crashReport?.let { report ->
@@ -453,6 +488,7 @@ private fun ToggleRow(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = Spacing.page, vertical = 4.dp),
+        glass = true,
     ) {
         Row(
             modifier = Modifier
@@ -479,7 +515,7 @@ private fun ToggleRow(
 @Composable
 private fun FollowedTeamRow(name: String, onRemove: () -> Unit) {
     val languageTag = LocalLanguageTag.current
-    SoftCard(modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.page, vertical = 3.dp)) {
+    SoftCard(modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.page, vertical = 3.dp), glass = true) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -532,6 +568,7 @@ private fun SyncSettingsCard(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = Spacing.page, vertical = 3.dp),
+        glass = true,
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -657,7 +694,7 @@ private fun SyncPillButton(label: String, filled: Boolean, onClick: () -> Unit) 
  */
 @Composable
 private fun FollowedPlayerRow(name: String, club: TeamRef?, languageTag: String, onRemove: () -> Unit) {
-    SoftCard(modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.page, vertical = 3.dp)) {
+    SoftCard(modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.page, vertical = 3.dp), glass = true) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
             verticalAlignment = Alignment.CenterVertically,

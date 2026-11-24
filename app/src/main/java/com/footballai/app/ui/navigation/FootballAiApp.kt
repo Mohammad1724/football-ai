@@ -177,10 +177,13 @@ private fun MainScaffold() {
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
     val showBottomBar = bottomDestinations.any { it.route == currentRoute }
-    // Destinations that live in the glass world (pastel ground, light glass). The
-    // pill over them must be light glass too, with the search circle beside it;
-    // the light pill below is for the rest of the app, unchanged.
-    val glassBar = currentRoute == Routes.MATCHES || currentRoute == Routes.MATCH_DETAIL
+    // Destinations that live in the glass world (pastel ground, light glass): the
+    // four tabs and the match page pushed over the feed. The pill over them must
+    // be light glass too, with the search circle beside it; the light pill below
+    // is for the rest of the app, unchanged.
+    val glassBar = currentRoute == Routes.MATCHES || currentRoute == Routes.MATCH_DETAIL ||
+        currentRoute == Routes.PREDICTIONS || currentRoute == Routes.PERFORMANCE ||
+        currentRoute == Routes.SETTINGS
     val themeColors = FootballAiThemeExtra.colors
     // Forward is to the left when the interface is right-to-left, so the slide follows
     // the direction the user reads in.
@@ -266,7 +269,8 @@ private fun MainScaffold() {
     // does not span the screen, and search rides in its own
     // glass circle beside it, the way the reference wallet app floats its own
     // search beside its pill; it counts a request on the shared signal, and the
-    // matches feed — the only glass destination with a bar — opens its dialog.
+    // matches feed — the one destination that owns a search — opens its dialog
+    // when it next appears.
     val glassBarOverlay: @Composable BoxScope.() -> Unit = {
         Row(
             modifier = Modifier
