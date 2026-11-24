@@ -3,6 +3,7 @@ package com.footballai.app.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -17,8 +18,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -35,6 +34,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -52,6 +52,7 @@ import com.footballai.app.ui.LocalAppContainer
 import com.footballai.app.ui.LocalLanguageTag
 import com.footballai.app.ui.localizedString
 import com.footballai.app.ui.components.CalibrationChart
+import com.footballai.app.ui.components.CompetitionNameText
 import com.footballai.app.ui.components.EmptyState
 import com.footballai.app.ui.components.ErrorState
 import com.footballai.app.ui.components.InfoCard
@@ -60,13 +61,34 @@ import com.footballai.app.ui.components.SwipeRefresh
 import com.footballai.app.ui.components.SectionHeader
 import com.footballai.app.ui.components.StatusChip
 import com.footballai.app.ui.errorLabel
+import com.footballai.app.ui.glass.GlassCard
+import com.footballai.app.ui.glass.PastelBackground
+import com.footballai.app.ui.theme.FootballAiLightGlassTheme
 import com.footballai.app.ui.theme.FootballAiThemeExtra
+import com.footballai.app.ui.theme.GlassLightInk
 import com.footballai.app.ui.viewmodel.CALIBRATION_CLASSES
 import com.footballai.app.ui.viewmodel.PerformanceViewModel
 
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * The performance tab joins the light-glass world of the home feed and the match
+ * page: the same fixed pastel sky, the same glass scheme, the same floating bar
+ * in the shell. The numbers, the study and the backtest are the screen it always
+ * was; only the material changed.
+ */
 @Composable
 fun PerformanceScreen() {
+    val languageTag = LocalLanguageTag.current
+    FootballAiLightGlassTheme(languageTag = languageTag) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            PastelBackground(modifier = Modifier.fillMaxSize())
+            PerformanceContent()
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun PerformanceContent() {
     val container = LocalAppContainer.current
     val viewModel: PerformanceViewModel = viewModel(
         factory = viewModelFactory { initializer { PerformanceViewModel(container) } },
@@ -75,6 +97,12 @@ fun PerformanceScreen() {
     val languageTag = LocalLanguageTag.current
 
     Scaffold(
+        // Transparent, like the other glass screens: the pastel sky drawn behind
+        // the scaffold is the ground, and the ink is named outright — for a
+        // transparent container Material derives an unspecified content colour,
+        // and every uncoloured text on the screen then renders with no ink.
+        containerColor = Color.Transparent,
+        contentColor = GlassLightInk,
         topBar = {
             CenterAlignedTopAppBar(
                 title = { Text(stringResource(R.string.title_performance)) },
@@ -86,7 +114,7 @@ fun PerformanceScreen() {
                         Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.action_refresh))
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
             )
         },
     ) { padding ->
@@ -104,9 +132,11 @@ fun PerformanceScreen() {
             ) {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    // The floating pill bar is drawn by the shell; this keeps the last row
-                    // off it and gives the list somewhere to end.
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 24.dp),
+                    // The floating pill bar is drawn by the shell as an overlay;
+                    // its footprint is 83dp, and 104dp of end padding (the home
+                    // feed's measure) lets the last row scroll fully clear of it
+                    // and gives the list somewhere to end.
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 104.dp),
                 ) {
                     // The numbers come first. They are the reason the screen exists; the
                     // paragraphs that explain them follow, so they stop burying the answer.
@@ -131,7 +161,7 @@ fun PerformanceScreen() {
                     }
                     item { PairedForecastCard(state.storedStats.paired, state.storedStats.lateSnapshots, languageTag) }
                     item {
-                        InfoCard(title = stringResource(R.string.performance_reading_title), body = stringResource(R.string.performance_reading_body))
+                        InfoCard(title = stringResource(R.string.performance_reading_title), body = stringResource(R.string.performance_reading_body), glass = true)
                     }
                     item {
                         Text(
@@ -218,7 +248,7 @@ fun PerformanceScreen() {
                                             Formatters.percent(report.baselineAccuracy, languageTag),
                                             Formatters.percent(report.accuracy, languageTag),
                                         ),
-                                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                        glass = true,
                                     )
                                 }
                             }
@@ -274,7 +304,7 @@ fun PerformanceScreen() {
                         InfoCard(
                             title = stringResource(R.string.performance_intro_title),
                             body = stringResource(R.string.performance_intro_body),
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            glass = true,
                         )
                     }
                     item {
@@ -282,7 +312,7 @@ fun PerformanceScreen() {
                         InfoCard(
                             title = stringResource(R.string.honesty_title),
                             body = stringResource(R.string.honesty_body),
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            glass = true,
                         )
                     }
                     item { Spacer(Modifier.height(24.dp)) }
@@ -320,9 +350,8 @@ private fun CalibrationStudyCard(
             }
         }
         Spacer(Modifier.height(8.dp))
-        Card(
+        GlassCard(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
         ) {
             Column(modifier = Modifier.padding(14.dp)) {
                 when {
@@ -387,12 +416,10 @@ private fun StoredStatsCard(
     accuracy: Double,
     languageTag: String,
 ) {
-    Card(
+    GlassCard(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 4.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
             if (resolved == 0) {
@@ -417,8 +444,7 @@ private fun StoredStatsCard(
 
 @Composable
 private fun PairedForecastCard(audit: com.footballai.app.data.repository.PairedForecastAudit, collected: Int, languageTag: String) {
-    Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+    GlassCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(stringResource(R.string.paired_forecast_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Text(stringResource(R.string.paired_forecast_explain), style = MaterialTheme.typography.bodySmall,
@@ -443,9 +469,7 @@ private fun PairedForecastCard(audit: com.footballai.app.data.repository.PairedF
 
 @Composable
 private fun StoredForecastAuditCard(audit: com.footballai.app.data.repository.StoredForecastAudit, languageTag: String) {
-    Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)) {
+    GlassCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
         Column(modifier = Modifier.fillMaxWidth().padding(14.dp)) {
             Text(stringResource(R.string.forecast_audit_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Text(stringResource(R.string.forecast_audit_scope), style = MaterialTheme.typography.bodySmall,
@@ -510,12 +534,10 @@ private fun ForecastAuditRow(label: String, group: com.footballai.app.data.repos
 @Composable
 private fun BacktestSummary(report: PerformanceReport, languageTag: String) {
     val colors = FootballAiThemeExtra.colors
-    Card(
+    GlassCard(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 4.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
             Text(
@@ -602,7 +624,19 @@ private fun CompetitionPerformanceRow(competition: CompetitionPerformance, langu
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(text = competition.competitionName, style = MaterialTheme.typography.bodyMedium, maxLines = 1)
+            // The shared name component, not a bare Text: it wraps a Latin name
+            // in left-to-right marks on both sides, so trailing punctuation
+            // keeps its own order inside a Persian paragraph. Only the primary
+            // name shows, as before.
+            CompetitionNameText(
+                name = competition.competitionName,
+                competitionId = competition.competitionId,
+                languageTag = languageTag,
+                primaryStyle = MaterialTheme.typography.bodyMedium,
+                primaryColor = MaterialTheme.colorScheme.onSurface,
+                primaryMaxLines = 1,
+                showLatin = false,
+            )
             Text(
                 text = buildString {
                     append(

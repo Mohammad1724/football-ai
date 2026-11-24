@@ -18,8 +18,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -40,6 +38,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -59,6 +58,7 @@ import com.footballai.app.ui.LocalAppContainer
 import com.footballai.app.ui.LocalLanguageTag
 import com.footballai.app.ui.localizedString
 import com.footballai.app.ui.components.EmptyState
+import com.footballai.app.ui.components.CompetitionNameText
 import com.footballai.app.ui.components.InfoCard
 import com.footballai.app.ui.components.LoadingState
 import com.footballai.app.ui.components.ScrollableRefreshContent
@@ -68,7 +68,11 @@ import com.footballai.app.ui.components.ProbabilityBar
 import com.footballai.app.ui.components.StatusChip
 import com.footballai.app.ui.components.TeamBadge
 import com.footballai.app.ui.components.TeamNameLines
+import com.footballai.app.ui.glass.GlassCard
+import com.footballai.app.ui.glass.PastelBackground
+import com.footballai.app.ui.theme.FootballAiLightGlassTheme
 import com.footballai.app.ui.theme.FootballAiThemeExtra
+import com.footballai.app.ui.theme.GlassLightInk
 import com.footballai.app.ui.viewmodel.PredictionListFilter
 import com.footballai.app.ui.viewmodel.PredictionGroup
 import com.footballai.app.ui.viewmodel.PredictionRecordStatus
@@ -77,9 +81,26 @@ import com.footballai.app.ui.viewmodel.isLatePreMatch
 import com.footballai.app.ui.viewmodel.includes
 import com.footballai.app.ui.viewmodel.PredictionsViewModel
 
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * The predictions tab joins the light-glass world of the home feed and the match
+ * page: the same fixed pastel sky, the same glass scheme, the same floating bar
+ * in the shell. The content — filters, groups, versions, grading — is the screen
+ * it always was; only the material changed.
+ */
 @Composable
 fun PredictionsScreen(onMatchClick: (String) -> Unit) {
+    val languageTag = LocalLanguageTag.current
+    FootballAiLightGlassTheme(languageTag = languageTag) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            PastelBackground(modifier = Modifier.fillMaxSize())
+            PredictionsContent(onMatchClick = onMatchClick)
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun PredictionsContent(onMatchClick: (String) -> Unit) {
     val container = LocalAppContainer.current
     val viewModel: PredictionsViewModel = viewModel(
         factory = viewModelFactory { initializer { PredictionsViewModel(container) } },
@@ -91,6 +112,12 @@ fun PredictionsScreen(onMatchClick: (String) -> Unit) {
     var pullActive by remember { mutableStateOf(false) }
 
     Scaffold(
+        // Transparent, like the other glass screens: the pastel sky drawn behind
+        // the scaffold is the ground, and the ink is named outright — for a
+        // transparent container Material derives an unspecified content colour,
+        // and every uncoloured text on the screen then renders with no ink.
+        containerColor = Color.Transparent,
+        contentColor = GlassLightInk,
         topBar = {
             CenterAlignedTopAppBar(
                 title = { Text(stringResource(R.string.title_predictions)) },
@@ -108,7 +135,7 @@ fun PredictionsScreen(onMatchClick: (String) -> Unit) {
                         }
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
             )
         },
     ) { padding ->
@@ -124,6 +151,7 @@ fun PredictionsScreen(onMatchClick: (String) -> Unit) {
                 error = state.lastError,
                 isOnline = state.isOnline,
                 languageTag = languageTag,
+                glass = true,
             )
             if (state.isLoading) {
                 LoadingState()
@@ -150,7 +178,11 @@ fun PredictionsScreen(onMatchClick: (String) -> Unit) {
                 enabled = state.isOnline,
                 modifier = Modifier.weight(1f),
             ) {
-                LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 36.dp)) {
+                LazyColumn(modifier = Modifier.fillMaxSize(),
+                    // The shell's glass bar floats over this list as an overlay:
+                    // its footprint is 83dp, and 104dp of end padding (the home
+                    // feed's measure) lets the last group scroll fully clear of it.
+                    contentPadding = PaddingValues(bottom = 104.dp)) {
                     state.dailyReport?.let { report ->
                         item(key = "report") { CollapsibleDailyReport(report, languageTag) }
                     }
@@ -213,6 +245,7 @@ private fun DailyReportCard(
             Formatters.integer(report.failed, languageTag),
             Formatters.kickoffDateTime(report.attemptedAt, languageTag),
         ),
+        glass = true,
     )
 }
 
@@ -249,14 +282,24 @@ private fun PredictionGroupCard(
         ?: group.versions.firstOrNull { filter.includes(it, now) } ?: group.latest
     val match = selected.match
     val prediction = selected.prediction
-    Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 5.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+    GlassCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 5.dp)) {
         Column(modifier = Modifier.padding(12.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically) {
-                Text(NameLocalization.competitionNamePair(match.competitionName, match.competitionId, languageTag).first,
-                    modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)
+                // The shared name component, not a bare Text: it wraps a Latin
+                // name in left-to-right marks on both sides, so a trailing stop
+                // in a name like "Termalica B-B." keeps its own order inside a
+                // Persian paragraph. Only the primary name shows, as before.
+                CompetitionNameText(
+                    name = match.competitionName,
+                    competitionId = match.competitionId,
+                    languageTag = languageTag,
+                    modifier = Modifier.weight(1f),
+                    primaryStyle = MaterialTheme.typography.labelMedium,
+                    primaryColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    primaryMaxLines = 2,
+                    showLatin = false,
+                )
                 StatusChip(text = recordStatusLabel(selected, now), color = MaterialTheme.colorScheme.primary)
             }
             Spacer(Modifier.height(6.dp))
@@ -359,8 +402,7 @@ private fun EvaluationSummary(item: PredictionWithMatch, languageTag: String) {
         null -> stringResource(if (MatchAnalysisPresentation.validProbabilities(prediction.homeWin, prediction.draw, prediction.awayWin))
             R.string.prediction_evaluation_pick_tied else R.string.prediction_evaluation_pick_unavailable)
     }
-    Card(modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 4.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+    GlassCard(modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 4.dp)) {
         Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
             Text(statusText, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = statusColor)
             Text(predictionText, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 4.dp))

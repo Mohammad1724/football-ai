@@ -951,11 +951,19 @@ fun StatComparisonRow(
 
 /** Tappable row that opens another screen (settings-style navigation). */
 @Composable
-fun NavigationRow(title: String, subtitle: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun NavigationRow(
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    /** On the pastel surfaces the slab is glass instead of a grey fill. */
+    glass: Boolean = false,
+) {
     // A row that opens something is a slab, and its arrow points the way the eye travels
     // (left, in a right-to-left layout) instead of a hard-coded glyph that mirrors badly.
     SoftCard(
         onClick = onClick,
+        glass = glass,
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = Spacing.page, vertical = 4.dp),
