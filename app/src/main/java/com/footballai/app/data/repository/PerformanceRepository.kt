@@ -135,8 +135,9 @@ class PerformanceRepository(
             )
         }
 
-        // Both arms use the production xG blend: the A/B here is the context
-        // features, and the backtest must measure the model as it actually runs.
+        // Both arms use the production xG blend. Historical, timestamped pre-match
+        // availability is not stored; this is a context A/B with availability disabled,
+        // not a complete reproduction of the live model. The screen says so explicitly.
         val report = Backtester(
             BacktestConfig(
                 refitEveryMatches = refitEvery,

@@ -157,4 +157,12 @@ object HistoryMigration {
             )
         }
     }
+    /** Old availability rows have no recorded kickoff and must be refreshed before use. */
+    val MIGRATION_8_9 = object : Migration(8, 9) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE match_availability ADD COLUMN kickoffEpochMs INTEGER")
+            db.execSQL("ALTER TABLE match_availability ADD COLUMN observedAtEpochMs INTEGER")
+        }
+    }
+
 }

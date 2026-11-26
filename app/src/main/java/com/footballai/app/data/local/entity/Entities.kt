@@ -98,6 +98,10 @@ data class MatchAvailabilityEntity(
     val homeMissingShare: Double,
     val awayMissingShare: Double,
     val updatedAt: Long,
+    /** Kickoff at fetch time; null for legacy rows and therefore not usable. */
+    val kickoffEpochMs: Long? = null,
+    /** Time the publisher observed the source, not the download time. */
+    val observedAtEpochMs: Long? = null,
 )
 
 @Entity(tableName = "match_statistics", primaryKeys = ["matchId"])

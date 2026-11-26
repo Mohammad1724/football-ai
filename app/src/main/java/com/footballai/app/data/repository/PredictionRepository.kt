@@ -195,7 +195,11 @@ class PredictionRepository(
         // Injuries/suspensions: the availability mirror's missing minutes
         // shares for this fixture, when it published them. No stored row
         // means no opinion — the adjustment is absent, never a zero share.
-        val availability = db.availabilityDao().forMatch(match.id)
+        val availability = if (!AvailabilityFreshness.SOURCE_PROVENANCE_VERIFIED) null else
+            db.availabilityDao().forMatch(match.id)?.takeIf {
+                AvailabilityFreshness.usable(it.updatedAt, it.observedAtEpochMs, it.kickoffEpochMs, match.kickoffEpochMs,
+                    now, it.homeMissingShare, it.awayMissingShare)
+            }
         val availabilityAdjustment = availability?.let {
             com.footballai.engine.ratings.AvailabilityImpact.adjustment(
                 homeMissingShare = it.homeMissingShare,
@@ -320,7 +324,10 @@ class PredictionRepository(
             ?: return Outcome.Failure(AppError(ErrorCode.NOT_FOUND))
         PredictionPolicy.error(current, clock.nowEpochMs())?.let { return Outcome.Failure(AppError(it)) }
         if (current.status != match.status || current.minute != match.minute ||
-            current.homeGoals != match.homeGoals || current.awayGoals != match.awayGoals) {
+            current.kickoffEpochMs != match.kickoffEpochMs ||
+            current.homeGoals != match.homeGoals || current.awayGoals != match.awayGoals ||
+            (availability != null && !AvailabilityFreshness.usable(availability.updatedAt, availability.observedAtEpochMs, availability.kickoffEpochMs,
+                current.kickoffEpochMs, clock.nowEpochMs(), availability.homeMissingShare, availability.awayMissingShare))) {
             return Outcome.Failure(AppError(ErrorCode.STALE_DATA))
         }
         // First pre-match snapshot per model version is immutable; repeated page visits

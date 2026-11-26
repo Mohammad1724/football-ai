@@ -1016,11 +1016,9 @@ class SyncRepository(
             is Outcome.Failure -> return
             is Outcome.Success -> result.value
         }
-        if (rows.isEmpty()) return
-        val byFixture = HashMap<Triple<String, String, LocalDate>, Pair<Double, Double>>()
+        val byFixture = HashMap<Triple<String, String, LocalDate>, com.footballai.app.data.provider.RemoteMatchAvailability>()
         for (row in rows) {
-            byFixture[Triple(row.homeTeamName, row.awayTeamName, row.date)] =
-                row.homeMissingShare to row.awayMissingShare
+            byFixture[Triple(row.homeTeamName, row.awayTeamName, row.date)] = row
         }
         val competitionIds = db.competitionDao().allOnce()
             .filter { it.providerKey == competitionKey }
@@ -1028,8 +1026,12 @@ class SyncRepository(
         if (competitionIds.isEmpty()) return
         val now = clock.nowEpochMs()
         val entities = ArrayList<com.footballai.app.data.local.entity.MatchAvailabilityEntity>()
+        val refreshedMatchIds = ArrayList<String>()
         for (competitionId in competitionIds) {
+            // This file covers only one season; never erase another season's rows.
             val matches = db.matchDao().forCompetition(competitionId)
+                .filter { it.season == seasonStartYear && it.status == "SCHEDULED" && it.kickoffEpochMs > now }
+            refreshedMatchIds.addAll(matches.map { it.id })
             if (matches.isEmpty()) continue
             val teamNames = db.teamDao()
                 .byIds(matches.flatMap { listOf(it.homeTeamId, it.awayTeamId) }.distinct())
@@ -1043,18 +1045,26 @@ class SyncRepository(
                     ?: byFixture[Triple(homeName, awayName, date.minusDays(1))]
                     ?: byFixture[Triple(homeName, awayName, date.plusDays(1))]
                     ?: continue
+                if (!AvailabilityFreshness.SOURCE_PROVENANCE_VERIFIED ||
+                    !AvailabilityFreshness.usable(now, shares.observedAtEpochMs, match.kickoffEpochMs,
+                        match.kickoffEpochMs, now, shares.homeMissingShare, shares.awayMissingShare)) continue
                 entities.add(
                     com.footballai.app.data.local.entity.MatchAvailabilityEntity(
                         matchId = match.id,
-                        homeMissingShare = shares.first,
-                        awayMissingShare = shares.second,
+                        homeMissingShare = shares.homeMissingShare,
+                        awayMissingShare = shares.awayMissingShare,
                         updatedAt = now,
+                        kickoffEpochMs = match.kickoffEpochMs,
+                        observedAtEpochMs = shares.observedAtEpochMs,
                     ),
                 )
             }
         }
-        if (entities.isNotEmpty()) {
-            db.withTransaction { db.availabilityDao().upsertAll(entities) }
+        // A successful response supersedes this season's old upcoming entries, even
+        // when empty. A failed request returns above and the freshness limit applies.
+        db.withTransaction {
+            refreshedMatchIds.chunked(400).forEach { db.availabilityDao().deleteForMatches(it) }
+            if (entities.isNotEmpty()) db.availabilityDao().upsertAll(entities)
         }
     }
 
@@ -1136,8 +1146,9 @@ class SyncRepository(
             )
         }
         if (rows.isEmpty()) return 0
-        val inserted = db.historicalDao().insertAll(rows)
-        return inserted.count { it != -1L }
+        val processed = db.historicalDao().mergeHistoryPreservingXg(rows)
+        ratingsRepository.invalidate()
+        return processed
     }
 
     // ------------------------------------------------------------------ internals
@@ -1296,7 +1307,7 @@ class SyncRepository(
             )
         }
         return db.withTransaction {
-            val inserted = db.historicalDao().insertAll(entities)
+            val processed = db.historicalDao().mergeHistoryPreservingXg(entities)
             if (source == FootballDataCoUkProvider.PROVIDER_ID) {
                 for (row in rows) {
                     val season = row.season ?: continue
@@ -1316,7 +1327,7 @@ class SyncRepository(
                     }
                 }
             }
-            inserted.count { it != -1L }
+            processed
         }
     }
 

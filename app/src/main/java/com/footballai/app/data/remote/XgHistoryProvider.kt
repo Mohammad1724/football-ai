@@ -127,7 +127,7 @@ object XgCsvParser {
             val homeXg = columns[homeXgIndex].trim().toDoubleOrNull()
             val awayXg = columns[awayXgIndex].trim().toDoubleOrNull()
             if (homeTeam.isEmpty() || awayTeam.isEmpty() || homeXg == null || awayXg == null) continue
-            if (homeXg < 0.0 || awayXg < 0.0) continue
+            if (!homeXg.isFinite() || !awayXg.isFinite() || homeXg < 0.0 || awayXg < 0.0) continue
             results.add(RemoteMatchXg(date, homeTeam, awayTeam, homeXg, awayXg))
         }
         return results

@@ -97,7 +97,7 @@ class MigrationTests(unittest.TestCase):
         db = sqlite3.connect(':memory:')
         db.execute('CREATE TABLE historical_matches(id TEXT NOT NULL PRIMARY KEY, homeGoals INTEGER NOT NULL)')
         db.execute("INSERT INTO historical_matches VALUES ('m', 2)")
-        code = (LOCAL / 'HistoryMigration.kt').read_text().split('val MIGRATION_6_7', 1)[1]
+        code = (LOCAL / 'HistoryMigration.kt').read_text().split('val MIGRATION_6_7', 1)[1].split('val MIGRATION_7_8', 1)[0]
         statements = re.findall(r'db.execSQL\("([^"\n]+)"\)', code)
         self.assertEqual(len(statements), 2)
         for sql in statements:
@@ -106,6 +106,35 @@ class MigrationTests(unittest.TestCase):
         self.assertEqual(db.execute('SELECT homeGoals, homeXg, awayXg FROM historical_matches').fetchone(), (2, None, None))
         db.execute("UPDATE historical_matches SET homeXg = 1.85, awayXg = 0.42 WHERE id = 'm'")
         self.assertEqual(db.execute('SELECT homeXg, awayXg FROM historical_matches').fetchone(), (1.85, 0.42))
+
+    def test_availability_migration_quarantines_legacy_rows(self):
+        db = sqlite3.connect(':memory:')
+        db.execute('CREATE TABLE match_availability(matchId TEXT NOT NULL PRIMARY KEY, homeMissingShare REAL NOT NULL, awayMissingShare REAL NOT NULL, updatedAt INTEGER NOT NULL)')
+        db.execute("INSERT INTO match_availability VALUES ('m', .1, .2, 100)")
+        code = (LOCAL / 'HistoryMigration.kt').read_text().split('val MIGRATION_8_9', 1)[1]
+        sqls = re.findall(r'db.execSQL\("([^"\n]+)"\)', code)
+        self.assertEqual(len(sqls), 2)
+        for sql in sqls:
+            db.execute(sql)
+        self.assertEqual(db.execute('SELECT homeMissingShare, awayMissingShare, kickoffEpochMs, observedAtEpochMs FROM match_availability').fetchone(), (.1, .2, None, None))
+
+    def test_history_update_preserves_xg_and_prevents_older_overwrite(self):
+        db = database()
+        db.execute('ALTER TABLE historical_matches ADD COLUMN neutralVenue INTEGER NOT NULL DEFAULT 0')
+        db.execute('ALTER TABLE historical_matches ADD COLUMN homeXg REAL')
+        db.execute('ALTER TABLE historical_matches ADD COLUMN awayXg REAL')
+        db.execute("INSERT INTO historical_matches (id,source,competitionId,competitionName,homeTeamId,awayTeamId,homeTeamName,awayTeamName,homeGoals,awayGoals,kickoffEpochMs,homeOdds,drawOdds,awayOdds,importedAt) VALUES ('original','csv','E0','League','H','A','Home','Away',1,0,1234,2,3,4,10)")
+        db.execute("UPDATE historical_matches SET homeXg=1.4, awayXg=.7 WHERE id='original'")
+        code = (LOCAL / 'dao/Daos.kt').read_text()
+        sql = re.search(r'@Query\("""(UPDATE historical_matches SET competitionName.*?importedAt <= :importedAt)"""\)', code, re.S).group(1)
+        row = dict(competitionName='New', homeTeamName='Home', awayTeamName='Away', homeGoals=3,
+                   awayGoals=1, homeOdds=2, drawOdds=3, awayOdds=4, importedAt=20, neutralVenue=0,
+                   source='csv', competitionId='E0', homeTeamId='H', awayTeamId='A', kickoffEpochMs=1234)
+        self.assertEqual(db.execute(sql, row).rowcount, 1)
+        self.assertEqual(db.execute('SELECT id,homeGoals,homeXg,awayXg FROM historical_matches').fetchone(), ('original',3,1.4,.7))
+        row.update(homeGoals=9, importedAt=5)
+        self.assertEqual(db.execute(sql, row).rowcount, 0)
+        self.assertEqual(db.execute('SELECT homeGoals,homeXg FROM historical_matches').fetchone(), (3,1.4))
 
     def test_stats_use_one_valid_prematch_per_match_and_current_version(self):
         db = sqlite3.connect(':memory:')

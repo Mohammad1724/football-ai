@@ -7,6 +7,7 @@ import com.footballai.app.data.provider.RemoteMatchAvailability
 import com.footballai.app.domain.model.ProviderCapabilities
 import com.footballai.app.domain.model.ProviderInfo
 import com.footballai.app.domain.model.QuotaPolicy
+import java.time.Instant
 import java.time.LocalDate
 import java.util.Locale
 
@@ -113,6 +114,9 @@ object AvailabilityCsvParser {
         val awayIndex = header.indexOf("away_team")
         val homeShareIndex = header.indexOf("missing_home")
         val awayShareIndex = header.indexOf("missing_away")
+        // Optional for backwards-compatible parsing; without an original source
+        // observation time the app must not use this row in a prediction.
+        val observedAtIndex = header.indexOf("observed_at")
         if (listOf(dateIndex, homeIndex, awayIndex, homeShareIndex, awayShareIndex).any { it < 0 }) {
             return emptyList()
         }
@@ -131,7 +135,10 @@ object AvailabilityCsvParser {
             val awayShare = columns[awayShareIndex].trim().toDoubleOrNull()
             if (homeTeam.isEmpty() || awayTeam.isEmpty() || homeShare == null || awayShare == null) continue
             if (homeShare !in 0.0..1.0 || awayShare !in 0.0..1.0) continue
-            results.add(RemoteMatchAvailability(date, homeTeam, awayTeam, homeShare, awayShare))
+            val observedAt = if (observedAtIndex >= 0 && observedAtIndex < columns.size) {
+                runCatching { Instant.parse(columns[observedAtIndex].trim()).toEpochMilli() }.getOrNull()
+            } else null
+            results.add(RemoteMatchAvailability(date, homeTeam, awayTeam, homeShare, awayShare, observedAt))
         }
         return results
     }

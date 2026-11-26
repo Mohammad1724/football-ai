@@ -157,6 +157,8 @@ private fun PerformanceContent() {
                         )
                     }
                     if (state.storedStats.resolved > 0) {
+                        item { InfoCard(title = stringResource(R.string.availability_history_notice_title),
+                            body = stringResource(R.string.availability_history_notice), glass = true) }
                         item { StoredForecastAuditCard(state.storedStats.audit, languageTag) }
                     }
                     item { PairedForecastCard(state.storedStats.paired, state.storedStats.lateSnapshots, languageTag) }
@@ -548,6 +550,12 @@ private fun BacktestSummary(report: PerformanceReport, languageTag: String) {
                     Formatters.integer(report.matchesEvaluated, languageTag),
                 ),
                 style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = stringResource(R.string.backtest_availability_limit),
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.height(10.dp))

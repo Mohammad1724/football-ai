@@ -3,6 +3,8 @@ package com.footballai.app
 import com.footballai.app.data.remote.AvailabilityCsvParser
 import com.footballai.app.data.remote.AvailabilityHistoryProvider
 import java.time.LocalDate
+import java.time.Instant
+import kotlin.test.assertNull
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -55,6 +57,19 @@ class AvailabilityCsvParserTest {
     fun `a file without the expected header yields nothing`() {
         assertTrue(AvailabilityCsvParser.parse("a,b,c\n1,2,3").isEmpty())
         assertTrue(AvailabilityCsvParser.parse("").isEmpty())
+    }
+
+    @Test
+    fun `legacy rows lack provenance and source observation times are parsed explicitly`() {
+        assertNull(AvailabilityCsvParser.parse(csv).first().observedAtEpochMs)
+        val withTimes = """
+            date,home_team,away_team,missing_home,missing_away,observed_at
+            2026-08-14,Home,Away,0.1,0.2,2026-08-13T12:00:00Z
+            2026-08-15,Other,Away,0.2,0.1,not-a-timestamp
+        """.trimIndent()
+        val rows = AvailabilityCsvParser.parse(withTimes)
+        assertEquals(Instant.parse("2026-08-13T12:00:00Z").toEpochMilli(), rows.first().observedAtEpochMs)
+        assertNull(rows.last().observedAtEpochMs)
     }
 
     @Test

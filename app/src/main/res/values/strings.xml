@@ -872,4 +872,7 @@
     <string name="paired_forecast_loss">Log loss: first %1$s · near kickoff %2$s (lower is better)</string>
     <string name="paired_forecast_empty">No eligible resolved pairs yet.</string>
     <string name="paired_forecast_caution">Refresh daily or open the match in the final 24 hours; no exact-time refresh is guaranteed. The latest available local inputs may be stale. Only verified regulation results among the latest 500 evaluated forecasts are compared; rescheduled kickoffs after the late snapshot are excluded. Small or selectively refreshed samples cannot establish a causal improvement.</string>
+    <string name="backtest_availability_limit">Historical test includes available xG, but excludes injuries and suspensions: verified pre-match availability history is not stored. It does not fully reproduce live forecasts.</string>
+    <string name="availability_history_notice_title">About older forecasts</string>
+    <string name="availability_history_notice">Older saved forecasts may have used availability data whose observation time was not verified. They remain in history; new forecasts exclude that source until it is verified.</string>
 </resources>

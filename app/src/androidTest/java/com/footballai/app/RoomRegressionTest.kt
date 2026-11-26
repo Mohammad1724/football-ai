@@ -4,6 +4,7 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.footballai.app.data.local.FootballDatabase
+import com.footballai.app.data.local.entity.HistoricalMatchEntity
 import com.footballai.app.data.local.entity.PredictionEntity
 import com.footballai.app.data.local.entity.PredictionMarketEntity
 import com.footballai.app.data.local.mapper.toEntity
@@ -55,6 +56,25 @@ class RoomRegressionTest {
         db.predictionDao().save(prediction("second", 200), emptyList())
         assertEquals(1, db.predictionDao().count())
         assertEquals("first", db.predictionDao().firstPreMatch("m", "v2")?.id)
+    }
+
+    @Test fun historyRefreshRetainsXgAndDoesNotRollBackNewerResults() = runBlocking {
+        val original = HistoricalMatchEntity(
+            id = "history", source = "csv", competitionId = "league", competitionName = "League",
+            homeTeamId = "h", awayTeamId = "a", homeTeamName = "Home", awayTeamName = "Away",
+            homeGoals = 1, awayGoals = 0, kickoffEpochMs = 1000, homeOdds = 2.0,
+            drawOdds = 3.0, awayOdds = 4.0, importedAt = 10, homeXg = 1.4, awayXg = .7,
+        )
+        db.historicalDao().insertAll(listOf(original))
+        val update = original.copy(id = "different-id", homeGoals = 2, importedAt = 20, homeXg = null, awayXg = null)
+        assertEquals(1, db.historicalDao().mergeHistoryPreservingXg(listOf(update)))
+        db.historicalDao().mergeHistoryPreservingXg(listOf(update.copy(importedAt = 5, homeGoals = 9)))
+        val rows = db.historicalDao().forCompetition("csv", "league", Long.MAX_VALUE)
+        assertEquals(1, rows.size)
+        assertEquals("history", rows[0].id)
+        assertEquals(2, rows[0].homeGoals)
+        assertEquals(1.4, rows[0].homeXg!!, 0.00001)
+        assertEquals(.7, rows[0].awayXg!!, 0.00001)
     }
 
     private fun prediction(id: String, time: Long) = PredictionEntity(

@@ -44,6 +44,16 @@ class XgCsvParserTest {
     }
 
     @Test
+    fun `rejects nonfinite expected goals`() {
+        val invalid = """
+            date,home_team,away_team,home_xg,away_xg
+            2026-08-13,Home,Away,NaN,1.0
+            2026-08-14,Home,Away,1.0,Infinity
+        """.trimIndent()
+        assertTrue(XgCsvParser.parse(invalid).isEmpty())
+    }
+
+    @Test
     fun `returns empty for a file without the expected header`() {
         assertTrue(XgCsvParser.parse("a,b,c\n1,2,3").isEmpty())
         assertTrue(XgCsvParser.parse("").isEmpty())

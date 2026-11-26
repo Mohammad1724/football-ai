@@ -610,6 +610,37 @@ interface HistoricalDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(matches: List<HistoricalMatchEntity>): List<Long>
 
+    /** Preserve enriched xG on re-import, including an alternate id for the same fixture. */
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertHistoryIfNew(matches: List<HistoricalMatchEntity>): List<Long>
+
+    @Query("""UPDATE historical_matches SET competitionName = CASE WHEN :competitionName = '' THEN competitionName ELSE :competitionName END,
+        homeTeamName = :homeTeamName, awayTeamName = :awayTeamName,
+        homeGoals = :homeGoals, awayGoals = :awayGoals,
+        homeOdds = :homeOdds, drawOdds = :drawOdds, awayOdds = :awayOdds,
+        importedAt = :importedAt, neutralVenue = :neutralVenue
+        WHERE source = :source AND competitionId = :competitionId
+        AND homeTeamId = :homeTeamId AND awayTeamId = :awayTeamId
+        AND kickoffEpochMs = :kickoffEpochMs AND importedAt <= :importedAt""")
+    suspend fun updateHistoryPreservingXg(source: String, competitionId: String, competitionName: String,
+        homeTeamId: String, awayTeamId: String, homeTeamName: String, awayTeamName: String,
+        homeGoals: Int, awayGoals: Int, kickoffEpochMs: Long, homeOdds: Double?, drawOdds: Double?,
+        awayOdds: Double?, importedAt: Long, neutralVenue: Boolean): Int
+
+    @Transaction
+    suspend fun mergeHistoryPreservingXg(matches: List<HistoricalMatchEntity>): Int {
+        val inserted = insertHistoryIfNew(matches)
+        var processed = inserted.count { it != -1L }
+        matches.forEachIndexed { index, row ->
+            if (inserted[index] == -1L) processed += updateHistoryPreservingXg(
+                row.source, row.competitionId, row.competitionName, row.homeTeamId, row.awayTeamId,
+                row.homeTeamName, row.awayTeamName, row.homeGoals, row.awayGoals, row.kickoffEpochMs,
+                row.homeOdds, row.drawOdds, row.awayOdds, row.importedAt, row.neutralVenue,
+            )
+        }
+        return processed
+    }
+
     @Query("SELECT * FROM historical_matches WHERE competitionId = :competitionId AND kickoffEpochMs <= :asOfEpochMs ORDER BY kickoffEpochMs ASC")
     suspend fun forTable(competitionId: String, asOfEpochMs: Long): List<HistoricalMatchEntity>
 
@@ -713,6 +744,9 @@ interface StandingDao {
 interface AvailabilityDao {
     @Upsert
     suspend fun upsertAll(rows: List<MatchAvailabilityEntity>)
+
+    @Query("DELETE FROM match_availability WHERE matchId IN (:matchIds)")
+    suspend fun deleteForMatches(matchIds: List<String>)
 
     @Query("SELECT * FROM match_availability WHERE matchId = :matchId")
     suspend fun forMatch(matchId: String): MatchAvailabilityEntity?

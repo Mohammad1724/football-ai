@@ -123,8 +123,8 @@ data class RemoteMatchXg(
 /**
  * Pre-match availability for one fixture: the share of each team's season
  * minutes belonging to players listed unavailable for it (injured/suspended).
- * Shares are computed by the publisher from data available before kickoff;
- * a fixture absent from the feed has no row, never a zero.
+ * The timestamp, when supplied, must be when the underlying source data was
+ * observed (not when a CSV was regenerated). Missing provenance is not a zero.
  */
 data class RemoteMatchAvailability(
     val date: java.time.LocalDate,
@@ -132,6 +132,7 @@ data class RemoteMatchAvailability(
     val awayTeamName: String,
     val homeMissingShare: Double,
     val awayMissingShare: Double,
+    val observedAtEpochMs: Long? = null,
 )
 
 /** Contract every data provider implements; new sources only need this interface. */
