@@ -38,9 +38,12 @@ then applies the standard `τ(x, y)` correction to the joint matrix.
 ## 3. Elo tilt
 
 An Elo difference (K = 20, home advantage ≈ 60 points, 1500 = league average) is
-converted into a multiplicative tilt on the two λ values. The tilt is capped at ±25%
-and applied symmetrically, so Elo redistributes expected goals between the teams
-without changing the total. Its weight (default 0.15) is recorded on every prediction.
+converted into a multiplicative tilt on the two λ values. The tilt is capped at ±25%.
+It is applied with exponential factors — λ_home × exp(tilt), λ_away × exp(−tilt) —
+followed by a rescale to the pre-tilt total, so Elo redistributes expected goals
+between the teams without changing the total. Its weight (default 0.15, rising
+toward 0.40 when the fitted strengths rest on very few matches) is recorded on
+every prediction as the weight actually applied, including the competition scale.
 
 Progression matters: Poisson is a scoring model that knows nothing about who is
 better; Dixon-Coles adds low-score realism; Elo adds a result-based strength signal
@@ -117,6 +120,8 @@ disagreement, never as value.
 ## 8. Model versioning
 
 `ModelDescriptor` (name, version, whether Dixon-Coles was used, `ρ`, fitted match count,
-Elo weight) is stored with every prediction. When the engine's constants change, the
-version string changes, so an old stored prediction is never mixed up with a new one in
-the performance figures.
+Elo weight) is stored with every prediction. The Elo weight recorded is the weight
+actually applied for that fixture — the effective weight (which rises toward 0.40
+when evidence is thin) times the competition scale — not the configured base weight.
+When the engine's constants change, the version string changes, so an old stored
+prediction is never mixed up with a new one in the performance figures.
