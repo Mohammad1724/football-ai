@@ -37,7 +37,7 @@ then applies the standard `τ(x, y)` correction to the joint matrix.
 
 ## 3. Elo tilt
 
-An Elo difference (K = 20, home advantage ≈ 60 points, 1500 = league average) is
+An Elo difference (K = 20, home advantage 65 points, 1500 = league average) is
 converted into a multiplicative tilt on the two λ values. The tilt is capped at ±25%
 and applied symmetrically, so Elo redistributes expected goals between the teams
 without changing the total. Its weight (default 0.15) is recorded on every prediction.

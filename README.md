@@ -12,6 +12,10 @@ with the list of missing inputs, and the explanations that moved the numbers. No
 is scraped, invented or hard-coded — if a data source does not publish something
 (lineups, injuries, odds), the app says so instead of guessing.
 
+Current app version: **0.7.0** (`versionName` in `app/build.gradle.kts`; CI builds
+are `0.7.<run number>`). The `0.3.0` section at the bottom is the historical release
+note for that version, not the current one.
+
 ## What the app does
 
 | Area | Behaviour |
