@@ -776,7 +776,10 @@ class PredictionRepository(
          * international mean with a 730-day half-life and only matches from the
          * last 1800 days count as goal evidence; the Dixon-Coles fit refuses
          * below the shared 40-match threshold; xG is blended per side in the
-         * fit, as the league baseline already did.
+         * fit, as the league baseline already did. The live model knows extra
+         * time — a knockout tie's horizon is 90 + 30 minutes plus the stoppage
+         * allowance, so minute 115 is nine minutes of football left, not a
+         * finished match. League matches are unchanged.
          */
         const val MODEL_VERSION = "football-ai/engine-1.9.0"
 

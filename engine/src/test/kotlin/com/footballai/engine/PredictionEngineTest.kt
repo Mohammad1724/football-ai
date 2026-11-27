@@ -219,6 +219,51 @@ class PredictionEngineTest {
     }
 
     @Test
+    fun `a knockout tie in extra time still has football left to play`() {
+        val knockout = input().copy(
+            competition = CompetitionProfile(type = CompetitionType.CLUB_KNOCKOUT),
+        )
+        val live = engine.predictLive(
+            LiveInput(preMatch = knockout, minute = 115, homeGoals = 1, awayGoals = 1),
+        )
+        val context = assertNotNull(live.live)
+        // 90 regulation + 30 extra time + 4 stoppage: nine minutes remain.
+        // Before this, minute 115 clamped to 94 with zero remaining and the match
+        // was modelled as finished.
+        assertEquals(115, context.minute)
+        assertEquals(9, context.remainingMinutes)
+        assertTrue(live.expectedHomeGoals > 0.0 && live.expectedAwayGoals > 0.0)
+        assertTrue(live.markets.draw < 0.85, "with nine minutes left the draw is not decided")
+    }
+
+    @Test
+    fun `a knockout tie at the end of regulation goes to extra time, not to the whistle`() {
+        val knockout = input().copy(
+            competition = CompetitionProfile(type = CompetitionType.CLUB_KNOCKOUT),
+        )
+        val live = engine.predictLive(
+            LiveInput(preMatch = knockout, minute = 94, homeGoals = 1, awayGoals = 1),
+        )
+        val context = assertNotNull(live.live)
+        assertEquals(94, context.minute)
+        assertEquals(30, context.remainingMinutes)
+    }
+
+    @Test
+    fun `extra time ending in a draw has no goals left`() {
+        val knockout = input().copy(
+            competition = CompetitionProfile(type = CompetitionType.CLUB_KNOCKOUT),
+        )
+        val live = engine.predictLive(
+            LiveInput(preMatch = knockout, minute = 130, homeGoals = 1, awayGoals = 1),
+        )
+        val context = assertNotNull(live.live)
+        // 90 + 30 + 4 = 124: minute 130 clamps to the end of extra time.
+        assertEquals(124, context.minute)
+        assertEquals(0, context.remainingMinutes)
+    }
+
+    @Test
     fun `zero history still produces a coherent prediction`() {
         val engineWithTinySample = MatchPredictionEngine(EngineConfig(eloBlendWeight = 0.0))
         val result = engineWithTinySample.predictPreMatch(
