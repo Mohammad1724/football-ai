@@ -51,9 +51,12 @@ handled by the regression, not by a hard cut.
 ## 3. Elo tilt
 
 An Elo difference (K = 20, home advantage ≈ 60 points, 1500 = league average) is
-converted into a multiplicative tilt on the two λ values. The tilt is capped at ±25%
-and applied symmetrically, so Elo redistributes expected goals between the teams
-without changing the total. Its weight (default 0.15) is recorded on every prediction.
+converted into a multiplicative tilt on the two λ values. The tilt is capped at ±25%.
+It is applied with exponential factors — λ_home × exp(tilt), λ_away × exp(−tilt) —
+followed by a rescale to the pre-tilt total, so Elo redistributes expected goals
+between the teams without changing the total. Its weight (default 0.15, rising
+toward 0.40 when the fitted strengths rest on very few matches) is recorded on
+every prediction as the weight actually applied, including the competition scale.
 
 Progression matters: Poisson is a scoring model that knows nothing about who is
 better; Dixon-Coles adds low-score realism; Elo adds a result-based strength signal
@@ -113,6 +116,13 @@ instead of being silently trusted.
 * **Chronological backtesting** (`Backtester`): matches are processed in kickoff order,
   ratings are refit every 150 matches, and each prediction only sees matches that
   kicked off earlier. There is no shuffling anywhere in the pipeline.
+* **The backtest measures production**: it uses the production Dixon-Coles
+  iterations (400) and xG blend (0.7), and it applies the production
+  calibration inside the walk-forward — fitted only on forecasts whose
+  matches have already been played, and refit when the ratings are refit.
+  The calibration is fitted separately per competition, while production
+  pools it per competition type. Elo is per competition in both, as the
+  ratings book is built from one competition's history.
 * Per-prediction scoring: resolving a stored prediction stores its Brier and log loss,
   which is what the Historical predictions screen shows.
 
@@ -130,6 +140,8 @@ disagreement, never as value.
 ## 8. Model versioning
 
 `ModelDescriptor` (name, version, whether Dixon-Coles was used, `ρ`, fitted match count,
-Elo weight) is stored with every prediction. When the engine's constants change, the
-version string changes, so an old stored prediction is never mixed up with a new one in
-the performance figures.
+Elo weight) is stored with every prediction. The Elo weight recorded is the weight
+actually applied for that fixture — the effective weight (which rises toward 0.40
+when evidence is thin) times the competition scale — not the configured base weight.
+When the engine's constants change, the version string changes, so an old stored
+prediction is never mixed up with a new one in the performance figures.

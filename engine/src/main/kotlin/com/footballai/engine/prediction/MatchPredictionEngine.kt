@@ -20,6 +20,7 @@ import com.footballai.engine.model.QualityNoteCode
 import com.footballai.engine.model.ScoreProbability
 import com.footballai.engine.poisson.ScoreMatrix
 import kotlin.math.abs
+import kotlin.math.exp
 import kotlin.math.min
 
 data class EngineConfig(
@@ -116,14 +117,23 @@ class MatchPredictionEngine(private val config: EngineConfig = EngineConfig()) {
         var lambdaHome = baseline.averageHomeGoals * input.home.attack * input.away.defence
         var lambdaAway = baseline.averageAwayGoals * input.away.attack * input.home.defence
 
-        // Elo tilt: symmetric so that the total number of expected goals is preserved.
+        // Elo tilt: total-preserving redistribution. Exponential factors move
+        // goals between the teams, then the pair is rescaled to the pre-tilt
+        // total, so Elo changes the split, never the total.
         // The weight grows when the fitted strengths rest on very few matches.
         val eloDiff = input.home.elo - input.away.elo
         val blend = effectiveEloBlendWeight(input) * profile.eloBlendScale
         val tilt = (eloDiff / 400.0 * blend).coerceIn(-0.25, 0.25)
-        if (tilt != 0.0) {
-            lambdaHome *= (1.0 + tilt)
-            lambdaAway *= (1.0 - tilt)
+        val totalBeforeTilt = lambdaHome + lambdaAway
+        if (tilt != 0.0 && totalBeforeTilt > 0.0) {
+            val tiltedHome = lambdaHome * exp(tilt)
+            val tiltedAway = lambdaAway * exp(-tilt)
+            val tiltedTotal = tiltedHome + tiltedAway
+            if (tiltedTotal > 0.0 && tiltedTotal.isFinite()) {
+                val scale = totalBeforeTilt / tiltedTotal
+                lambdaHome = tiltedHome * scale
+                lambdaAway = tiltedAway * scale
+            }
         }
 
         // Contextual adjustments (injuries, form, congestion, ...). Each one is bounded.
@@ -200,7 +210,9 @@ class MatchPredictionEngine(private val config: EngineConfig = EngineConfig()) {
             dixonColesEnabled = rho != 0.0,
             rho = rho,
             fittedMatches = input.fittedMatches,
-            eloBlendWeight = input.eloBlendWeight,
+            // The weight actually applied, not the configured base weight:
+            // the effective weight rises toward maxEloBlendWeight when evidence is thin.
+            eloBlendWeight = effectiveEloBlendWeight(input) * input.competition.eloBlendScale,
         )
 
         val explanations = buildPreMatchExplanations(input, normalised.first, normalised.second, normalised.third)
@@ -352,7 +364,8 @@ class MatchPredictionEngine(private val config: EngineConfig = EngineConfig()) {
             dixonColesEnabled = false,
             rho = 0.0,
             fittedMatches = preMatch.fittedMatches,
-            eloBlendWeight = preMatch.eloBlendWeight,
+            // The weight actually applied, not the configured base weight.
+            eloBlendWeight = effectiveEloBlendWeight(preMatch) * preMatch.competition.eloBlendScale,
         )
 
         val explanations = buildLiveExplanations(
