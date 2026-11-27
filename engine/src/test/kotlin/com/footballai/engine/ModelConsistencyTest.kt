@@ -247,4 +247,27 @@ class ModelConsistencyTest {
         // left as plain Poisson rather than being erased.
         assertTrue(matrix.probability(0, 0) > 0.0)
     }
+
+    @Test
+    fun `an out of range rho is clamped to the fitted range`() {
+        val wild = ScoreMatrix(1.5, 1.0, rho = 5.0)
+        val bounded = ScoreMatrix(1.5, 1.0, rho = 0.2)
+        // The matrix reports the rho it applied, not the one it was handed.
+        assertEquals(0.2, wild.rho, 1e-12)
+        assertEquals(-0.2, ScoreMatrix(1.5, 1.0, rho = -5.0).rho, 1e-12)
+        for (h in 0..10) {
+            for (a in 0..10) {
+                assertEquals(bounded.probability(h, a), wild.probability(h, a), 1e-12)
+            }
+        }
+    }
+
+    @Test
+    fun `tau is capped at the largest value a valid input can produce`() {
+        // Lambda 10 at rho 0.2 would give a 0-1 factor of 1 + 10 * 0.2 = 3.0; the
+        // cap is 2.2. The 0-0 factor is below the floor, so the 0-1 / 0-0 ratio
+        // exposes the applied factor exactly.
+        val matrix = ScoreMatrix(homeLambda = 10.0, awayLambda = 1.0, rho = 0.2)
+        assertEquals(2.2, matrix.probability(0, 1) / matrix.probability(0, 0), 1e-9)
+    }
 }

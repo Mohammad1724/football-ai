@@ -779,7 +779,11 @@ class PredictionRepository(
          * fit, as the league baseline already did. The live model knows extra
          * time — a knockout tie's horizon is 90 + 30 minutes plus the stoppage
          * allowance, so minute 115 is nine minutes of football left, not a
-         * finished match. League matches are unchanged.
+         * finished match. League matches are unchanged. The backtest admits a
+         * result 180 minutes after kickoff, so an extra-time result cannot leak
+         * into the prior; rho is bounded to [-0.20, 0.20] where it is applied
+         * and tau is capped at 2.2; the calibrator's 400-sample minimum is real
+         * now (holdout minimum 100).
          */
         const val MODEL_VERSION = "football-ai/engine-1.9.0"
 

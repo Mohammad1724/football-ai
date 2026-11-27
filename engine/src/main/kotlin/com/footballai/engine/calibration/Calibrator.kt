@@ -130,7 +130,14 @@ object Calibrator {
 
     data class Config(
         val minSamples: Int = 400,
-        val minHoldoutSamples: Int = 150,
+        /**
+         * Minimum rows in the holdout slice that judges whether a correction is adopted.
+         *
+         * 100 is the number that makes [minSamples] the true effective minimum: at
+         * 400 samples the holdout is exactly 400 × 0.25 = 100. With 150 the effective
+         * minimum was 600, not the 400 the config promised.
+         */
+        val minHoldoutSamples: Int = 100,
         /** Minimum rows reserved for choosing between candidates; they are never reported on. */
         val minSelectionSamples: Int = 60,
         val holdoutFraction: Double = 0.25,

@@ -40,6 +40,9 @@ then applies the standard `τ(x, y)` correction to the joint matrix.
   carries only the home side's xG blends that side and leaves the other side
   goals-only. The tau term is joint, so it is weighted by the average of the two
   sides' goals weights.
+* `ρ` is bounded to `[-0.20, 0.20]` at the fit and again where it is applied, and the
+  `τ` factor is capped at 2.2 — the largest value a valid input can produce — so a
+  direct caller cannot smuggle an out-of-range correction into the matrix.
 
 National teams are rated in their own book (`NationalTeamRatingBook`): a national
 rating regresses toward the international mean with a 730-day half-life, so a team
@@ -119,9 +122,13 @@ instead of being silently trusted.
   decent number can be judged against "always pick the home team".
 * **Calibration**: 10 fixed bins with a reliability curve, expected calibration error,
   and the per-bin counts, so a confident model that is badly calibrated is visible.
+  Calibration is fitted only from 400 resolved forecasts — that is the real minimum,
+  not an effective 600: at 400 samples the holdout slice is exactly 100 rows.
 * **Chronological backtesting** (`Backtester`): matches are processed in kickoff order,
   ratings are refit every 150 matches, and each prediction only sees matches that
-  kicked off earlier. There is no shuffling anywhere in the pipeline.
+  kicked off earlier. There is no shuffling anywhere in the pipeline. A result enters
+  the prior 180 minutes after kickoff — long enough for a match that runs to extra
+  time and penalties — never while it is still being played.
 * **The backtest measures production**: it uses the production Dixon-Coles
   iterations (400) and xG blend (0.7), and it applies the production
   calibration inside the walk-forward — fitted only on forecasts whose

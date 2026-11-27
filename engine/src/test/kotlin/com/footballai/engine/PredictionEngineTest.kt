@@ -219,6 +219,17 @@ class PredictionEngineTest {
     }
 
     @Test
+        fun `an out of range rho is clamped where it is applied`() {
+        val wild = engine.predictPreMatch(input().copy(dixonColesRho = 1.0))
+        val bounded = engine.predictPreMatch(input().copy(dixonColesRho = 0.2))
+        // The descriptor reports the rho that was actually used.
+        assertEquals(0.2, wild.model.rho, 1e-12)
+        assertEquals(bounded.markets.homeWin, wild.markets.homeWin, 1e-12)
+        assertEquals(bounded.markets.draw, wild.markets.draw, 1e-12)
+        assertEquals(bounded.markets.awayWin, wild.markets.awayWin, 1e-12)
+        }
+
+    @Test
     fun `a knockout tie in extra time still has football left to play`() {
         val knockout = input().copy(
             competition = CompetitionProfile(type = CompetitionType.CLUB_KNOCKOUT),
