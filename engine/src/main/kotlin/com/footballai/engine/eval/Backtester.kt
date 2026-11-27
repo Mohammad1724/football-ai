@@ -93,7 +93,6 @@ data class BacktestConfig(
      */
     val availabilityStrength: Double = 0.0,
     /**
-    /**
      * Applies the production calibration inside the walk-forward: the calibrator
      * is fitted only on forecasts whose matches have already been played (and
      * whose results are available), and refit whenever the ratings are refit.
