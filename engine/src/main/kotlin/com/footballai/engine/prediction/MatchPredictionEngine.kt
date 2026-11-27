@@ -140,7 +140,10 @@ class MatchPredictionEngine(private val config: EngineConfig = EngineConfig()) {
 
     fun predictPreMatch(input: PreMatchInput): PredictionResult {
         val (lambdaHome, lambdaAway) = expectedGoals(input)
-        val rho = input.dixonColesRho ?: 0.0
+        // Rho is bounded where it is applied, not only where it is fitted: a direct
+        // caller that passes 1.0 gets the top of the fitted range, and the descriptor
+        // below reports the rho that was actually used.
+        val rho = (input.dixonColesRho ?: 0.0).coerceIn(ScoreMatrix.RHO_MIN, ScoreMatrix.RHO_MAX)
         val matrix = ScoreMatrix(
             homeLambda = lambdaHome,
             awayLambda = lambdaAway,

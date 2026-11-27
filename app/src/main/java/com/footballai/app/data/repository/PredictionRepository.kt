@@ -767,8 +767,13 @@ class PredictionRepository(
          * two teams tilts expected goals by [AVAILABILITY_STRENGTH] per unit share
          * (bounded, symmetric). Validated on untouched 2024-25 + 2025-26 seasons:
          * log loss 0.9843 → 0.9837, accuracy 53.11% → 53.20% versus 1.7.1 behaviour.
+         *
+         * 1.9.0: the backtest admits a result 180 minutes after kickoff, so an
+         * extra-time result cannot leak into the prior; rho is bounded to
+         * [-0.20, 0.20] where it is applied and tau is capped at 2.2; the
+         * calibrator's 400-sample minimum is real now (holdout minimum 100).
          */
-        const val MODEL_VERSION = "football-ai/engine-1.8.0"
+        const val MODEL_VERSION = "football-ai/engine-1.9.0"
 
         /**
          * How far back a scorer's goals still count when judging today's lineup. Long

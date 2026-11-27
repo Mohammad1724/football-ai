@@ -82,8 +82,16 @@ data class BacktestConfig(
      * as production applies them. See [com.footballai.engine.ratings.AvailabilityImpact].
      */
     val availabilityStrength: Double = 0.0,
-    /** Conservative result availability when historic completion timestamps are absent. */
-    val resultAvailabilityDelayMinutes: Int = 120,
+    /**
+     * Conservative result availability when historic completion timestamps are absent.
+     *
+     * 180 minutes covers a match that runs to extra time and penalties (about 150
+     * minutes from kickoff) with margin; 120 leaked such a result into the prior
+     * while the match was still being played. A caller that knows its competition
+     * has no extra time may pass 120 explicitly — the minimum stays there — but
+     * the default must not leak.
+     */
+    val resultAvailabilityDelayMinutes: Int = 180,
 )
 
 data class BacktestSample(

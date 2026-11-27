@@ -75,6 +75,17 @@ class CalibrationAndCoverageTest {
     }
 
     @Test
+    fun `the documented 400-sample minimum is the real minimum`() {
+        // At 550 samples the holdout is 137 rows: above the 100-row minimum, below
+        // the old 150 — before this fix the fit was refused for want of holdout
+        // samples even though the documented minimum of 400 was met.
+        val model = Calibrator.fit(overconfidentSamples(550, seed = 3))
+        assertTrue(CalibrationSkipReason.NOT_ENOUGH_HOLDOUT_SAMPLES !in model.reasons)
+        assertTrue(model.holdoutCount >= 100)
+        assertTrue(model.isApplied, "a deliberately overconfident model must be corrected")
+    }
+
+    @Test
     fun `a well calibrated model is left untouched`() {
         // Outcomes drawn from the reported probabilities themselves: any correction
         // would be fitting noise, so the calibrator must decline to change anything.

@@ -34,6 +34,9 @@ then applies the standard `τ(x, y)` correction to the joint matrix.
   "Independent Poisson" instead of pretending otherwise.
 * Fitting is skipped (and reported as skipped) when a competition has fewer than 40
   usable matches inside the window — a `ρ` estimated from a dozen matches is noise.
+* `ρ` is bounded to `[-0.20, 0.20]` at the fit and again where it is applied, and the
+  `τ` factor is capped at 2.2 — the largest value a valid input can produce — so a
+  direct caller cannot smuggle an out-of-range correction into the matrix.
 
 ## 3. Elo tilt
 
@@ -97,9 +100,13 @@ instead of being silently trusted.
   decent number can be judged against "always pick the home team".
 * **Calibration**: 10 fixed bins with a reliability curve, expected calibration error,
   and the per-bin counts, so a confident model that is badly calibrated is visible.
+  Calibration is fitted only from 400 resolved forecasts — that is the real minimum,
+  not an effective 600: at 400 samples the holdout slice is exactly 100 rows.
 * **Chronological backtesting** (`Backtester`): matches are processed in kickoff order,
   ratings are refit every 150 matches, and each prediction only sees matches that
-  kicked off earlier. There is no shuffling anywhere in the pipeline.
+  kicked off earlier. There is no shuffling anywhere in the pipeline. A result enters
+  the prior 180 minutes after kickoff — long enough for a match that runs to extra
+  time and penalties — never while it is still being played.
 * Per-prediction scoring: resolving a stored prediction stores its Brier and log loss,
   which is what the Historical predictions screen shows.
 
