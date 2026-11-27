@@ -161,8 +161,10 @@ object CalibrationStudy {
     /** Convenience adapter so a backtest can be studied without re-running it. */
     fun fromBacktestSamples(samples: List<BacktestSample>, config: Config = Config()): CalibrationStudyReport =
         run(
+            // The study measures the raw model, so it uses the pre-calibration
+            // triple: the headline fields already carry the backtest calibration.
             orderedSamples = samples.sortedBy { it.kickoffEpochMs }.map {
-                CalibrationSample(it.homeWin, it.draw, it.awayWin, it.actual)
+                CalibrationSample(it.rawHomeWin, it.rawDraw, it.rawAwayWin, it.actual)
             },
             config = config,
         )

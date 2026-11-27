@@ -100,6 +100,13 @@ instead of being silently trusted.
 * **Chronological backtesting** (`Backtester`): matches are processed in kickoff order,
   ratings are refit every 150 matches, and each prediction only sees matches that
   kicked off earlier. There is no shuffling anywhere in the pipeline.
+* **The backtest measures production**: it uses the production Dixon-Coles
+  iterations (400) and xG blend (0.7), and it applies the production
+  calibration inside the walk-forward — fitted only on forecasts whose
+  matches have already been played, and refit when the ratings are refit.
+  The calibration is fitted separately per competition, while production
+  pools it per competition type. Elo is per competition in both, as the
+  ratings book is built from one competition's history.
 * Per-prediction scoring: resolving a stored prediction stores its Brier and log loss,
   which is what the Historical predictions screen shows.
 
