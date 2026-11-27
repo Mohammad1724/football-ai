@@ -34,6 +34,19 @@ then applies the standard `τ(x, y)` correction to the joint matrix.
   "Independent Poisson" instead of pretending otherwise.
 * Fitting is skipped (and reported as skipped) when a competition has fewer than 40
   usable matches inside the window — a `ρ` estimated from a dozen matches is noise.
+  The 40-match threshold is the one threshold: the fitter, `RatingBook` and this
+  document agree on it, so no caller can get a fit on 30–39 matches.
+* xG is blended per side, in the fit and in the league baseline alike: a match that
+  carries only the home side's xG blends that side and leaves the other side
+  goals-only. The tau term is joint, so it is weighted by the average of the two
+  sides' goals weights.
+
+National teams are rated in their own book (`NationalTeamRatingBook`): a national
+rating regresses toward the international mean with a 730-day half-life, so a team
+that has not played for years does not keep the rating it earned then, and only
+matches from the last 1800 days count as goal evidence for the scoring rates and
+the baseline. The Elo replay itself keeps the full history — staleness there is
+handled by the regression, not by a hard cut.
 
 ## 3. Elo tilt
 

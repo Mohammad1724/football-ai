@@ -43,6 +43,52 @@ class RatingsTest {
     }
 
     @Test
+    fun `dixon coles refuses a fit below the shared 40-match threshold`() {
+        val league = TestLeagueFactory.create(seed = 7L, teamCount = 8, seasons = 5)
+        // 35 matches is inside the old 30–39 gap: the fitter used to return a fit
+        // here while RatingBook and the docs required 40.
+        assertNull(DixonColesFitter.fit(league.matches.take(35)))
+        assertNotNull(DixonColesFitter.fit(league.matches.take(45)))
+    }
+
+    @Test
+    fun `xg is blended per side in the fit, not only when both sides carry it`() {
+        val kickoff = 1_600_000_000_000L
+        val teams = listOf("A", "B", "C", "D")
+        // Every home side scores 0 goals from 3.0 xG; every away side scores 1.
+        // Only the home side carries xG, so only the home base may move.
+        val homeXgOnly = (0 until 48).map { i ->
+            RatingMatch(
+                homeTeamId = teams[i % 4],
+                awayTeamId = teams[(i + 1) % 4],
+                homeGoals = 0,
+                awayGoals = 1,
+                kickoffEpochMs = kickoff + i * 86_400_000L,
+                homeXg = 3.0,
+            )
+        }
+        val goalsOnly = assertNotNull(DixonColesFitter.fit(homeXgOnly))
+        val blended = assertNotNull(
+            DixonColesFitter.fit(homeXgOnly, DixonColesConfig(xgBlendWeight = 0.7)),
+        )
+        // (1-w)*goals + w*xG on the home side: 0.3*0 + 0.7*3.0.
+        assertEquals(2.1, blended.homeBase, 1e-9)
+        assertEquals(0.10, goalsOnly.homeBase, 1e-9)
+        // The away side has no xG, so its base is goals in both fits.
+        assertEquals(goalsOnly.awayBase, blended.awayBase, 1e-9)
+        assertEquals(1.0, blended.awayBase, 1e-9)
+
+        // Symmetric case: only the away side carries xG.
+        val awayXgOnly = homeXgOnly.map { it.copy(homeXg = null, awayXg = 0.2) }
+        val blendedAway = assertNotNull(
+            DixonColesFitter.fit(awayXgOnly, DixonColesConfig(xgBlendWeight = 0.7)),
+        )
+        assertEquals(goalsOnly.homeBase, blendedAway.homeBase, 1e-9)
+        // (1-w)*1 + w*0.2 on the away side.
+        assertEquals(0.44, blendedAway.awayBase, 1e-9)
+    }
+
+    @Test
     fun `stronger teams get higher expected goals`() {
         val league = TestLeagueFactory.create(seed = 11L, teamCount = 10, seasons = 6)
         val fit = assertNotNull(
