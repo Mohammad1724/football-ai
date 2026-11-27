@@ -30,8 +30,10 @@ class BacktestAlignmentTest {
         val off = Backtester(BacktestConfig(refitEveryMatches = 120, calibrationEnabled = false)).samples(records)
         assertTrue(on.size > 100, "expected a meaningful sample, got ${on.size}")
         assertEquals(off.size, on.size)
-        // Fewer than the calibrator's minimum resolved forecasts exist, so it
-        // returns NONE and the two runs must agree exactly.
+        // 224 matches in total, so the resolved pool never reaches the calibrator's
+        // 400-sample minimum: it returns NONE and the two runs must agree exactly.
+        // (An earlier version of this test used six seasons — 672 matches — and the
+        // calibration legitimately switched on past 400 resolved forecasts.)
         for ((a, b) in on.zip(off)) {
             assertEquals(a.matchId, b.matchId)
             assertEquals(a.homeWin, b.homeWin, 1e-12)
@@ -83,7 +85,9 @@ class BacktestAlignmentTest {
     }
 
     private fun smallLeagueRecords(): List<HistoricalRecord> {
-        val league = TestLeagueFactory.create(seed = 21L, teamCount = 8, seasons = 6)
+        // Two seasons, eight teams: 224 matches — deliberately below the
+        // calibrator's 400-sample minimum, so no calibration can switch on.
+        val league = TestLeagueFactory.create(seed = 21L, teamCount = 8, seasons = 2)
         return league.matches.mapIndexed { index, match ->
             HistoricalRecord(
                 matchId = "m$index",
