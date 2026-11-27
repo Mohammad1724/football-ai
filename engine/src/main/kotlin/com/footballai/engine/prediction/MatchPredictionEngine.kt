@@ -41,6 +41,14 @@ data class EngineConfig(
      * [firstHalfShare], not data read from a provider.
      */
     val stoppageTimeAllowanceMinutes: Int = 4,
+    /**
+     * Extra-time minutes added to the live horizon of a knockout tie.
+     *
+     * A league match ends at regulation time; a knockout tie that is level (or a
+     * second leg) runs for thirty more minutes before penalties. Penalties are
+     * not modelled — once extra time is over there are no more goals to expect.
+     */
+    val extraTimeMinutes: Int = 30,
     /** Scoring multiplier for a team that received a red card. */
     val redCardOwnFactor: Double = 0.88,
     /** Scoring multiplier for the opponent of a team that received a red card. */
@@ -258,9 +266,14 @@ class MatchPredictionEngine(private val config: EngineConfig = EngineConfig()) {
         // The horizon of a football match is regulation time plus its stoppage time, not
         // ninety minutes. A caller that knows the real figure supplies it; otherwise the
         // configured allowance stands in, so the last minutes are not modelled as if the
-        // whistle were already at the clock.
+        // whistle were already at the clock. A knockout tie adds thirty minutes of extra
+        // time on top: minute 115 of a cup tie is nine minutes of football left, not a
+        // finished match. The stoppage allowance is shared across regulation and extra
+        // time; penalties are not modelled, so once extra time is over the remaining
+        // minutes are zero, which is then correct.
+        val extraTime = if (preMatch.competition.isKnockout) config.extraTimeMinutes else 0
         val addedMinutes = maxOf(input.addedTimeMinutes, config.stoppageTimeAllowanceMinutes)
-        val totalMinutes = (config.matchLengthMinutes + addedMinutes).coerceAtLeast(1)
+        val totalMinutes = (config.matchLengthMinutes + extraTime + addedMinutes).coerceAtLeast(1)
         val minutesPlayed = input.minute.coerceIn(0, totalMinutes)
         val remainingMinutes = totalMinutes - minutesPlayed
         // Share of the *match* still to be played, so that a minute spent is a minute gone

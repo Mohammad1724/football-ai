@@ -68,7 +68,13 @@ floating-point tolerance. There is a test for exactly that.
 `predictLive(...)` is a different calculation, not an adjustment of the old one:
 
 1. Remaining expected goals are scaled by remaining minutes (with stoppage-time
-   allowance), using the pre-match rates as the intensity.
+   allowance), using the pre-match rates as the intensity. In a knockout tie the
+   horizon is 90 + 30 minutes of extra time plus the stoppage allowance, so a
+   match at minute 115 still has expected goals; penalties are not modelled — once
+   extra time is over the remaining minutes are zero. Note the app's admission
+   policy (`PredictionPolicy`) still refuses live predictions at minute 90+, so
+   extra-time live predictions need that policy to allow knockout minutes to 120
+   before they reach the screen; the engine is ready for it.
 2. Live statistics (shots, shots on target, possession, dangerous attacks) shift the
    remaining intensity by at most ±20%, and red cards modify the two sides
    multiplicatively (0.88 for the team a man down, 1.12 for the team a man up).
