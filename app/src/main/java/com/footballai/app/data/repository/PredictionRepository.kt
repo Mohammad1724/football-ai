@@ -772,7 +772,11 @@ class PredictionRepository(
          * a rescale to the pre-tilt total, so Elo redistributes expected goals
          * without changing the total. The descriptor now records the Elo weight
          * actually applied (effective weight × competition scale), not the
-         * configured base weight.
+         * configured base weight. National-team ratings regress toward the
+         * international mean with a 730-day half-life and only matches from the
+         * last 1800 days count as goal evidence; the Dixon-Coles fit refuses
+         * below the shared 40-match threshold; xG is blended per side in the
+         * fit, as the league baseline already did.
          */
         const val MODEL_VERSION = "football-ai/engine-1.9.0"
 
