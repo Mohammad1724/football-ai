@@ -37,7 +37,15 @@ data class DixonColesConfig(
     val minRho: Double = -0.20,
     val maxRho: Double = 0.20,
     val estimateRho: Boolean = true,
-    val minMatches: Int = 30,
+    /**
+     * Matches needed before a fit is attempted.
+     *
+     * This is the one threshold the whole pipeline agrees on: `RatingBook` and the
+     * docs both require 40, so the fitter must not hand a fit to a direct caller on
+     * 30–39 matches. A caller that genuinely needs a smaller sample says so
+     * explicitly by passing its own config.
+     */
+    val minMatches: Int = 40,
     /** Numerical floor for the Dixon-Coles tau factor; keeps the likelihood well defined. */
     val tauFloor: Double = 0.05,
     /**
@@ -68,7 +76,9 @@ data class DixonColesConfig(
      * How much of the fit's evidence comes from expected goals rather than actual goals,
      * for matches that carry xG: 0.0 fits goals only (the historical behaviour, and the
      * default everywhere), 1.0 fits xG only, values in between optimise the weighted sum
-     * of the two Poisson log-likelihoods.
+     * of the two Poisson log-likelihoods. The blend is per side, exactly as the league
+     * baseline does it: a match that carries only the home side's xG blends that side
+     * and leaves the other side goals-only.
      *
      * The xG term treats a match's xG as a fractional Poisson count
      * (`xg * ln(lambda) - lambda`) with no Dixon-Coles tau correction — tau is only
@@ -150,7 +160,7 @@ object DixonColesFitter {
         val homeGoals = IntArray(usable.size)
         val awayGoals = IntArray(usable.size)
         val weights = DoubleArray(usable.size)
-        // NaN = this match carries no usable xG; its evidence stays goals-only.
+        // NaN = this side carries no usable xG; that side's evidence stays goals-only.
         val homeXg = DoubleArray(usable.size) { Double.NaN }
         val awayXg = DoubleArray(usable.size) { Double.NaN }
         val xgWeight = config.xgBlendWeight.coerceIn(0.0, 1.0)
@@ -171,12 +181,17 @@ object DixonColesFitter {
             weightSum += match.weight
             val hxg = match.homeXg
             val axg = match.awayXg
-            if (hxg != null && axg != null && hxg.isFinite() && axg.isFinite()) {
+            // Per side: a match that carries only one side's xG blends that side and
+            // leaves the other side goals-only, exactly as the league baseline does.
+            // Requiring both sides here used to throw away half the xG evidence.
+            if (hxg != null && hxg.isFinite()) {
                 homeXg[i] = hxg.coerceIn(0.0, config.maxGoalsPerTeam.toDouble())
+            }
+            if (axg != null && axg.isFinite()) {
                 awayXg[i] = axg.coerceIn(0.0, config.maxGoalsPerTeam.toDouble())
             }
             // The league bases are averages of the same blended evidence the likelihood
-            // sees, so at blend weight w a base is (1-w)*goals + w*xG per match that has
+            // sees, so at blend weight w a base is (1-w)*goals + w*xG per side that has
             // xG, and plain goals for the rest. At w = 0 this is exactly the old average.
             val effHome = if (homeXg[i].isNaN()) match.homeGoals.toDouble()
                 else (1.0 - xgWeight) * match.homeGoals + xgWeight * homeXg[i]
@@ -255,15 +270,27 @@ object DixonColesFitter {
                 val dLogTauDRho = if (useTau) dTauDRho / safeTau else 0.0
 
                 // Blended evidence: the goals likelihood (with tau) is scaled by
-                // (1 - xgWeight) and the fractional-xG Poisson term by xgWeight, for
-                // matches that carry xG. At xgWeight = 0, or without xG, these are the
-                // pre-xG gradients bit for bit.
-                val hasXg = !homeXg[i].isNaN()
-                val goalsTerm = if (hasXg) 1.0 - xgWeight else 1.0
-                var gradHome = w * goalsTerm * ((x - lambdaHome) + lambdaHome * dLogTauDLambdaHome)
-                var gradAway = w * goalsTerm * ((y - lambdaAway) + lambdaAway * dLogTauDLambdaAway)
-                if (hasXg && xgWeight > 0.0) {
+                // (1 - xgWeight) and the fractional-xG Poisson term by xgWeight, per
+                // side that carries xG. At xgWeight = 0, or without xG, these are the
+                // pre-xG gradients bit for bit. The tau term is joint, so it is
+                // weighted by the average of the two sides' goals weights.
+                val hasHomeXg = !homeXg[i].isNaN()
+                val hasAwayXg = !awayXg[i].isNaN()
+                val homeGoalsTerm = if (hasHomeXg) 1.0 - xgWeight else 1.0
+                val awayGoalsTerm = if (hasAwayXg) 1.0 - xgWeight else 1.0
+                val tauTerm = (homeGoalsTerm + awayGoalsTerm) / 2.0
+                var gradHome = w * (
+                    homeGoalsTerm * (x - lambdaHome) +
+                        tauTerm * lambdaHome * dLogTauDLambdaHome
+                    )
+                var gradAway = w * (
+                    awayGoalsTerm * (y - lambdaAway) +
+                        tauTerm * lambdaAway * dLogTauDLambdaAway
+                    )
+                if (hasHomeXg && xgWeight > 0.0) {
                     gradHome += w * xgWeight * (homeXg[i] - lambdaHome)
+                }
+                if (hasAwayXg && xgWeight > 0.0) {
                     gradAway += w * xgWeight * (awayXg[i] - lambdaAway)
                 }
 
@@ -271,7 +298,7 @@ object DixonColesFitter {
                 gradBeta[a] += gradHome
                 gradAlpha[a] += gradAway
                 gradBeta[h] += gradAway
-                gradRho += w * goalsTerm * dLogTauDRho
+                gradRho += w * tauTerm * dLogTauDRho
             }
 
             for (t in 0 until teamCount) {
@@ -383,16 +410,21 @@ object DixonColesFitter {
             val tau = tau(x, y, lambdaHome, lambdaAway, rho)
             val safeTau = if (tau > config.tauFloor) tau else 1.0
             val logTau = if (tau > config.tauFloor) ln(safeTau) else 0.0
-            val goalsLogLik = logTau + x * ln(lambdaHome) - lambdaHome + y * ln(lambdaAway) - lambdaAway
-            var contribution = goalsLogLik
-            if (!homeXg[i].isNaN()) {
-                contribution = (1.0 - xgWeight) * goalsLogLik
-                if (xgWeight > 0.0) {
-                    contribution += xgWeight * (
-                        homeXg[i] * ln(lambdaHome) - lambdaHome +
-                            awayXg[i] * ln(lambdaAway) - lambdaAway
-                        )
-                }
+            // Same per-side split as the gradients, so the objective the optimiser
+            // maximises is the one its gradients describe.
+            val hasHomeXg = !homeXg[i].isNaN()
+            val hasAwayXg = !awayXg[i].isNaN()
+            val homeGoalsTerm = if (hasHomeXg) 1.0 - xgWeight else 1.0
+            val awayGoalsTerm = if (hasAwayXg) 1.0 - xgWeight else 1.0
+            val tauTerm = (homeGoalsTerm + awayGoalsTerm) / 2.0
+            var contribution = tauTerm * logTau +
+                homeGoalsTerm * (x * ln(lambdaHome) - lambdaHome) +
+                awayGoalsTerm * (y * ln(lambdaAway) - lambdaAway)
+            if (hasHomeXg && xgWeight > 0.0) {
+                contribution += xgWeight * (homeXg[i] * ln(lambdaHome) - lambdaHome)
+            }
+            if (hasAwayXg && xgWeight > 0.0) {
+                contribution += xgWeight * (awayXg[i] * ln(lambdaAway) - lambdaAway)
             }
             total += weights[i] * contribution
         }

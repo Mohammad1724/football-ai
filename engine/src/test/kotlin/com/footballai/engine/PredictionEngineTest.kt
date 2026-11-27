@@ -86,6 +86,52 @@ class PredictionEngineTest {
     }
 
     @Test
+    fun `elo tilt preserves total expected goals`() {
+        // Baseline lambdas with equal Elo: 1.5 * 1.3 * 1.1 = 2.145 home,
+        // 1.15 * 1.1 * 0.9 = 1.1385 away, total 3.2835. A 400-point Elo gap
+        // at the base weight 0.15 gives tilt 0.15; the old (1 ± tilt) form
+        // moved the total to 3.2835 + 0.15 * (2.145 - 1.1385) = 3.4345.
+        val untilted = engine.predictPreMatch(
+            input(homeAttack = 1.3, awayAttack = 1.1, homeDefence = 0.9, awayDefence = 1.1, homeElo = 1500.0, awayElo = 1500.0),
+        )
+        val total = untilted.expectedHomeGoals + untilted.expectedAwayGoals
+        val tiltedHome = engine.predictPreMatch(
+            input(homeAttack = 1.3, awayAttack = 1.1, homeDefence = 0.9, awayDefence = 1.1, homeElo = 1900.0, awayElo = 1500.0),
+        )
+        val tiltedAway = engine.predictPreMatch(
+            input(homeAttack = 1.3, awayAttack = 1.1, homeDefence = 0.9, awayDefence = 1.1, homeElo = 1100.0, awayElo = 1500.0),
+        )
+        assertEquals(total, tiltedHome.expectedHomeGoals + tiltedHome.expectedAwayGoals, 1e-9)
+        assertEquals(total, tiltedAway.expectedHomeGoals + tiltedAway.expectedAwayGoals, 1e-9)
+        assertTrue(tiltedHome.expectedHomeGoals > untilted.expectedHomeGoals)
+        assertTrue(tiltedHome.expectedAwayGoals < untilted.expectedAwayGoals)
+    }
+
+    @Test
+    fun `descriptor reports the effective elo weight not the base weight`() {
+        // Thin evidence (0 matches): effective weight rises to the 0.40 ceiling.
+        val thin = PreMatchInput(
+            home = TeamStrength("H", 1.0, 1.0, 1620.0, 0),
+            away = TeamStrength("A", 1.0, 1.0, 1380.0, 0),
+            baseline = LeagueBaseline(1.5, 1.15, 120),
+            quality = quality(),
+            asOfEpochMs = 1_700_000_000_000L,
+        )
+        assertEquals(0.40, engine.predictPreMatch(thin).model.eloBlendWeight, 1e-9)
+        // Thick evidence (25 matches): effective weight is the base 0.15.
+        val thick = thin.copy(
+            home = TeamStrength("H", 1.0, 1.0, 1620.0, 25),
+            away = TeamStrength("A", 1.0, 1.0, 1380.0, 25),
+        )
+        assertEquals(0.15, engine.predictPreMatch(thick).model.eloBlendWeight, 1e-9)
+        // Friendly, thin evidence: 0.40 * 0.8 competition scale = 0.32.
+        val friendly = thin.copy(
+            competition = CompetitionProfile.of(CompetitionType.INTERNATIONAL_FRIENDLY),
+        )
+        assertEquals(0.32, engine.predictPreMatch(friendly).model.eloBlendWeight, 1e-9)
+    }
+
+    @Test
     fun `dixon coles rho is applied and reported`() {
         val result = engine.predictPreMatch(input().copy(dixonColesRho = -0.06))
         assertTrue(result.model.dixonColesEnabled)
