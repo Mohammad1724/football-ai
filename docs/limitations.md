@@ -70,8 +70,9 @@ moves; nothing here is aspirational wording — each item is a real, current lim
 
 ## Database schema
 
-The specification listed 14 entities. Eleven are implemented. The three that are folded
-into other structures are:
+The specification listed 14 entities. Thirteen tables exist today: the eleven from
+the specification, plus match availability and late forecasts, which were added later
+with their own migrations. The specified items that are not tables are:
 
 | Specified | Current representation | Why |
 | --- | --- | --- |

@@ -81,9 +81,11 @@ Every stored object carries `lastSyncedAt`; the UI shows relative timestamps
 
 ## Storage
 
-Room database `football-ai.db`, version 1, with 11 entities: competitions, teams,
-matches, match statistics, match events, lineup players, predictions, prediction
-markets, historical matches, standings and sync metadata. Stable string ids
+Room database `football-ai.db`, version 8, with 13 entities: competitions, teams,
+matches, match availability, match statistics, match events, lineup players,
+predictions, late forecasts, prediction markets, historical matches, standings
+and sync metadata. Migrations 1→2 … 7→8 are in the database builder
+(`HistoryMigration`), so an upgrade never drops the local history. Stable string ids
 (`provider:league:key`, `provider:team:key`, `provider:match:key`,
 `hist:source:competition:home:away:kickoff`) make inserts idempotent, so re-syncing the
 same fixture updates rather than duplicates it.

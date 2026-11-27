@@ -53,7 +53,7 @@ handled by the regression, not by a hard cut.
 
 ## 3. Elo tilt
 
-An Elo difference (K = 20, home advantage ≈ 60 points, 1500 = league average) is
+An Elo difference (K = 20, home advantage 65 points, 1500 = league average) is
 converted into a multiplicative tilt on the two λ values. The tilt is capped at ±25%.
 It is applied with exponential factors — λ_home × exp(tilt), λ_away × exp(−tilt) —
 followed by a rescale to the pre-tilt total, so Elo redistributes expected goals
