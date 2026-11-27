@@ -1,5 +1,8 @@
 package com.footballai.engine.eval
 
+import com.footballai.engine.calibration.CalibrationModel
+import com.footballai.engine.calibration.CalibrationSample
+import com.footballai.engine.calibration.Calibrator
 import com.footballai.engine.markets.MarketCalculator
 import com.footballai.engine.model.OutcomeTriple
 import com.footballai.engine.model.DataQualityLevel
@@ -61,19 +64,26 @@ data class BacktestConfig(
     val minMatchesPerTeam: Int = 4,
     val halfLifeDays: Double = 240.0,
     val windowDays: Int = 1200,
-    val dixonColesMaxIterations: Int = 250,
+    /**
+     * Dixon-Coles iterations. Must match the production fit
+     * ([com.footballai.engine.ratings.DixonColesConfig.maxIterations], 400):
+     * fewer iterations fit a different model, so the backtest would measure
+     * something other than the model that actually runs.
+     */
+    val dixonColesMaxIterations: Int = 400,
     val elo: EloConfig = EloConfig(),
     val engine: EngineConfig = EngineConfig(),
     val binCount: Int = 10,
     /** Enables the same recent-form, venue and congestion features used in production. */
     val contextFeaturesEnabled: Boolean = true,
     /**
-     * Blend of xG into the Dixon-Coles strength fit (0.0 = goals only, the production
-     * behaviour). A record's xG joins the rating history at the same moment its goals
-     * do — after the match was played and the availability delay has passed — so the
-     * walk-forward leakage controls apply to xG exactly as they do to goals.
+     * Blend of xG into the Dixon-Coles strength fit. The default is the production
+     * blend (0.7); 0.0 is goals only. A record's xG joins the rating history at the
+     * same moment its goals do — after the match was played and the availability
+     * delay has passed — so the walk-forward leakage controls apply to xG exactly
+     * as they do to goals.
      */
-    val xgBlendWeight: Double = 0.0,
+    val xgBlendWeight: Double = 0.7,
     /**
      * Strength of the injuries/suspensions adjustment (0.0 = off, the default,
      * so existing backtests are unchanged). A record's missing shares describe
@@ -82,6 +92,20 @@ data class BacktestConfig(
      * as production applies them. See [com.footballai.engine.ratings.AvailabilityImpact].
      */
     val availabilityStrength: Double = 0.0,
+    /**
+    /**
+     * Applies the production calibration inside the walk-forward: the calibrator
+     * is fitted only on forecasts whose matches have already been played (and
+     * whose results are available), and refit whenever the ratings are refit.
+     * Below [Calibrator.Config.minSamples] resolved forecasts it returns NONE,
+     * so small backtests are unchanged. Disable it to measure the raw model.
+     *
+     * The fit is per competition, while production pools it per competition
+     * type, so the backtest calibration is the same method and discipline, not
+     * the numerically identical model.
+     */
+    val calibrationEnabled: Boolean = true,
+    val calibrator: Calibrator.Config = Calibrator.Config(),
     /**
      * Conservative result availability when historic completion timestamps are absent.
      *
@@ -114,6 +138,14 @@ data class BacktestSample(
     val unalignedHome: Double = homeWin,
     val unalignedDraw: Double = draw,
     val unalignedAway: Double = awayWin,
+    /**
+     * The 1X2 triple before calibration (and before market alignment): the raw
+     * model forecast. The headline fields carry the calibrated triple when a
+     * calibration was applied, so this is what the calibration study must use.
+     */
+    val rawHomeWin: Double = homeWin,
+    val rawDraw: Double = draw,
+    val rawAwayWin: Double = awayWin,
 )
 
 data class BacktestReport(
@@ -192,6 +224,14 @@ class Backtester(private val config: BacktestConfig = BacktestConfig()) {
         var fit: DixonColesFit? = null
         var baseline = LeagueBaseline.FALLBACK
         val samples = ArrayList<BacktestSample>()
+        // Calibration fitted only on forecasts already resolved before the
+        // match being forecast — the same out-of-sample discipline as
+        // production, where the calibrator is fitted on resolved stored
+        // predictions. The samples are emitted in kickoff order, so a pointer
+        // into them admits each one once its result is available.
+        var calibration: CalibrationModel = CalibrationModel.NONE
+        val resolved = ArrayList<CalibrationSample>()
+        var resolvedAdmitted = 0
 
         var index = 0
         var lastFitAt = 0
@@ -223,11 +263,26 @@ class Backtester(private val config: BacktestConfig = BacktestConfig()) {
                     kickoffEpochMs = record.kickoffEpochMs,
                 )
             }
+            while (resolvedAdmitted < samples.size &&
+                samples[resolvedAdmitted].kickoffEpochMs + config.resultAvailabilityDelayMinutes * 60_000L <= predictionTime) {
+                val resolvedSample = samples[resolvedAdmitted++]
+                resolved.add(
+                    CalibrationSample(
+                        resolvedSample.rawHomeWin,
+                        resolvedSample.rawDraw,
+                        resolvedSample.rawAwayWin,
+                        resolvedSample.actual,
+                    ),
+                )
+            }
             if (prior.size >= config.minPriorMatchesForCompetition &&
                 (fit == null || prior.size - lastFitAt >= config.refitEveryMatches)) {
                 lastFitAt = prior.size
                 fit = fitModel(prior, ordered[index].kickoffEpochMs)
                 baseline = computeBaseline(prior, ordered[index].kickoffEpochMs)
+                if (config.calibrationEnabled) {
+                    calibration = Calibrator.fit(resolved, config.calibrator)
+                }
             }
 
             for (i in index until chunkEnd) {
@@ -292,6 +347,7 @@ class Backtester(private val config: BacktestConfig = BacktestConfig()) {
                         )?.let { OutcomeTriple(it.first, it.second, it.third) },
                         eloBlendWeight = config.engine.eloBlendWeight,
                         dixonColesRho = fit?.rho,
+                        calibration = calibration,
                         quality = quality,
                         asOfEpochMs = record.kickoffEpochMs,
                         fittedMatches = prior.size,
@@ -320,6 +376,15 @@ class Backtester(private val config: BacktestConfig = BacktestConfig()) {
                             unalignedHome = prediction.preMarketProbabilities?.home ?: prediction.markets.homeWin,
                             unalignedDraw = prediction.preMarketProbabilities?.draw ?: prediction.markets.draw,
                             unalignedAway = prediction.preMarketProbabilities?.away ?: prediction.markets.awayWin,
+                            rawHomeWin = prediction.calibration?.rawHomeWin
+                                ?: prediction.preMarketProbabilities?.home
+                                ?: prediction.markets.homeWin,
+                            rawDraw = prediction.calibration?.rawDraw
+                                ?: prediction.preMarketProbabilities?.draw
+                                ?: prediction.markets.draw,
+                            rawAwayWin = prediction.calibration?.rawAwayWin
+                                ?: prediction.preMarketProbabilities?.away
+                                ?: prediction.markets.awayWin,
                             qualityLevel = quality.level,
                         ),
                     )

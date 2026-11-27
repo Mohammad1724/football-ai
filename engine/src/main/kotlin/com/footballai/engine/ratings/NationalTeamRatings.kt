@@ -85,13 +85,19 @@ class NationalTeamRatingBook(
         neutralVenue: Boolean = false,
     ): NationalPrepared {
         val available = matches.filter { it.kickoffEpochMs <= asOfEpochMs }
-        val ratings = replayElo(available)
-        val homeSample = available.count { it.homeTeamId == homeTeamId || it.awayTeamId == homeTeamId }
-        val awaySample = available.count { it.homeTeamId == awayTeamId || it.awayTeamId == awayTeamId }
+        val ratings = replayElo(available, asOfEpochMs)
+        // The window gates the goal-based evidence only: the Elo replay keeps the full
+        // history (staleness there is handled by time regression, not by a hard cut),
+        // but a match older than the window contributes neither to the baseline, nor
+        // to a team's scoring rates, nor to the evidence gate.
+        val windowMs = config.windowDays.toLong() * DAY_MS
+        val windowed = available.filter { asOfEpochMs - it.kickoffEpochMs <= windowMs }
+        val homeSample = windowed.count { it.homeTeamId == homeTeamId || it.awayTeamId == homeTeamId }
+        val awaySample = windowed.count { it.homeTeamId == awayTeamId || it.awayTeamId == awayTeamId }
 
-        val meanHome = weightedMeanGoals(available, asOfEpochMs, home = true)
-        val meanAway = weightedMeanGoals(available, asOfEpochMs, home = false)
-        val baseline = if (available.isEmpty()) {
+        val meanHome = weightedMeanGoals(windowed, asOfEpochMs, home = true)
+        val meanAway = weightedMeanGoals(windowed, asOfEpochMs, home = false)
+        val baseline = if (windowed.isEmpty()) {
             FALLBACK_BASELINE
         } else {
             val homeRate = meanHome ?: FALLBACK_BASELINE.averageHomeGoals
@@ -99,13 +105,13 @@ class NationalTeamRatingBook(
             LeagueBaseline(
                 averageHomeGoals = homeRate.coerceIn(0.2, 5.0),
                 averageAwayGoals = awayRate.coerceIn(0.2, 5.0),
-                sampleSize = available.size,
+                sampleSize = windowed.size,
             )
         }
 
         val homeStrength = strength(
             teamId = homeTeamId,
-            available = available,
+            available = windowed,
             asOfEpochMs = asOfEpochMs,
             elo = ratings[homeTeamId] ?: config.initialRating,
             sample = homeSample,
@@ -113,7 +119,7 @@ class NationalTeamRatingBook(
         )
         val awayStrength = strength(
             teamId = awayTeamId,
-            available = available,
+            available = windowed,
             asOfEpochMs = asOfEpochMs,
             elo = ratings[awayTeamId] ?: config.initialRating,
             sample = awaySample,
@@ -125,7 +131,7 @@ class NationalTeamRatingBook(
             away = awayStrength,
             baseline = baseline,
             neutralVenue = neutralVenue,
-            enoughEvidence = available.size >= config.minMatches &&
+            enoughEvidence = windowed.size >= config.minMatches &&
                 homeSample >= config.minMatches &&
                 awaySample >= config.minMatches,
         )
@@ -133,7 +139,7 @@ class NationalTeamRatingBook(
 
     /** Elo rating of a national team at a point in time, replayed from the match list. */
     fun rating(teamId: String, asOfEpochMs: Long): Double =
-        replayElo(matches.filter { it.kickoffEpochMs <= asOfEpochMs })[teamId] ?: config.initialRating
+        replayElo(matches.filter { it.kickoffEpochMs <= asOfEpochMs }, asOfEpochMs)[teamId] ?: config.initialRating
 
     /** Days since the team's previous international, or null when it has not played. */
     fun daysSinceLastMatch(teamId: String, asOfEpochMs: Long): Int? {
@@ -145,8 +151,9 @@ class NationalTeamRatingBook(
 
     // ------------------------------------------------------------------ internals
 
-    private fun replayElo(available: List<NationalMatch>): Map<String, Double> {
+    private fun replayElo(available: List<NationalMatch>, asOfEpochMs: Long): Map<String, Double> {
         val ratings = HashMap<String, Double>()
+        val lastKickoff = HashMap<String, Long>()
         val ordered = available.sortedWith(compareBy({ it.kickoffEpochMs }, { it.homeTeamId }))
         for (match in ordered) {
             val home = ratings.getOrPut(match.homeTeamId) { config.initialRating }
@@ -168,8 +175,23 @@ class NationalTeamRatingBook(
             val delta = config.kFactor * importance * marginMultiplier * (actualHome - expectedHome)
             ratings[match.homeTeamId] = home + delta
             ratings[match.awayTeamId] = away - delta
+            lastKickoff[match.homeTeamId] = match.kickoffEpochMs
+            lastKickoff[match.awayTeamId] = match.kickoffEpochMs
         }
-        return ratings
+        // A team that has not played for years does not keep the rating it earned
+        // then: regress each rating toward the international mean with the
+        // configured half-life, so the rating a stale team carries is the rating its
+        // recent football supports. A team whose last match was yesterday is
+        // untouched (the decay is ~0.999); a team idle for one half-life is halfway
+        // home. This is the club Elo regression, with a longer half-life because
+        // national squads change more slowly.
+        if (lastKickoff.isEmpty()) return ratings
+        return ratings.mapValues { (teamId, stored) ->
+            val last = lastKickoff[teamId] ?: return@mapValues stored
+            val elapsedDays = ((asOfEpochMs - last) / DAY_MS).coerceAtLeast(0.0)
+            val decay = 0.5.pow(elapsedDays / config.regressionHalfLifeDays)
+            config.initialRating + (stored - config.initialRating) * decay
+        }
     }
 
     private fun strength(

@@ -34,16 +34,32 @@ then applies the standard `τ(x, y)` correction to the joint matrix.
   "Independent Poisson" instead of pretending otherwise.
 * Fitting is skipped (and reported as skipped) when a competition has fewer than 40
   usable matches inside the window — a `ρ` estimated from a dozen matches is noise.
+  The 40-match threshold is the one threshold: the fitter, `RatingBook` and this
+  document agree on it, so no caller can get a fit on 30–39 matches.
+* xG is blended per side, in the fit and in the league baseline alike: a match that
+  carries only the home side's xG blends that side and leaves the other side
+  goals-only. The tau term is joint, so it is weighted by the average of the two
+  sides' goals weights.
 * `ρ` is bounded to `[-0.20, 0.20]` at the fit and again where it is applied, and the
   `τ` factor is capped at 2.2 — the largest value a valid input can produce — so a
   direct caller cannot smuggle an out-of-range correction into the matrix.
 
+National teams are rated in their own book (`NationalTeamRatingBook`): a national
+rating regresses toward the international mean with a 730-day half-life, so a team
+that has not played for years does not keep the rating it earned then, and only
+matches from the last 1800 days count as goal evidence for the scoring rates and
+the baseline. The Elo replay itself keeps the full history — staleness there is
+handled by the regression, not by a hard cut.
+
 ## 3. Elo tilt
 
 An Elo difference (K = 20, home advantage ≈ 60 points, 1500 = league average) is
-converted into a multiplicative tilt on the two λ values. The tilt is capped at ±25%
-and applied symmetrically, so Elo redistributes expected goals between the teams
-without changing the total. Its weight (default 0.15) is recorded on every prediction.
+converted into a multiplicative tilt on the two λ values. The tilt is capped at ±25%.
+It is applied with exponential factors — λ_home × exp(tilt), λ_away × exp(−tilt) —
+followed by a rescale to the pre-tilt total, so Elo redistributes expected goals
+between the teams without changing the total. Its weight (default 0.15, rising
+toward 0.40 when the fitted strengths rest on very few matches) is recorded on
+every prediction as the weight actually applied, including the competition scale.
 
 Progression matters: Poisson is a scoring model that knows nothing about who is
 better; Dixon-Coles adds low-score realism; Elo adds a result-based strength signal
@@ -71,7 +87,13 @@ floating-point tolerance. There is a test for exactly that.
 `predictLive(...)` is a different calculation, not an adjustment of the old one:
 
 1. Remaining expected goals are scaled by remaining minutes (with stoppage-time
-   allowance), using the pre-match rates as the intensity.
+   allowance), using the pre-match rates as the intensity. In a knockout tie the
+   horizon is 90 + 30 minutes of extra time plus the stoppage allowance, so a
+   match at minute 115 still has expected goals; penalties are not modelled — once
+   extra time is over the remaining minutes are zero. Note the app's admission
+   policy (`PredictionPolicy`) still refuses live predictions at minute 90+, so
+   extra-time live predictions need that policy to allow knockout minutes to 120
+   before they reach the screen; the engine is ready for it.
 2. Live statistics (shots, shots on target, possession, dangerous attacks) shift the
    remaining intensity by at most ±20%, and red cards modify the two sides
    multiplicatively (0.88 for the team a man down, 1.12 for the team a man up).
@@ -107,6 +129,13 @@ instead of being silently trusted.
   kicked off earlier. There is no shuffling anywhere in the pipeline. A result enters
   the prior 180 minutes after kickoff — long enough for a match that runs to extra
   time and penalties — never while it is still being played.
+* **The backtest measures production**: it uses the production Dixon-Coles
+  iterations (400) and xG blend (0.7), and it applies the production
+  calibration inside the walk-forward — fitted only on forecasts whose
+  matches have already been played, and refit when the ratings are refit.
+  The calibration is fitted separately per competition, while production
+  pools it per competition type. Elo is per competition in both, as the
+  ratings book is built from one competition's history.
 * Per-prediction scoring: resolving a stored prediction stores its Brier and log loss,
   which is what the Historical predictions screen shows.
 
@@ -124,6 +153,8 @@ disagreement, never as value.
 ## 8. Model versioning
 
 `ModelDescriptor` (name, version, whether Dixon-Coles was used, `ρ`, fitted match count,
-Elo weight) is stored with every prediction. When the engine's constants change, the
-version string changes, so an old stored prediction is never mixed up with a new one in
-the performance figures.
+Elo weight) is stored with every prediction. The Elo weight recorded is the weight
+actually applied for that fixture — the effective weight (which rises toward 0.40
+when evidence is thin) times the competition scale — not the configured base weight.
+When the engine's constants change, the version string changes, so an old stored
+prediction is never mixed up with a new one in the performance figures.

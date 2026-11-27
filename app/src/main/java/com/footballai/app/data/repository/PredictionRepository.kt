@@ -768,10 +768,22 @@ class PredictionRepository(
          * (bounded, symmetric). Validated on untouched 2024-25 + 2025-26 seasons:
          * log loss 0.9843 → 0.9837, accuracy 53.11% → 53.20% versus 1.7.1 behaviour.
          *
-         * 1.9.0: the backtest admits a result 180 minutes after kickoff, so an
-         * extra-time result cannot leak into the prior; rho is bounded to
-         * [-0.20, 0.20] where it is applied and tau is capped at 2.2; the
-         * calibrator's 400-sample minimum is real now (holdout minimum 100).
+         * 1.9.0: Elo tilt is now total-preserving — exponential factors followed by
+         * a rescale to the pre-tilt total, so Elo redistributes expected goals
+         * without changing the total. The descriptor now records the Elo weight
+         * actually applied (effective weight × competition scale), not the
+         * configured base weight. National-team ratings regress toward the
+         * international mean with a 730-day half-life and only matches from the
+         * last 1800 days count as goal evidence; the Dixon-Coles fit refuses
+         * below the shared 40-match threshold; xG is blended per side in the
+         * fit, as the league baseline already did. The live model knows extra
+         * time — a knockout tie's horizon is 90 + 30 minutes plus the stoppage
+         * allowance, so minute 115 is nine minutes of football left, not a
+         * finished match. League matches are unchanged. The backtest admits a
+         * result 180 minutes after kickoff, so an extra-time result cannot leak
+         * into the prior; rho is bounded to [-0.20, 0.20] where it is applied
+         * and tau is capped at 2.2; the calibrator's 400-sample minimum is real
+         * now (holdout minimum 100).
          */
         const val MODEL_VERSION = "football-ai/engine-1.9.0"
 
