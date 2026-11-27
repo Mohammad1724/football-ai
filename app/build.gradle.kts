@@ -19,6 +19,12 @@ plugins {
  * secrets. The same certificate is used for every build, so an update installs over
  * the installed app and keeps its data. It is a personal, self-signed key and is not
  * suitable for Play Store distribution.
+ *
+ * The key was rotated on 2026-11-27: the first key (certificate fingerprint
+ * 7cd60524…) is in the public git history and retired — the workflow pins the
+ * current certificate fingerprint, so a build signed with the old key fails CI.
+ * Rotating the key means every installed copy must be uninstalled once and
+ * reinstalled from a build signed with the new key; see docs/signed-builds-fa.md.
  */
 val stableKeystore = rootProject.file("signing/footballai-release.p12")
 val stableStorePassword = System.getenv("FOOTBALLAI_STORE_PASSWORD")

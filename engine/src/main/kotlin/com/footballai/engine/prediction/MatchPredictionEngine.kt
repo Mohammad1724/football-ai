@@ -20,6 +20,7 @@ import com.footballai.engine.model.QualityNoteCode
 import com.footballai.engine.model.ScoreProbability
 import com.footballai.engine.poisson.ScoreMatrix
 import kotlin.math.abs
+import kotlin.math.exp
 import kotlin.math.min
 
 data class EngineConfig(
@@ -41,6 +42,14 @@ data class EngineConfig(
      * [firstHalfShare], not data read from a provider.
      */
     val stoppageTimeAllowanceMinutes: Int = 4,
+    /**
+     * Extra-time minutes added to the live horizon of a knockout tie.
+     *
+     * A league match ends at regulation time; a knockout tie that is level (or a
+     * second leg) runs for thirty more minutes before penalties. Penalties are
+     * not modelled — once extra time is over there are no more goals to expect.
+     */
+    val extraTimeMinutes: Int = 30,
     /** Scoring multiplier for a team that received a red card. */
     val redCardOwnFactor: Double = 0.88,
     /** Scoring multiplier for the opponent of a team that received a red card. */
@@ -116,14 +125,23 @@ class MatchPredictionEngine(private val config: EngineConfig = EngineConfig()) {
         var lambdaHome = baseline.averageHomeGoals * input.home.attack * input.away.defence
         var lambdaAway = baseline.averageAwayGoals * input.away.attack * input.home.defence
 
-        // Elo tilt: symmetric so that the total number of expected goals is preserved.
+        // Elo tilt: total-preserving redistribution. Exponential factors move
+        // goals between the teams, then the pair is rescaled to the pre-tilt
+        // total, so Elo changes the split, never the total.
         // The weight grows when the fitted strengths rest on very few matches.
         val eloDiff = input.home.elo - input.away.elo
         val blend = effectiveEloBlendWeight(input) * profile.eloBlendScale
         val tilt = (eloDiff / 400.0 * blend).coerceIn(-0.25, 0.25)
-        if (tilt != 0.0) {
-            lambdaHome *= (1.0 + tilt)
-            lambdaAway *= (1.0 - tilt)
+        val totalBeforeTilt = lambdaHome + lambdaAway
+        if (tilt != 0.0 && totalBeforeTilt > 0.0) {
+            val tiltedHome = lambdaHome * exp(tilt)
+            val tiltedAway = lambdaAway * exp(-tilt)
+            val tiltedTotal = tiltedHome + tiltedAway
+            if (tiltedTotal > 0.0 && tiltedTotal.isFinite()) {
+                val scale = totalBeforeTilt / tiltedTotal
+                lambdaHome = tiltedHome * scale
+                lambdaAway = tiltedAway * scale
+            }
         }
 
         // Contextual adjustments (injuries, form, congestion, ...). Each one is bounded.
@@ -140,7 +158,10 @@ class MatchPredictionEngine(private val config: EngineConfig = EngineConfig()) {
 
     fun predictPreMatch(input: PreMatchInput): PredictionResult {
         val (lambdaHome, lambdaAway) = expectedGoals(input)
-        val rho = input.dixonColesRho ?: 0.0
+        // Rho is bounded where it is applied, not only where it is fitted: a direct
+        // caller that passes 1.0 gets the top of the fitted range, and the descriptor
+        // below reports the rho that was actually used.
+        val rho = (input.dixonColesRho ?: 0.0).coerceIn(ScoreMatrix.RHO_MIN, ScoreMatrix.RHO_MAX)
         val matrix = ScoreMatrix(
             homeLambda = lambdaHome,
             awayLambda = lambdaAway,
@@ -200,7 +221,9 @@ class MatchPredictionEngine(private val config: EngineConfig = EngineConfig()) {
             dixonColesEnabled = rho != 0.0,
             rho = rho,
             fittedMatches = input.fittedMatches,
-            eloBlendWeight = input.eloBlendWeight,
+            // The weight actually applied, not the configured base weight:
+            // the effective weight rises toward maxEloBlendWeight when evidence is thin.
+            eloBlendWeight = effectiveEloBlendWeight(input) * input.competition.eloBlendScale,
         )
 
         val explanations = buildPreMatchExplanations(input, normalised.first, normalised.second, normalised.third)
@@ -258,9 +281,14 @@ class MatchPredictionEngine(private val config: EngineConfig = EngineConfig()) {
         // The horizon of a football match is regulation time plus its stoppage time, not
         // ninety minutes. A caller that knows the real figure supplies it; otherwise the
         // configured allowance stands in, so the last minutes are not modelled as if the
-        // whistle were already at the clock.
+        // whistle were already at the clock. A knockout tie adds thirty minutes of extra
+        // time on top: minute 115 of a cup tie is nine minutes of football left, not a
+        // finished match. The stoppage allowance is shared across regulation and extra
+        // time; penalties are not modelled, so once extra time is over the remaining
+        // minutes are zero, which is then correct.
+        val extraTime = if (preMatch.competition.isKnockout) config.extraTimeMinutes else 0
         val addedMinutes = maxOf(input.addedTimeMinutes, config.stoppageTimeAllowanceMinutes)
-        val totalMinutes = (config.matchLengthMinutes + addedMinutes).coerceAtLeast(1)
+        val totalMinutes = (config.matchLengthMinutes + extraTime + addedMinutes).coerceAtLeast(1)
         val minutesPlayed = input.minute.coerceIn(0, totalMinutes)
         val remainingMinutes = totalMinutes - minutesPlayed
         // Share of the *match* still to be played, so that a minute spent is a minute gone
@@ -352,7 +380,8 @@ class MatchPredictionEngine(private val config: EngineConfig = EngineConfig()) {
             dixonColesEnabled = false,
             rho = 0.0,
             fittedMatches = preMatch.fittedMatches,
-            eloBlendWeight = preMatch.eloBlendWeight,
+            // The weight actually applied, not the configured base weight.
+            eloBlendWeight = effectiveEloBlendWeight(preMatch) * preMatch.competition.eloBlendScale,
         )
 
         val explanations = buildLiveExplanations(

@@ -29,7 +29,7 @@ class ScoreMatrix private constructor(
         awayLambda: Double,
         rho: Double = 0.0,
         maxGoals: Int = DEFAULT_MAX_GOALS,
-    ) : this(homeLambda, awayLambda, rho, maxGoals, build(homeLambda, awayLambda, rho, maxGoals))
+    ) : this(homeLambda, awayLambda, rho.coerceIn(RHO_MIN, RHO_MAX), maxGoals, build(homeLambda, awayLambda, rho, maxGoals))
 
     private fun index(homeGoals: Int, awayGoals: Int) = homeGoals * size + awayGoals
 
@@ -178,6 +178,21 @@ class ScoreMatrix private constructor(
         private const val MIN_REGION_MASS = 1e-9
 
         /**
+         * The fitter's rho range, applied here too, so a direct caller cannot smuggle
+         * an out-of-range rho into the low-score correction. The stored `rho` is the
+         * coerced one, so what the matrix reports is what it applied.
+         */
+        const val RHO_MIN = -0.20
+        const val RHO_MAX = 0.20
+
+        /**
+         * Largest tau factor a valid input can produce: 1 + 6.0 * 0.20, the top
+         * lambda the engine ever feeds the matrix at the top rho. Anything larger
+         * comes from an out-of-range input, not from football.
+         */
+        private const val TAU_CAP = 2.2
+
+        /**
          * Corrections at or below this are ignored, mirroring the fitter's `tauFloor`.
          *
          * The floor exists because the tau factor is a multiplier on a cell: near zero it
@@ -191,6 +206,7 @@ class ScoreMatrix private constructor(
             require(awayLambda >= 0.0 && awayLambda.isFinite()) { "awayLambda must be non-negative and finite" }
             require(maxGoals in 2..20) { "maxGoals must be within 2..20" }
             require(rho.isFinite()) { "rho must be finite" }
+            val safeRho = rho.coerceIn(RHO_MIN, RHO_MAX)
 
             val size = maxGoals + 1
             val cells = DoubleArray(size * size)
@@ -199,11 +215,11 @@ class ScoreMatrix private constructor(
                 val pHome = Poisson.pmf(h, homeLambda)
                 for (a in 0..maxGoals) {
                     val factor = when {
-                        rho == 0.0 -> 1.0
-                        h == 0 && a == 0 -> 1.0 - homeLambda * awayLambda * rho
-                        h == 0 && a == 1 -> 1.0 + homeLambda * rho
-                        h == 1 && a == 0 -> 1.0 + awayLambda * rho
-                        h == 1 && a == 1 -> 1.0 - rho
+                        safeRho == 0.0 -> 1.0
+                        h == 0 && a == 0 -> 1.0 - homeLambda * awayLambda * safeRho
+                        h == 0 && a == 1 -> 1.0 + homeLambda * safeRho
+                        h == 1 && a == 0 -> 1.0 + awayLambda * safeRho
+                        h == 1 && a == 1 -> 1.0 - safeRho
                         else -> 1.0
                     }
                     // The same rule the fit uses: a correction at or below this floor is
@@ -211,7 +227,7 @@ class ScoreMatrix private constructor(
                     // discarded anything up to 0.05, the matrix only what fell to zero — so
                     // the model that estimated rho and the model that applied it disagreed
                     // about which scorelines the correction even reached.
-                    val tau = if (factor > TAU_FLOOR) factor else 1.0
+                    val tau = if (factor > TAU_FLOOR) factor.coerceAtMost(TAU_CAP) else 1.0
                     val value = pHome * Poisson.pmf(a, awayLambda) * tau
                     cells[h * size + a] = value
                     sum += value

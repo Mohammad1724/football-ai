@@ -75,6 +75,17 @@ class CalibrationAndCoverageTest {
     }
 
     @Test
+    fun `the documented 400-sample minimum is the real minimum`() {
+        // At 550 samples the holdout is 137 rows: above the 100-row minimum, below
+        // the old 150 — before this fix the fit was refused for want of holdout
+        // samples even though the documented minimum of 400 was met.
+        val model = Calibrator.fit(overconfidentSamples(550, seed = 3))
+        assertTrue(CalibrationSkipReason.NOT_ENOUGH_HOLDOUT_SAMPLES !in model.reasons)
+        assertTrue(model.holdoutCount >= 100)
+        assertTrue(model.isApplied, "a deliberately overconfident model must be corrected")
+    }
+
+    @Test
     fun `a well calibrated model is left untouched`() {
         // Outcomes drawn from the reported probabilities themselves: any correction
         // would be fitting noise, so the calibrator must decline to change anything.
@@ -229,6 +240,46 @@ class CalibrationAndCoverageTest {
         book.add(NationalMatch("IR", "JP", 1, 0, start))
         assertEquals(10, book.daysSinceLastMatch("IR", start + 10 * 86_400_000L))
         assertEquals(null, book.daysSinceLastMatch("ZZ", start))
+    }
+
+    @Test
+    fun `a national team that has not played for years regresses toward the mean`() {
+        val book = NationalTeamRatingBook()
+        val start = 1_600_000_000_000L
+        val day = 86_400_000L
+        book.addAll(
+            listOf(
+                NationalMatch("IR", "JP", 2, 0, start, importance = 1.0),
+                NationalMatch("IR", "JP", 1, 0, start + 30 * day, importance = 1.0),
+            ),
+        )
+        val lastMatch = start + 30 * day
+        // At the final whistle the rating is the earned one; exactly one half-life
+        // (730 days) later it is halfway back to the international mean.
+        val earned = book.rating("IR", lastMatch)
+        val halfLifeLater = book.rating("IR", lastMatch + 730 * day)
+        assertTrue(earned > 1500.0)
+        assertTrue(halfLifeLater > 1500.0)
+        assertEquals(0.5, (halfLifeLater - 1500.0) / (earned - 1500.0), 1e-9)
+    }
+
+    @Test
+    fun `national matches older than the window do not count as goal evidence`() {
+        val book = NationalTeamRatingBook()
+        val start = 1_600_000_000_000L
+        val day = 86_400_000L
+        // Six wins, all of them more than 1800 days old: plenty of history, none of
+        // it recent enough to describe how the team plays now.
+        repeat(6) { i ->
+            book.add(NationalMatch("IR", "JP", 3, 0, start + i * day, importance = 1.0))
+        }
+        val prepared = book.prepare("IR", "JP", start + 2000 * day)
+        assertFalse(prepared.enoughEvidence)
+        assertEquals(1.0, prepared.home.attack, 1e-12)
+        assertEquals(1.0, prepared.away.attack, 1e-12)
+        // The Elo replay still knows the history (regressed, not erased); it is only
+        // the goal-based strength that the window gates.
+        assertTrue(book.rating("IR", start + 2000 * day) > 1500.0)
     }
 
     // ---------------------------------------------------------------- confidence

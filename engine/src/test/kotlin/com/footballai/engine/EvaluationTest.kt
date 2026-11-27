@@ -17,6 +17,66 @@ import kotlin.test.assertTrue
 class EvaluationTest {
 
     @Test
+    fun `the backtest admits a result after 180 minutes, not 120`() {
+        assertEquals(180, BacktestConfig().resultAvailabilityDelayMinutes)
+    }
+
+    @Test
+    fun `an extra-time result does not leak into the prior at 150 minutes`() {
+        val start = 1_700_000_000_000L
+        val day = 86_400_000L
+        val records = ArrayList<HistoricalRecord>()
+        // 60 filler matches, a day apart, so the fit exists — A and B each play
+        // twelve of them, enough to clear the per-team minimum on their own.
+        repeat(60) { i ->
+            val record = when (i % 5) {
+                0 -> HistoricalRecord("f$i", "SYN", "A", "C", 1, 0, start + i * day)
+                1 -> HistoricalRecord("f$i", "SYN", "D", "B", 1, 0, start + i * day)
+                else -> HistoricalRecord(
+                    "f$i", "SYN", "C", "D",
+                    if (i % 2 == 0) 1 else 0, if (i % 2 == 0) 0 else 1,
+                    start + i * day,
+                )
+            }
+            records.add(record)
+        }
+        // A 5-0 home win that runs to extra time: it kicks off 150 minutes before
+        // the next fixture, so it is still being played when that fixture is predicted.
+        val extraTimeKickoff = start + 60 * day
+        records.add(
+            HistoricalRecord(
+                matchId = "x",
+                competitionId = "SYN",
+                homeTeamId = "A",
+                awayTeamId = "B",
+                homeGoals = 5,
+                awayGoals = 0,
+                kickoffEpochMs = extraTimeKickoff,
+            ),
+        )
+        records.add(
+            HistoricalRecord(
+                matchId = "y",
+                competitionId = "SYN",
+                homeTeamId = "A",
+                awayTeamId = "B",
+                homeGoals = 1,
+                awayGoals = 0,
+                kickoffEpochMs = extraTimeKickoff + 150 * 60_000L,
+            ),
+        )
+        val at120 = Backtester(
+            BacktestConfig(refitEveryMatches = 1, resultAvailabilityDelayMinutes = 120),
+        ).samples(records).first { it.matchId == "y" }
+        val at180 = Backtester(
+            BacktestConfig(refitEveryMatches = 1, resultAvailabilityDelayMinutes = 180),
+        ).samples(records).first { it.matchId == "y" }
+        // At 120 the 5-0 is already in the prior and lifts A's attack; at 180 it is
+        // still on the pitch and the forecast must not know about it.
+        assertTrue(at120.homeWin > at180.homeWin + 1e-6)
+    }
+
+    @Test
     fun `perfect predictions have zero brier and log loss`() {
         val samples = List(10) { OutcomeSample(1.0, 0.0, 0.0, MatchOutcome.HOME_WIN) }
         assertEquals(0.0, Metrics.brier1x2(samples), 1e-12)

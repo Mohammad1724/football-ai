@@ -1,5 +1,7 @@
 package com.footballai.engine
 
+import com.footballai.engine.model.CompetitionProfile
+import com.footballai.engine.model.CompetitionType
 import com.footballai.engine.model.DataQuality
 import com.footballai.engine.model.DataQualityLevel
 import com.footballai.engine.model.LeagueBaseline
@@ -81,6 +83,52 @@ class PredictionEngineTest {
         )
         assertEquals(1.5 * 1.3 * 1.1, result.expectedHomeGoals, 1e-6)
         assertEquals(1.15 * 1.1 * 0.9, result.expectedAwayGoals, 1e-6)
+    }
+
+    @Test
+    fun `elo tilt preserves total expected goals`() {
+        // Baseline lambdas with equal Elo: 1.5 * 1.3 * 1.1 = 2.145 home,
+        // 1.15 * 1.1 * 0.9 = 1.1385 away, total 3.2835. A 400-point Elo gap
+        // at the base weight 0.15 gives tilt 0.15; the old (1 ± tilt) form
+        // moved the total to 3.2835 + 0.15 * (2.145 - 1.1385) = 3.4345.
+        val untilted = engine.predictPreMatch(
+            input(homeAttack = 1.3, awayAttack = 1.1, homeDefence = 0.9, awayDefence = 1.1, homeElo = 1500.0, awayElo = 1500.0),
+        )
+        val total = untilted.expectedHomeGoals + untilted.expectedAwayGoals
+        val tiltedHome = engine.predictPreMatch(
+            input(homeAttack = 1.3, awayAttack = 1.1, homeDefence = 0.9, awayDefence = 1.1, homeElo = 1900.0, awayElo = 1500.0),
+        )
+        val tiltedAway = engine.predictPreMatch(
+            input(homeAttack = 1.3, awayAttack = 1.1, homeDefence = 0.9, awayDefence = 1.1, homeElo = 1100.0, awayElo = 1500.0),
+        )
+        assertEquals(total, tiltedHome.expectedHomeGoals + tiltedHome.expectedAwayGoals, 1e-9)
+        assertEquals(total, tiltedAway.expectedHomeGoals + tiltedAway.expectedAwayGoals, 1e-9)
+        assertTrue(tiltedHome.expectedHomeGoals > untilted.expectedHomeGoals)
+        assertTrue(tiltedHome.expectedAwayGoals < untilted.expectedAwayGoals)
+    }
+
+    @Test
+    fun `descriptor reports the effective elo weight not the base weight`() {
+        // Thin evidence (0 matches): effective weight rises to the 0.40 ceiling.
+        val thin = PreMatchInput(
+            home = TeamStrength("H", 1.0, 1.0, 1620.0, 0),
+            away = TeamStrength("A", 1.0, 1.0, 1380.0, 0),
+            baseline = LeagueBaseline(1.5, 1.15, 120),
+            quality = quality(),
+            asOfEpochMs = 1_700_000_000_000L,
+        )
+        assertEquals(0.40, engine.predictPreMatch(thin).model.eloBlendWeight, 1e-9)
+        // Thick evidence (25 matches): effective weight is the base 0.15.
+        val thick = thin.copy(
+            home = TeamStrength("H", 1.0, 1.0, 1620.0, 25),
+            away = TeamStrength("A", 1.0, 1.0, 1380.0, 25),
+        )
+        assertEquals(0.15, engine.predictPreMatch(thick).model.eloBlendWeight, 1e-9)
+        // Friendly, thin evidence: 0.40 * 0.8 competition scale = 0.32.
+        val friendly = thin.copy(
+            competition = CompetitionProfile.of(CompetitionType.INTERNATIONAL_FRIENDLY),
+        )
+        assertEquals(0.32, engine.predictPreMatch(friendly).model.eloBlendWeight, 1e-9)
     }
 
     @Test
@@ -168,6 +216,62 @@ class PredictionEngineTest {
         assertEquals(0, context.remainingMinutes)
         assertTrue(live.markets.draw > 0.85, "with no time left the drawn scoreline dominates")
         assertTrue(live.markets.homeWin + live.markets.awayWin < 0.15)
+    }
+
+    @Test
+        fun `an out of range rho is clamped where it is applied`() {
+        val wild = engine.predictPreMatch(input().copy(dixonColesRho = 1.0))
+        val bounded = engine.predictPreMatch(input().copy(dixonColesRho = 0.2))
+        // The descriptor reports the rho that was actually used.
+        assertEquals(0.2, wild.model.rho, 1e-12)
+        assertEquals(bounded.markets.homeWin, wild.markets.homeWin, 1e-12)
+        assertEquals(bounded.markets.draw, wild.markets.draw, 1e-12)
+        assertEquals(bounded.markets.awayWin, wild.markets.awayWin, 1e-12)
+        }
+
+    @Test
+    fun `a knockout tie in extra time still has football left to play`() {
+        val knockout = input().copy(
+            competition = CompetitionProfile(type = CompetitionType.CLUB_KNOCKOUT),
+        )
+        val live = engine.predictLive(
+            LiveInput(preMatch = knockout, minute = 115, homeGoals = 1, awayGoals = 1),
+        )
+        val context = assertNotNull(live.live)
+        // 90 regulation + 30 extra time + 4 stoppage: nine minutes remain.
+        // Before this, minute 115 clamped to 94 with zero remaining and the match
+        // was modelled as finished.
+        assertEquals(115, context.minute)
+        assertEquals(9, context.remainingMinutes)
+        assertTrue(live.expectedHomeGoals > 0.0 && live.expectedAwayGoals > 0.0)
+        assertTrue(live.markets.draw < 0.85, "with nine minutes left the draw is not decided")
+    }
+
+    @Test
+    fun `a knockout tie at the end of regulation goes to extra time, not to the whistle`() {
+        val knockout = input().copy(
+            competition = CompetitionProfile(type = CompetitionType.CLUB_KNOCKOUT),
+        )
+        val live = engine.predictLive(
+            LiveInput(preMatch = knockout, minute = 94, homeGoals = 1, awayGoals = 1),
+        )
+        val context = assertNotNull(live.live)
+        assertEquals(94, context.minute)
+        assertEquals(30, context.remainingMinutes)
+    }
+
+    @Test
+    fun `extra time ending in a draw has no goals left`() {
+        val knockout = input().copy(
+            competition = CompetitionProfile(type = CompetitionType.CLUB_KNOCKOUT),
+        )
+        val live = engine.predictLive(
+            LiveInput(preMatch = knockout, minute = 130, homeGoals = 1, awayGoals = 1),
+        )
+        val context = assertNotNull(live.live)
+        // 90 + 30 + 4 = 124: minute 130 clamps to the end of extra time.
+        assertEquals(124, context.minute)
+        assertEquals(0, context.remainingMinutes)
     }
 
     @Test
