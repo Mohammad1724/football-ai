@@ -7,6 +7,7 @@ import android.content.res.Configuration
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.viewModels
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
@@ -15,45 +16,42 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.core.view.WindowCompat
-import androidx.lifecycle.lifecycleScope
-import com.footballai.app.data.settings.AppLanguage
-import com.footballai.app.data.settings.AppSettings
-import com.footballai.app.data.settings.ThemeMode
-import com.footballai.app.data.sync.SyncTrigger
-import com.footballai.app.ui.LocalAppContainer
-import com.footballai.app.ui.LocalLanguageTag
-import com.footballai.app.ui.navigation.FootballAiApp
-import com.footballai.app.ui.theme.FootballAiTheme
+import com.footballai.app.v2.V2ViewModel
+import com.footballai.app.v2.data.V2ThemeMode
+import com.footballai.app.v2.theme.FootballAiV2Theme
+import com.footballai.app.v2.ui.V2App
 import java.util.Locale
-import kotlinx.coroutines.launch
 
+/**
+ * Entry point of the rewritten app (v2 shell). The old UI/data layer still
+ * exists in the repo but is no longer wired to anything; it is removed in a
+ * later slice.
+ *
+ * The rewrite is Persian-first: the content context is wrapped in the fa
+ * locale and the layout direction is pinned to RTL, independent of the
+ * device language.
+ */
 class MainActivity : ComponentActivity() {
+
+    private val v2ViewModel: V2ViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val container = (application as FootballAiApplication).container
 
         setContent {
-            val settings by container.settingsRepository.settings
-                .collectAsState(initial = AppSettings())
-            val languageTag = when (settings.language) {
-                AppLanguage.SYSTEM -> Locale.getDefault().toLanguageTag()
-                AppLanguage.PERSIAN -> "fa"
-                AppLanguage.ENGLISH -> "en"
-            }
+            val settings by v2ViewModel.settings.collectAsState()
             val darkTheme = when (settings.themeMode) {
-                ThemeMode.SYSTEM -> isSystemInDarkTheme()
-                ThemeMode.LIGHT -> false
-                ThemeMode.DARK -> true
+                V2ThemeMode.AUTO -> isSystemInDarkTheme()
+                V2ThemeMode.DAY -> false
+                V2ThemeMode.NIGHT -> true
             }
 
-            // The clock and the battery in the status bar are drawn by the system, not by
-            // this app, so they do not follow the in-app theme on their own. With a
-            // transparent status bar and a dark app theme on a light phone the icons stayed
-            // dark-on-dark and disappeared; the theme switch has to tell the system which
-            // way to draw them.
+            // The status-bar icons are drawn by the system, not the app, so
+            // the theme has to tell the system which way to draw them.
             val view = LocalView.current
             if (!view.isInEditMode) {
                 SideEffect {
@@ -66,45 +64,32 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            // Layout direction alone is not enough: stringResource() reads the resources of
-            // the local Context, so the in-app language is applied by wrapping the content
-            // in a Context with the requested locale. That keeps the activity alive (no
-            // recreation) while every resource string switches language.
             val baseContext = LocalContext.current
-            val localizedContext = remember(baseContext, languageTag) {
-                baseContext.withLocale(languageTag)
-            }
-            val localizedConfiguration = remember(localizedContext) {
-                localizedContext.resources.configuration
+            val persianContext = remember(baseContext) { baseContext.withLocale("fa") }
+            val persianConfiguration = remember(persianContext) {
+                persianContext.resources.configuration
             }
 
             CompositionLocalProvider(
-                LocalAppContainer provides container,
-                LocalLanguageTag provides languageTag,
-                LocalContext provides localizedContext,
-                LocalConfiguration provides localizedConfiguration,
+                LocalContext provides persianContext,
+                LocalConfiguration provides persianConfiguration,
+                LocalLayoutDirection provides LayoutDirection.Rtl,
             ) {
-                FootballAiTheme(darkTheme = darkTheme, languageTag = languageTag) {
-                    FootballAiApp()
+                FootballAiV2Theme(darkTheme = darkTheme) {
+                    V2App(viewModel = v2ViewModel)
                 }
             }
         }
     }
 
     /**
-     * Refresh on entering the app, but only when there is a reason.
-     *
-     * onStart covers both a cold launch and a return from the background (a phone in a
-     * pocket for two hours must not show yesterday's fixtures). The coordinator decides
-     * whether anything is actually stale, so this costs nothing when the data is current,
-     * and it is a no-op while another sync is already running.
+     * Refresh the mirror data on entering the app, but only when it is
+     * stale — the repository decides, so a quick return costs nothing and
+     * opening the app never waits on the network.
      */
     override fun onStart() {
         super.onStart()
-        val container = (application as FootballAiApplication).container
-        lifecycleScope.launch {
-            container.autoSyncCoordinator.syncIfStale(SyncTrigger.RESUME)
-        }
+        v2ViewModel.onAppStart()
     }
 
     /** The Compose view's context is wrapped once per locale, so the activity is not direct. */

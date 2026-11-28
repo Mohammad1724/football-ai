@@ -1,0 +1,3979 @@
+{
+ "contractVersion": 2,
+ "league": {
+  "slug": "la-liga",
+  "fotmobId": 87,
+  "name": "La Liga",
+  "country": "ESP",
+  "season": "2026/2027"
+ },
+ "generatedAt": "2026-11-28T10:59:13Z",
+ "window": {
+  "from": "2026-11-25",
+  "to": "2026-12-05"
+ },
+ "features": {
+  "xg": true,
+  "availability": true,
+  "lineups": true,
+  "formationsPublished": true
+ },
+ "fixtures": [
+  {
+   "id": 5868146,
+   "kickoffUtc": "2026-11-27T20:00:00Z",
+   "status": "finished",
+   "round": null,
+   "home": {
+    "teamId": "8581",
+    "name": "Levante",
+    "shortName": "Levante"
+   },
+   "away": {
+    "teamId": "8696",
+    "name": "Racing Santander",
+    "shortName": "Racing Santander"
+   },
+   "homeScore": 1,
+   "awayScore": 3,
+   "minute": null
+  },
+  {
+   "id": 5868141,
+   "kickoffUtc": "2026-11-28T13:00:00.000Z",
+   "status": "upcoming",
+   "round": null,
+   "home": {
+    "teamId": "8603",
+    "name": "Real Betis",
+    "shortName": "Real Betis"
+   },
+   "away": {
+    "teamId": "8370",
+    "name": "Rayo Vallecano",
+    "shortName": "Rayo Vallecano"
+   },
+   "homeScore": null,
+   "awayScore": null,
+   "minute": null
+  },
+  {
+   "id": 5868147,
+   "kickoffUtc": "2026-11-28T15:15:00.000Z",
+   "status": "upcoming",
+   "round": null,
+   "home": {
+    "teamId": "9864",
+    "name": "Málaga",
+    "shortName": "Málaga"
+   },
+   "away": {
+    "teamId": "8315",
+    "name": "Athletic Club",
+    "shortName": "Athletic Club"
+   },
+   "homeScore": null,
+   "awayScore": null,
+   "minute": null
+  },
+  {
+   "id": 5868144,
+   "kickoffUtc": "2026-11-28T17:30:00.000Z",
+   "status": "upcoming",
+   "round": null,
+   "home": {
+    "teamId": "10268",
+    "name": "Elche",
+    "shortName": "Elche"
+   },
+   "away": {
+    "teamId": "9906",
+    "name": "Atlético Madrid",
+    "shortName": "Atlético Madrid"
+   },
+   "homeScore": null,
+   "awayScore": null,
+   "minute": null
+  },
+  {
+   "id": 5868148,
+   "kickoffUtc": "2026-11-28T20:00:00.000Z",
+   "status": "upcoming",
+   "round": null,
+   "home": {
+    "teamId": "8633",
+    "name": "Real Madrid",
+    "shortName": "Real Madrid"
+   },
+   "away": {
+    "teamId": "9866",
+    "name": "Deportivo Alavés",
+    "shortName": "Deportivo Alavés"
+   },
+   "homeScore": null,
+   "awayScore": null,
+   "minute": null
+  },
+  {
+   "id": 5868150,
+   "kickoffUtc": "2026-11-29T13:00:00Z",
+   "status": "upcoming",
+   "round": null,
+   "home": {
+    "teamId": "10267",
+    "name": "Valencia",
+    "shortName": "Valencia"
+   },
+   "away": {
+    "teamId": "8371",
+    "name": "Osasuna",
+    "shortName": "Osasuna"
+   },
+   "homeScore": null,
+   "awayScore": null,
+   "minute": null
+  },
+  {
+   "id": 5868143,
+   "kickoffUtc": "2026-11-29T15:15:00Z",
+   "status": "upcoming",
+   "round": null,
+   "home": {
+    "teamId": "9783",
+    "name": "Deportivo A Coruña",
+    "shortName": "Deportivo A Coruña"
+   },
+   "away": {
+    "teamId": "8634",
+    "name": "Barcelona",
+    "shortName": "Barcelona"
+   },
+   "homeScore": null,
+   "awayScore": null,
+   "minute": null
+  },
+  {
+   "id": 5868142,
+   "kickoffUtc": "2026-11-29T17:30:00Z",
+   "status": "upcoming",
+   "round": null,
+   "home": {
+    "teamId": "9910",
+    "name": "Celta Vigo",
+    "shortName": "Celta Vigo"
+   },
+   "away": {
+    "teamId": "10205",
+    "name": "Villarreal",
+    "shortName": "Villarreal"
+   },
+   "homeScore": null,
+   "awayScore": null,
+   "minute": null
+  },
+  {
+   "id": 5868149,
+   "kickoffUtc": "2026-11-29T20:00:00Z",
+   "status": "upcoming",
+   "round": null,
+   "home": {
+    "teamId": "8560",
+    "name": "Real Sociedad",
+    "shortName": "Real Sociedad"
+   },
+   "away": {
+    "teamId": "8302",
+    "name": "Sevilla",
+    "shortName": "Sevilla"
+   },
+   "homeScore": null,
+   "awayScore": null,
+   "minute": null
+  },
+  {
+   "id": 5868145,
+   "kickoffUtc": "2026-11-30T20:00:00Z",
+   "status": "upcoming",
+   "round": null,
+   "home": {
+    "teamId": "8558",
+    "name": "Espanyol",
+    "shortName": "Espanyol"
+   },
+   "away": {
+    "teamId": "8305",
+    "name": "Getafe",
+    "shortName": "Getafe"
+   },
+   "homeScore": null,
+   "awayScore": null,
+   "minute": null
+  },
+  {
+   "id": 5868239,
+   "kickoffUtc": "2026-12-02T18:00:00Z",
+   "status": "upcoming",
+   "round": null,
+   "home": {
+    "teamId": "8560",
+    "name": "Real Sociedad",
+    "shortName": "Real Sociedad"
+   },
+   "away": {
+    "teamId": "8633",
+    "name": "Real Madrid",
+    "shortName": "Real Madrid"
+   },
+   "homeScore": null,
+   "awayScore": null,
+   "minute": null
+  },
+  {
+   "id": 5868237,
+   "kickoffUtc": "2026-12-02T20:30:00Z",
+   "status": "upcoming",
+   "round": null,
+   "home": {
+    "teamId": "8634",
+    "name": "Barcelona",
+    "shortName": "Barcelona"
+   },
+   "away": {
+    "teamId": "9906",
+    "name": "Atlético Madrid",
+    "shortName": "Atlético Madrid"
+   },
+   "homeScore": null,
+   "awayScore": null,
+   "minute": null
+  },
+  {
+   "id": 5868151,
+   "kickoffUtc": "2026-12-04T20:00:00Z",
+   "status": "upcoming",
+   "round": null,
+   "home": {
+    "teamId": "9866",
+    "name": "Deportivo Alavés",
+    "shortName": "Deportivo Alavés"
+   },
+   "away": {
+    "teamId": "8558",
+    "name": "Espanyol",
+    "shortName": "Espanyol"
+   },
+   "homeScore": null,
+   "awayScore": null,
+   "minute": null
+  },
+  {
+   "id": 5868157,
+   "kickoffUtc": "2026-12-05T13:00:00Z",
+   "status": "upcoming",
+   "round": null,
+   "home": {
+    "teamId": "8696",
+    "name": "Racing Santander",
+    "shortName": "Racing Santander"
+   },
+   "away": {
+    "teamId": "9783",
+    "name": "Deportivo A Coruña",
+    "shortName": "Deportivo A Coruña"
+   },
+   "homeScore": null,
+   "awayScore": null,
+   "minute": null
+  },
+  {
+   "id": 5868158,
+   "kickoffUtc": "2026-12-05T15:15:00Z",
+   "status": "upcoming",
+   "round": null,
+   "home": {
+    "teamId": "8370",
+    "name": "Rayo Vallecano",
+    "shortName": "Rayo Vallecano"
+   },
+   "away": {
+    "teamId": "8581",
+    "name": "Levante",
+    "shortName": "Levante"
+   },
+   "homeScore": null,
+   "awayScore": null,
+   "minute": null
+  },
+  {
+   "id": 5868160,
+   "kickoffUtc": "2026-12-05T17:30:00Z",
+   "status": "upcoming",
+   "round": null,
+   "home": {
+    "teamId": "10205",
+    "name": "Villarreal",
+    "shortName": "Villarreal"
+   },
+   "away": {
+    "teamId": "8560",
+    "name": "Real Sociedad",
+    "shortName": "Real Sociedad"
+   },
+   "homeScore": null,
+   "awayScore": null,
+   "minute": null
+  },
+  {
+   "id": 5868154,
+   "kickoffUtc": "2026-12-05T20:00:00Z",
+   "status": "upcoming",
+   "round": null,
+   "home": {
+    "teamId": "8634",
+    "name": "Barcelona",
+    "shortName": "Barcelona"
+   },
+   "away": {
+    "teamId": "9910",
+    "name": "Celta Vigo",
+    "shortName": "Celta Vigo"
+   },
+   "homeScore": null,
+   "awayScore": null,
+   "minute": null
+  }
+ ],
+ "table": [
+  {
+   "position": 1,
+   "teamId": 8634,
+   "name": "Barcelona",
+   "played": 13,
+   "won": 12,
+   "drawn": 0,
+   "lost": 1,
+   "goalsFor": 51,
+   "goalsAgainst": 15,
+   "goalDifference": 36,
+   "points": 36
+  },
+  {
+   "position": 2,
+   "teamId": 8633,
+   "name": "Real Madrid",
+   "played": 13,
+   "won": 11,
+   "drawn": 0,
+   "lost": 2,
+   "goalsFor": 33,
+   "goalsAgainst": 11,
+   "goalDifference": 22,
+   "points": 33
+  },
+  {
+   "position": 3,
+   "teamId": 9906,
+   "name": "Atlético Madrid",
+   "played": 13,
+   "won": 10,
+   "drawn": 1,
+   "lost": 2,
+   "goalsFor": 26,
+   "goalsAgainst": 10,
+   "goalDifference": 16,
+   "points": 31
+  },
+  {
+   "position": 4,
+   "teamId": 8603,
+   "name": "Real Betis",
+   "played": 13,
+   "won": 8,
+   "drawn": 3,
+   "lost": 2,
+   "goalsFor": 21,
+   "goalsAgainst": 16,
+   "goalDifference": 5,
+   "points": 27
+  },
+  {
+   "position": 5,
+   "teamId": 8560,
+   "name": "Real Sociedad",
+   "played": 13,
+   "won": 7,
+   "drawn": 1,
+   "lost": 5,
+   "goalsFor": 23,
+   "goalsAgainst": 23,
+   "goalDifference": 0,
+   "points": 22
+  },
+  {
+   "position": 6,
+   "teamId": 8696,
+   "name": "Racing Santander",
+   "played": 14,
+   "won": 6,
+   "drawn": 2,
+   "lost": 6,
+   "goalsFor": 23,
+   "goalsAgainst": 33,
+   "goalDifference": -10,
+   "points": 20
+  },
+  {
+   "position": 7,
+   "teamId": 8302,
+   "name": "Sevilla",
+   "played": 13,
+   "won": 5,
+   "drawn": 4,
+   "lost": 4,
+   "goalsFor": 18,
+   "goalsAgainst": 20,
+   "goalDifference": -2,
+   "points": 19
+  },
+  {
+   "position": 8,
+   "teamId": 8315,
+   "name": "Athletic Club",
+   "played": 12,
+   "won": 4,
+   "drawn": 4,
+   "lost": 4,
+   "goalsFor": 15,
+   "goalsAgainst": 12,
+   "goalDifference": 3,
+   "points": 16
+  },
+  {
+   "position": 9,
+   "teamId": 9866,
+   "name": "Deportivo Alavés",
+   "played": 13,
+   "won": 4,
+   "drawn": 4,
+   "lost": 5,
+   "goalsFor": 18,
+   "goalsAgainst": 18,
+   "goalDifference": 0,
+   "points": 16
+  },
+  {
+   "position": 10,
+   "teamId": 10205,
+   "name": "Villarreal",
+   "played": 13,
+   "won": 4,
+   "drawn": 3,
+   "lost": 6,
+   "goalsFor": 19,
+   "goalsAgainst": 18,
+   "goalDifference": 1,
+   "points": 15
+  },
+  {
+   "position": 11,
+   "teamId": 8558,
+   "name": "Espanyol",
+   "played": 13,
+   "won": 4,
+   "drawn": 3,
+   "lost": 6,
+   "goalsFor": 14,
+   "goalsAgainst": 14,
+   "goalDifference": 0,
+   "points": 15
+  },
+  {
+   "position": 12,
+   "teamId": 9783,
+   "name": "Deportivo A Coruña",
+   "played": 13,
+   "won": 3,
+   "drawn": 6,
+   "lost": 4,
+   "goalsFor": 16,
+   "goalsAgainst": 17,
+   "goalDifference": -1,
+   "points": 15
+  },
+  {
+   "position": 13,
+   "teamId": 8371,
+   "name": "Osasuna",
+   "played": 13,
+   "won": 4,
+   "drawn": 3,
+   "lost": 6,
+   "goalsFor": 13,
+   "goalsAgainst": 23,
+   "goalDifference": -10,
+   "points": 15
+  },
+  {
+   "position": 14,
+   "teamId": 9910,
+   "name": "Celta Vigo",
+   "played": 13,
+   "won": 2,
+   "drawn": 7,
+   "lost": 4,
+   "goalsFor": 11,
+   "goalsAgainst": 12,
+   "goalDifference": -1,
+   "points": 13
+  },
+  {
+   "position": 15,
+   "teamId": 8581,
+   "name": "Levante",
+   "played": 14,
+   "won": 2,
+   "drawn": 6,
+   "lost": 6,
+   "goalsFor": 18,
+   "goalsAgainst": 25,
+   "goalDifference": -7,
+   "points": 12
+  },
+  {
+   "position": 16,
+   "teamId": 8370,
+   "name": "Rayo Vallecano",
+   "played": 12,
+   "won": 3,
+   "drawn": 3,
+   "lost": 6,
+   "goalsFor": 15,
+   "goalsAgainst": 22,
+   "goalDifference": -7,
+   "points": 12
+  },
+  {
+   "position": 17,
+   "teamId": 10267,
+   "name": "Valencia",
+   "played": 13,
+   "won": 3,
+   "drawn": 3,
+   "lost": 7,
+   "goalsFor": 9,
+   "goalsAgainst": 20,
+   "goalDifference": -11,
+   "points": 12
+  },
+  {
+   "position": 18,
+   "teamId": 8305,
+   "name": "Getafe",
+   "played": 13,
+   "won": 3,
+   "drawn": 3,
+   "lost": 7,
+   "goalsFor": 8,
+   "goalsAgainst": 21,
+   "goalDifference": -13,
+   "points": 12
+  },
+  {
+   "position": 19,
+   "teamId": 10268,
+   "name": "Elche",
+   "played": 13,
+   "won": 2,
+   "drawn": 5,
+   "lost": 6,
+   "goalsFor": 15,
+   "goalsAgainst": 21,
+   "goalDifference": -6,
+   "points": 11
+  },
+  {
+   "position": 20,
+   "teamId": 9864,
+   "name": "Málaga",
+   "played": 13,
+   "won": 0,
+   "drawn": 5,
+   "lost": 8,
+   "goalsFor": 9,
+   "goalsAgainst": 24,
+   "goalDifference": -15,
+   "points": 5
+  }
+ ],
+ "details": {
+  "5868146": {
+   "matchId": 5868146,
+   "homeXg": 1.38,
+   "awayXg": 1.79,
+   "lineups": {
+    "home": {
+     "formation": "4-3-3",
+     "formationSource": "fotmob",
+     "coach": "Luís Castro",
+     "starters": [
+      {
+       "playerId": 185644,
+       "name": "Mathew Ryan",
+       "shirtNumber": "13",
+       "positionId": 0
+      },
+      {
+       "playerId": 1800611,
+       "name": "Nacho Pérez",
+       "shirtNumber": "29",
+       "positionId": 1
+      },
+      {
+       "playerId": 952528,
+       "name": "Adrián De La Fuente",
+       "shirtNumber": "4",
+       "positionId": 1
+      },
+      {
+       "playerId": 210683,
+       "name": "Aïssa Mandi",
+       "shirtNumber": "2",
+       "positionId": 1
+      },
+      {
+       "playerId": 2141146,
+       "name": "Marc Santos",
+       "shirtNumber": "33",
+       "positionId": 1
+      },
+      {
+       "playerId": 1131957,
+       "name": "Jon Olasagasti",
+       "shirtNumber": "8",
+       "positionId": 2
+      },
+      {
+       "playerId": 914401,
+       "name": "Oriol Rey",
+       "shirtNumber": "20",
+       "positionId": 2
+      },
+      {
+       "playerId": 1481503,
+       "name": "Dani Requena",
+       "shirtNumber": "6",
+       "positionId": 2
+      },
+      {
+       "playerId": 977618,
+       "name": "Víctor García",
+       "shirtNumber": "17",
+       "positionId": 3
+      },
+      {
+       "playerId": 1209441,
+       "name": "Iván Romero",
+       "shirtNumber": "9",
+       "positionId": 3
+      },
+      {
+       "playerId": 1460063,
+       "name": "Thiago Fernández",
+       "shirtNumber": "24",
+       "positionId": 3
+      }
+     ],
+     "substitutes": [
+      {
+       "playerId": 1332540,
+       "name": "Enzo Bardeli",
+       "shirtNumber": "18",
+       "positionId": 2
+      },
+      {
+       "playerId": 1392779,
+       "name": "Etta Eyong",
+       "shirtNumber": "21",
+       "positionId": 3
+      },
+      {
+       "playerId": 1286471,
+       "name": "Roger Brugué",
+       "shirtNumber": "7",
+       "positionId": 3
+      },
+      {
+       "playerId": 1836083,
+       "name": "Yanis Musuayi",
+       "shirtNumber": "11",
+       "positionId": 3
+      },
+      {
+       "playerId": 1366374,
+       "name": "Álex Primo",
+       "shirtNumber": "32",
+       "positionId": 0
+      },
+      {
+       "playerId": 1237455,
+       "name": "Pablo Campos",
+       "shirtNumber": "1",
+       "positionId": 0
+      },
+      {
+       "playerId": 1780239,
+       "name": "Ifeanyi Ndukwe",
+       "shirtNumber": "3",
+       "positionId": 1
+      },
+      {
+       "playerId": 1617146,
+       "name": "Jorge Cabello",
+       "shirtNumber": "14",
+       "positionId": 1
+      },
+      {
+       "playerId": 1695701,
+       "name": "Axel Tape",
+       "shirtNumber": "16",
+       "positionId": 2
+      },
+      {
+       "playerId": 1254218,
+       "name": "Hugo Sotelo",
+       "shirtNumber": "5",
+       "positionId": 2
+      },
+      {
+       "playerId": 2141152,
+       "name": "Manel Usedo",
+       "shirtNumber": "34",
+       "positionId": 2
+      },
+      {
+       "playerId": 1649293,
+       "name": "Paco Cortés",
+       "shirtNumber": "27",
+       "positionId": 3
+      }
+     ]
+    },
+    "away": {
+     "formation": "4-2-3-1",
+     "formationSource": "fotmob",
+     "coach": "José López",
+     "starters": [
+      {
+       "playerId": 1280020,
+       "name": "Julen Agirrezabala",
+       "shirtNumber": "13",
+       "positionId": 0
+      },
+      {
+       "playerId": 982734,
+       "name": "Pablo Ramón",
+       "shirtNumber": "5",
+       "positionId": 1
+      },
+      {
+       "playerId": 1644302,
+       "name": "Pedro Felipe",
+       "shirtNumber": "22",
+       "positionId": 1
+      },
+      {
+       "playerId": 1329406,
+       "name": "Jeanuël Belocian",
+       "shirtNumber": "24",
+       "positionId": 1
+      },
+      {
+       "playerId": 1670161,
+       "name": "Jorge Salinas",
+       "shirtNumber": "17",
+       "positionId": 1
+      },
+      {
+       "playerId": 967871,
+       "name": "Iván Martín",
+       "shirtNumber": "23",
+       "positionId": 2
+      },
+      {
+       "playerId": 1396089,
+       "name": "Matteo Prati",
+       "shirtNumber": "18",
+       "positionId": 2
+      },
+      {
+       "playerId": 1586390,
+       "name": "Iker Luque",
+       "shirtNumber": "19",
+       "positionId": 3
+      },
+      {
+       "playerId": 150649,
+       "name": "Sergio Canales",
+       "shirtNumber": "20",
+       "positionId": 2
+      },
+      {
+       "playerId": 889229,
+       "name": "Iñigo Vicente",
+       "shirtNumber": "10",
+       "positionId": 3
+      },
+      {
+       "playerId": 1640985,
+       "name": "Yassir Zabiri",
+       "shirtNumber": "21",
+       "positionId": 3
+      }
+     ],
+     "substitutes": [
+      {
+       "playerId": 777028,
+       "name": "André Almeida",
+       "shirtNumber": "8",
+       "positionId": 2
+      },
+      {
+       "playerId": 2156233,
+       "name": "Hugo Pérez",
+       "shirtNumber": "38",
+       "positionId": 3
+      },
+      {
+       "playerId": 1662379,
+       "name": "Pablo García",
+       "shirtNumber": "15",
+       "positionId": 3
+      },
+      {
+       "playerId": 670031,
+       "name": "Asier Villalibre",
+       "shirtNumber": "12",
+       "positionId": 3
+      },
+      {
+       "playerId": 1938902,
+       "name": "Andrés Vallecillo",
+       "shirtNumber": "29",
+       "positionId": 2
+      },
+      {
+       "playerId": 1441736,
+       "name": "Simon Eriksson",
+       "shirtNumber": "1",
+       "positionId": 0
+      },
+      {
+       "playerId": 1212179,
+       "name": "Facundo González",
+       "shirtNumber": "16",
+       "positionId": 1
+      },
+      {
+       "playerId": 863169,
+       "name": "Manu",
+       "shirtNumber": "4",
+       "positionId": 1
+      },
+      {
+       "playerId": 684981,
+       "name": "Aarón Martín",
+       "shirtNumber": "3",
+       "positionId": 2
+      },
+      {
+       "playerId": 1168852,
+       "name": "Íñigo Sainz-Maza",
+       "shirtNumber": "6",
+       "positionId": 2
+      },
+      {
+       "playerId": 1065640,
+       "name": "Giorgi Guliashvili",
+       "shirtNumber": "7",
+       "positionId": 3
+      },
+      {
+       "playerId": 1225417,
+       "name": "Juan Carlos Arana",
+       "shirtNumber": "9",
+       "positionId": 3
+      }
+     ]
+    }
+   },
+   "unavailable": {
+    "home": [
+     {
+      "playerId": 443966,
+      "name": "Jeremy Toljan",
+      "reason": null
+     },
+     {
+      "playerId": 1052330,
+      "name": "Manuel Sánchez",
+      "reason": null
+     },
+     {
+      "playerId": 1302821,
+      "name": "Petar Ratkov",
+      "reason": null
+     }
+    ],
+    "away": [
+     {
+      "playerId": 1199649,
+      "name": "Álvaro Mantilla",
+      "reason": null
+     },
+     {
+      "playerId": 1363232,
+      "name": "Maguette Gueye",
+      "reason": null
+     },
+     {
+      "playerId": 899195,
+      "name": "Andrés Martín",
+      "reason": null
+     }
+    ]
+   },
+   "events": [
+    {
+     "minute": 25,
+     "type": "yellow_card",
+     "team": "away",
+     "player": "Pedro Felipe",
+     "assist": null,
+     "homeScore": 0,
+     "awayScore": 0
+    },
+    {
+     "minute": 42,
+     "type": "goal",
+     "team": "home",
+     "player": "Iván Romero",
+     "assist": "assist by Oriol Rey",
+     "homeScore": 1,
+     "awayScore": 0
+    },
+    {
+     "minute": 45,
+     "type": "addedtime",
+     "team": "away",
+     "player": null,
+     "assist": null,
+     "homeScore": 1,
+     "awayScore": 0
+    },
+    {
+     "minute": 50,
+     "type": "substitution",
+     "team": "home",
+     "player": null,
+     "assist": null,
+     "homeScore": 1,
+     "awayScore": 0
+    },
+    {
+     "minute": 57,
+     "type": "yellow_card",
+     "team": "home",
+     "player": "Dani Requena",
+     "assist": null,
+     "homeScore": 1,
+     "awayScore": 0
+    },
+    {
+     "minute": 61,
+     "type": "substitution",
+     "team": "away",
+     "player": null,
+     "assist": null,
+     "homeScore": 1,
+     "awayScore": 0
+    },
+    {
+     "minute": 61,
+     "type": "substitution",
+     "team": "away",
+     "player": null,
+     "assist": null,
+     "homeScore": 1,
+     "awayScore": 0
+    },
+    {
+     "minute": 61,
+     "type": "substitution",
+     "team": "away",
+     "player": null,
+     "assist": null,
+     "homeScore": 1,
+     "awayScore": 0
+    },
+    {
+     "minute": 66,
+     "type": "goal",
+     "team": "away",
+     "player": "Pablo García",
+     "assist": "assist by André Almeida",
+     "homeScore": 1,
+     "awayScore": 1
+    },
+    {
+     "minute": 74,
+     "type": "yellow_card",
+     "team": "away",
+     "player": "Iker Luque",
+     "assist": null,
+     "homeScore": 1,
+     "awayScore": 1
+    },
+    {
+     "minute": 75,
+     "type": "substitution",
+     "team": "home",
+     "player": null,
+     "assist": null,
+     "homeScore": 1,
+     "awayScore": 1
+    },
+    {
+     "minute": 75,
+     "type": "substitution",
+     "team": "home",
+     "player": null,
+     "assist": null,
+     "homeScore": 1,
+     "awayScore": 1
+    },
+    {
+     "minute": 79,
+     "type": "substitution",
+     "team": "away",
+     "player": null,
+     "assist": null,
+     "homeScore": 1,
+     "awayScore": 1
+    },
+    {
+     "minute": 81,
+     "type": "goal",
+     "team": "away",
+     "player": "Yassir Zabiri",
+     "assist": "assist by Iñigo Vicente",
+     "homeScore": 1,
+     "awayScore": 2
+    },
+    {
+     "minute": 88,
+     "type": "substitution",
+     "team": "home",
+     "player": null,
+     "assist": null,
+     "homeScore": 1,
+     "awayScore": 2
+    },
+    {
+     "minute": 90,
+     "type": "substitution",
+     "team": "away",
+     "player": null,
+     "assist": null,
+     "homeScore": 1,
+     "awayScore": 2
+    },
+    {
+     "minute": 90,
+     "type": "addedtime",
+     "team": "away",
+     "player": null,
+     "assist": null,
+     "homeScore": 1,
+     "awayScore": 2
+    },
+    {
+     "minute": "90+3",
+     "type": "yellow_card",
+     "team": "home",
+     "player": "Jon Olasagasti",
+     "assist": null,
+     "homeScore": 1,
+     "awayScore": 2
+    },
+    {
+     "minute": "90+5",
+     "type": "goal",
+     "team": "away",
+     "player": "Pablo García",
+     "assist": "assist by Jorge Salinas",
+     "homeScore": 1,
+     "awayScore": 3
+    }
+   ]
+  },
+  "5868141": {
+   "matchId": 5868141,
+   "homeXg": null,
+   "awayXg": null,
+   "lineups": {
+    "home": {
+     "formation": "4-2-3-1",
+     "formationSource": "fotmob",
+     "coach": "Manuel Pellegrini",
+     "starters": [
+      {
+       "playerId": 999171,
+       "name": "Álvaro Vallés",
+       "shirtNumber": "1",
+       "positionId": 0
+      },
+      {
+       "playerId": 427438,
+       "name": "Héctor Bellerín",
+       "shirtNumber": "2",
+       "positionId": 1
+      },
+      {
+       "playerId": 195305,
+       "name": "Marc Bartra",
+       "shirtNumber": "5",
+       "positionId": 1
+      },
+      {
+       "playerId": 1188375,
+       "name": "Natan",
+       "shirtNumber": "4",
+       "positionId": 1
+      },
+      {
+       "playerId": 750028,
+       "name": "Fran García",
+       "shirtNumber": "11",
+       "positionId": 1
+      },
+      {
+       "playerId": 683450,
+       "name": "Pablo Fornals",
+       "shirtNumber": "8",
+       "positionId": 2
+      },
+      {
+       "playerId": 640220,
+       "name": "Marc Roca",
+       "shirtNumber": "21",
+       "positionId": 2
+      },
+      {
+       "playerId": 967622,
+       "name": "Antony",
+       "shirtNumber": "7",
+       "positionId": 3
+      },
+      {
+       "playerId": 191315,
+       "name": "Isco",
+       "shirtNumber": "22",
+       "positionId": 2
+      },
+      {
+       "playerId": 1209399,
+       "name": "Abdessamad Ezzalzouli",
+       "shirtNumber": "10",
+       "positionId": 3
+      },
+      {
+       "playerId": 852071,
+       "name": "Juan Hernández",
+       "shirtNumber": "9",
+       "positionId": 3
+      }
+     ],
+     "substitutes": null
+    },
+    "away": {
+     "formation": "4-2-3-1",
+     "formationSource": "fotmob",
+     "coach": "Beñat San José",
+     "starters": [
+      {
+       "playerId": 602845,
+       "name": "Emil Audero",
+       "shirtNumber": "25",
+       "positionId": 0
+      },
+      {
+       "playerId": 970578,
+       "name": "Andrei Rațiu",
+       "shirtNumber": "2",
+       "positionId": 1
+      },
+      {
+       "playerId": 184521,
+       "name": "Florian Lejeune",
+       "shirtNumber": "24",
+       "positionId": 1
+      },
+      {
+       "playerId": 939427,
+       "name": "Mujaid Sadick",
+       "shirtNumber": "15",
+       "positionId": 1
+      },
+      {
+       "playerId": 927646,
+       "name": "Adrià Pedrosa",
+       "shirtNumber": "17",
+       "positionId": 1
+      },
+      {
+       "playerId": 571615,
+       "name": "Unai López",
+       "shirtNumber": "8",
+       "positionId": 2
+      },
+      {
+       "playerId": 872396,
+       "name": "Pathé Ciss",
+       "shirtNumber": "6",
+       "positionId": 2
+      },
+      {
+       "playerId": 797901,
+       "name": "Jorge de Frutos",
+       "shirtNumber": "19",
+       "positionId": 3
+      },
+      {
+       "playerId": 638010,
+       "name": "Isi Palazón",
+       "shirtNumber": "7",
+       "positionId": 2
+      },
+      {
+       "playerId": 474658,
+       "name": "Álvaro García",
+       "shirtNumber": "18",
+       "positionId": 3
+      },
+      {
+       "playerId": 980422,
+       "name": "Sergio Camello",
+       "shirtNumber": "10",
+       "positionId": 3
+      }
+     ],
+     "substitutes": null
+    }
+   },
+   "unavailable": {
+    "home": [
+     {
+      "playerId": 531629,
+      "name": "Dani Ceballos",
+      "reason": null
+     },
+     {
+      "playerId": 604126,
+      "name": "Giovani Lo Celso",
+      "reason": null
+     }
+    ],
+    "away": [
+     {
+      "playerId": 956622,
+      "name": "Óscar Valentín",
+      "reason": null
+     },
+     {
+      "playerId": 621415,
+      "name": "Augusto Batalla",
+      "reason": null
+     },
+     {
+      "playerId": 672840,
+      "name": "Luiz Felipe",
+      "reason": null
+     }
+    ]
+   },
+   "events": []
+  },
+  "5868147": {
+   "matchId": 5868147,
+   "homeXg": null,
+   "awayXg": null,
+   "lineups": {
+    "home": {
+     "formation": "4-5-1",
+     "formationSource": "fotmob",
+     "coach": "Juan Funes",
+     "starters": [
+      {
+       "playerId": 616538,
+       "name": "Alfonso Herrero",
+       "shirtNumber": "1",
+       "positionId": 0
+      },
+      {
+       "playerId": 1668274,
+       "name": "Carlos Puga",
+       "shirtNumber": "3",
+       "positionId": 1
+      },
+      {
+       "playerId": 1408529,
+       "name": "Diego Murillo",
+       "shirtNumber": "16",
+       "positionId": 1
+      },
+      {
+       "playerId": 1260010,
+       "name": "Ángel Recio",
+       "shirtNumber": "15",
+       "positionId": 1
+      },
+      {
+       "playerId": 1573563,
+       "name": "Adam Aznou",
+       "shirtNumber": "39",
+       "positionId": 1
+      },
+      {
+       "playerId": 1108863,
+       "name": "David Larrubia",
+       "shirtNumber": "10",
+       "positionId": 2
+      },
+      {
+       "playerId": 1209421,
+       "name": "Carlos Dotor",
+       "shirtNumber": "8",
+       "positionId": 2
+      },
+      {
+       "playerId": 1082957,
+       "name": "Ramón Enríquez",
+       "shirtNumber": "6",
+       "positionId": 2
+      },
+      {
+       "playerId": 1317624,
+       "name": "Dani Lorenzo",
+       "shirtNumber": "22",
+       "positionId": 2
+      },
+      {
+       "playerId": 923298,
+       "name": "Pablo Martínez",
+       "shirtNumber": "18",
+       "positionId": 2
+      },
+      {
+       "playerId": 1403695,
+       "name": "Adrián Niño",
+       "shirtNumber": "21",
+       "positionId": 3
+      }
+     ],
+     "substitutes": null
+    },
+    "away": {
+     "formation": "4-2-3-1",
+     "formationSource": "fotmob",
+     "coach": "Edin Terzić",
+     "starters": [
+      {
+       "playerId": 660625,
+       "name": "Unai Simón",
+       "shirtNumber": "1",
+       "positionId": 0
+      },
+      {
+       "playerId": 1427819,
+       "name": "Hugo Rincón",
+       "shirtNumber": "15",
+       "positionId": 1
+      },
+      {
+       "playerId": 639450,
+       "name": "Yeray Álvarez",
+       "shirtNumber": "5",
+       "positionId": 1
+      },
+      {
+       "playerId": 411617,
+       "name": "Aymeric Laporte",
+       "shirtNumber": "14",
+       "positionId": 1
+      },
+      {
+       "playerId": 80295,
+       "name": "Yuri Berchiche",
+       "shirtNumber": "17",
+       "positionId": 1
+      },
+      {
+       "playerId": 1425173,
+       "name": "Beñat Gerenabarrena",
+       "shirtNumber": "24",
+       "positionId": 2
+      },
+      {
+       "playerId": 282462,
+       "name": "Iñigo Ruiz de Galarreta",
+       "shirtNumber": "16",
+       "positionId": 2
+      },
+      {
+       "playerId": 574629,
+       "name": "Alex Berenguer",
+       "shirtNumber": "7",
+       "positionId": 3
+      },
+      {
+       "playerId": 950545,
+       "name": "Oihan Sancet",
+       "shirtNumber": "8",
+       "positionId": 2
+      },
+      {
+       "playerId": 1202110,
+       "name": "Nico Williams",
+       "shirtNumber": "10",
+       "positionId": 3
+      },
+      {
+       "playerId": 604105,
+       "name": "Iñaki Williams",
+       "shirtNumber": "9",
+       "positionId": 3
+      }
+     ],
+     "substitutes": null
+    }
+   },
+   "unavailable": {
+    "home": [
+     {
+      "playerId": 1717331,
+      "name": "Rafita",
+      "reason": null
+     },
+     {
+      "playerId": 1669621,
+      "name": "Aarón Ochoa",
+      "reason": null
+     },
+     {
+      "playerId": 1098594,
+      "name": "Julen Lobete",
+      "reason": null
+     }
+    ],
+    "away": [
+     {
+      "playerId": 940743,
+      "name": "Daniel Vivian",
+      "reason": null
+     },
+     {
+      "playerId": 1425770,
+      "name": "Unai Eguiluz",
+      "reason": null
+     },
+     {
+      "playerId": 711231,
+      "name": "Gorka Guruzeta",
+      "reason": null
+     },
+     {
+      "playerId": 1425206,
+      "name": "Maroan Sannadi",
+      "reason": null
+     }
+    ]
+   },
+   "events": []
+  },
+  "5868144": {
+   "matchId": 5868144,
+   "homeXg": null,
+   "awayXg": null,
+   "lineups": {
+    "home": {
+     "formation": "4-2-3-1",
+     "formationSource": "fotmob",
+     "coach": "Martín Anselmi",
+     "starters": [
+      {
+       "playerId": 592412,
+       "name": "Matías Dituro",
+       "shirtNumber": "1",
+       "positionId": 0
+      },
+      {
+       "playerId": 1583872,
+       "name": "Buba Sangaré",
+       "shirtNumber": "2",
+       "positionId": 1
+      },
+      {
+       "playerId": 1277343,
+       "name": "Federico Redondo",
+       "shirtNumber": "5",
+       "positionId": 1
+      },
+      {
+       "playerId": 1192393,
+       "name": "Víctor Chust",
+       "shirtNumber": "23",
+       "positionId": 1
+      },
+      {
+       "playerId": 1337914,
+       "name": "Roy Revivo",
+       "shirtNumber": "3",
+       "positionId": 1
+      },
+      {
+       "playerId": 881773,
+       "name": "Gonzalo Villar",
+       "shirtNumber": "12",
+       "positionId": 2
+      },
+      {
+       "playerId": 1732412,
+       "name": "Javi Morcillo",
+       "shirtNumber": "47",
+       "positionId": 2
+      },
+      {
+       "playerId": 1280756,
+       "name": "Lucas Cepeda",
+       "shirtNumber": "21",
+       "positionId": 2
+      },
+      {
+       "playerId": 654091,
+       "name": "Grady Diangana",
+       "shirtNumber": "19",
+       "positionId": 2
+      },
+      {
+       "playerId": 1102708,
+       "name": "Germán Valera",
+       "shirtNumber": "11",
+       "positionId": 2
+      },
+      {
+       "playerId": 1127224,
+       "name": "Fer Niño",
+       "shirtNumber": "14",
+       "positionId": 3
+      }
+     ],
+     "substitutes": null
+    },
+    "away": {
+     "formation": "4-3-3",
+     "formationSource": "fotmob",
+     "coach": "Diego Simeone",
+     "starters": [
+      {
+       "playerId": 177126,
+       "name": "Jan Oblak",
+       "shirtNumber": "13",
+       "positionId": 0
+      },
+      {
+       "playerId": 602563,
+       "name": "Marcos Llorente",
+       "shirtNumber": "14",
+       "positionId": 1
+      },
+      {
+       "playerId": 1323897,
+       "name": "Marc Pubill",
+       "shirtNumber": "18",
+       "positionId": 1
+      },
+      {
+       "playerId": 727897,
+       "name": "Dávid Hancko",
+       "shirtNumber": "17",
+       "positionId": 1
+      },
+      {
+       "playerId": 288406,
+       "name": "Alejandro Grimaldo",
+       "shirtNumber": "22",
+       "positionId": 2
+      },
+      {
+       "playerId": 1173678,
+       "name": "Johnny Cardoso",
+       "shirtNumber": "5",
+       "positionId": 2
+      },
+      {
+       "playerId": 950199,
+       "name": "Morten Hjulmand",
+       "shirtNumber": "23",
+       "positionId": 2
+      },
+      {
+       "playerId": 1338192,
+       "name": "Pablo Barrios",
+       "shirtNumber": "8",
+       "positionId": 2
+      },
+      {
+       "playerId": 1226147,
+       "name": "Giuliano Simeone",
+       "shirtNumber": "20",
+       "positionId": 2
+      },
+      {
+       "playerId": 974753,
+       "name": "Julián Álvarez",
+       "shirtNumber": "19",
+       "positionId": 3
+      },
+      {
+       "playerId": 942372,
+       "name": "Álex Baena",
+       "shirtNumber": "10",
+       "positionId": 2
+      }
+     ],
+     "substitutes": null
+    }
+   },
+   "unavailable": {
+    "home": [
+     {
+      "playerId": 1577912,
+      "name": "Adam Boayar",
+      "reason": null
+     },
+     {
+      "playerId": 1137497,
+      "name": "Yago Santiago",
+      "reason": null
+     },
+     {
+      "playerId": 1330035,
+      "name": "Rubén Sánchez",
+      "reason": null
+     },
+     {
+      "playerId": 468931,
+      "name": "Thomas Lemar",
+      "reason": null
+     }
+    ],
+    "away": [
+     {
+      "playerId": 1842329,
+      "name": "Jorge Domínguez",
+      "reason": null
+     },
+     {
+      "playerId": 789066,
+      "name": "Cristian Romero",
+      "reason": null
+     },
+     {
+      "playerId": 690516,
+      "name": "Ademola Lookman",
+      "reason": null
+     },
+     {
+      "playerId": 440330,
+      "name": "Alexander Sørloth",
+      "reason": null
+     }
+    ]
+   },
+   "events": []
+  },
+  "5868148": {
+   "matchId": 5868148,
+   "homeXg": null,
+   "awayXg": null,
+   "lineups": {
+    "home": {
+     "formation": "4-2-3-1",
+     "formationSource": "fotmob",
+     "coach": "José Mourinho",
+     "starters": [
+      {
+       "playerId": 170323,
+       "name": "Thibaut Courtois",
+       "shirtNumber": "1",
+       "positionId": 0
+      },
+      {
+       "playerId": 743533,
+       "name": "Federico Valverde",
+       "shirtNumber": "8",
+       "positionId": 2
+      },
+      {
+       "playerId": 820140,
+       "name": "Ibrahima Konaté",
+       "shirtNumber": "16",
+       "positionId": 1
+      },
+      {
+       "playerId": 1367619,
+       "name": "Dean Huijsen",
+       "shirtNumber": "4",
+       "positionId": 1
+      },
+      {
+       "playerId": 873289,
+       "name": "Marc Cucurella",
+       "shirtNumber": "17",
+       "positionId": 1
+      },
+      {
+       "playerId": 488139,
+       "name": "Bernardo Silva",
+       "shirtNumber": "20",
+       "positionId": 2
+      },
+      {
+       "playerId": 1253890,
+       "name": "Arda Güler",
+       "shirtNumber": "15",
+       "positionId": 2
+      },
+      {
+       "playerId": 1735453,
+       "name": "Yan Diomande",
+       "shirtNumber": "25",
+       "positionId": 3
+      },
+      {
+       "playerId": 1077894,
+       "name": "Jude Bellingham",
+       "shirtNumber": "5",
+       "positionId": 2
+      },
+      {
+       "playerId": 846033,
+       "name": "Vinícius Júnior",
+       "shirtNumber": "7",
+       "positionId": 3
+      },
+      {
+       "playerId": 701154,
+       "name": "Kylian Mbappé",
+       "shirtNumber": "10",
+       "positionId": 3
+      }
+     ],
+     "substitutes": null
+    },
+    "away": {
+     "formation": "3-5-2",
+     "formationSource": "fotmob",
+     "coach": "Quique Sánchez Flores",
+     "starters": [
+      {
+       "playerId": 530468,
+       "name": "Antonio Sivera",
+       "shirtNumber": "1",
+       "positionId": 0
+      },
+      {
+       "playerId": 860314,
+       "name": "Nahuel Tenaglia",
+       "shirtNumber": "14",
+       "positionId": 1
+      },
+      {
+       "playerId": 1056461,
+       "name": "Ville Koski",
+       "shirtNumber": "16",
+       "positionId": 1
+      },
+      {
+       "playerId": 360918,
+       "name": "Jonny Otto",
+       "shirtNumber": "17",
+       "positionId": 1
+      },
+      {
+       "playerId": 1563022,
+       "name": "Ángel Pérez",
+       "shirtNumber": "7",
+       "positionId": 2
+      },
+      {
+       "playerId": 1238154,
+       "name": "Pablo Ibáñez",
+       "shirtNumber": "19",
+       "positionId": 2
+      },
+      {
+       "playerId": 845998,
+       "name": "Antonio Blanco",
+       "shirtNumber": "8",
+       "positionId": 2
+      },
+      {
+       "playerId": 282281,
+       "name": "Denis Suárez",
+       "shirtNumber": "4",
+       "positionId": 2
+      },
+      {
+       "playerId": 1200941,
+       "name": "Abderrahman Rebbach",
+       "shirtNumber": "21",
+       "positionId": 2
+      },
+      {
+       "playerId": 561164,
+       "name": "Lucas Boyé",
+       "shirtNumber": "15",
+       "positionId": 3
+      },
+      {
+       "playerId": 640123,
+       "name": "Toni Martínez",
+       "shirtNumber": "11",
+       "positionId": 3
+      }
+     ],
+     "substitutes": null
+    }
+   },
+   "unavailable": {
+    "home": [
+     {
+      "playerId": 1580528,
+      "name": "Raúl Asencio",
+      "reason": null
+     },
+     {
+      "playerId": 760712,
+      "name": "Trent Alexander-Arnold",
+      "reason": null
+     },
+     {
+      "playerId": 895362,
+      "name": "Rodrygo",
+      "reason": null
+     },
+     {
+      "playerId": 1406729,
+      "name": "Endrick",
+      "reason": null
+     }
+    ],
+    "away": [
+     {
+      "playerId": 1678688,
+      "name": "Lander Pinillos",
+      "reason": null
+     },
+     {
+      "playerId": 799914,
+      "name": "Carlos Protesoni",
+      "reason": null
+     },
+     {
+      "playerId": 845067,
+      "name": "Facundo Garcés",
+      "reason": null
+     },
+     {
+      "playerId": 1175969,
+      "name": "Hugo Novoa",
+      "reason": null
+     },
+     {
+      "playerId": 1426189,
+      "name": "Mikel Rodríguez",
+      "reason": null
+     }
+    ]
+   },
+   "events": []
+  },
+  "5868150": {
+   "matchId": 5868150,
+   "homeXg": null,
+   "awayXg": null,
+   "lineups": {
+    "home": {
+     "formation": "4-2-3-1",
+     "formationSource": "fotmob",
+     "coach": "Javier Aguirre",
+     "starters": [
+      {
+       "playerId": 254241,
+       "name": "Stole Dimitrievski",
+       "shirtNumber": "1",
+       "positionId": 0
+      },
+      {
+       "playerId": 1194892,
+       "name": "Arnau Martínez",
+       "shirtNumber": "22",
+       "positionId": 1
+      },
+      {
+       "playerId": 1311985,
+       "name": "César Tárrega",
+       "shirtNumber": "5",
+       "positionId": 1
+      },
+      {
+       "playerId": 896402,
+       "name": "José Copete",
+       "shirtNumber": "3",
+       "positionId": 1
+      },
+      {
+       "playerId": 391058,
+       "name": "José Gayà",
+       "shirtNumber": "14",
+       "positionId": 1
+      },
+      {
+       "playerId": 673689,
+       "name": "Pepelu",
+       "shirtNumber": "18",
+       "positionId": 2
+      },
+      {
+       "playerId": 1905203,
+       "name": "Aaron Mayol",
+       "shirtNumber": "33",
+       "positionId": 2
+      },
+      {
+       "playerId": 638070,
+       "name": "Luis Rioja",
+       "shirtNumber": "11",
+       "positionId": 2
+      },
+      {
+       "playerId": 1284429,
+       "name": "Javier Guerra",
+       "shirtNumber": "8",
+       "positionId": 2
+      },
+      {
+       "playerId": 704151,
+       "name": "Arnaut Danjuma",
+       "shirtNumber": "7",
+       "positionId": 3
+      },
+      {
+       "playerId": 590494,
+       "name": "Umar Sadiq",
+       "shirtNumber": "6",
+       "positionId": 3
+      }
+     ],
+     "substitutes": null
+    },
+    "away": {
+     "formation": "4-2-3-1",
+     "formationSource": "fotmob",
+     "coach": "Jagoba Arrasate",
+     "starters": [
+      {
+       "playerId": 683762,
+       "name": "Sergio Herrera",
+       "shirtNumber": "1",
+       "positionId": 0
+      },
+      {
+       "playerId": 763970,
+       "name": "Valentin Rosier",
+       "shirtNumber": "19",
+       "positionId": 1
+      },
+      {
+       "playerId": 1098365,
+       "name": "Jorge Herrando",
+       "shirtNumber": "5",
+       "positionId": 1
+      },
+      {
+       "playerId": 1187734,
+       "name": "Flavien Boyomo",
+       "shirtNumber": "22",
+       "positionId": 1
+      },
+      {
+       "playerId": 488718,
+       "name": "Diego Rico",
+       "shirtNumber": "15",
+       "positionId": 1
+      },
+      {
+       "playerId": 921825,
+       "name": "Jon Moncayola",
+       "shirtNumber": "7",
+       "positionId": 2
+      },
+      {
+       "playerId": 262592,
+       "name": "Moi Gómez",
+       "shirtNumber": "16",
+       "positionId": 2
+      },
+      {
+       "playerId": 384413,
+       "name": "Rubén García",
+       "shirtNumber": "14",
+       "positionId": 3
+      },
+      {
+       "playerId": 1054786,
+       "name": "Aimar Oroz",
+       "shirtNumber": "10",
+       "positionId": 2
+      },
+      {
+       "playerId": 574624,
+       "name": "Enrique Barja",
+       "shirtNumber": "11",
+       "positionId": 3
+      },
+      {
+       "playerId": 251269,
+       "name": "Ante Budimir",
+       "shirtNumber": "17",
+       "positionId": 3
+      }
+     ],
+     "substitutes": null
+    }
+   },
+   "unavailable": {
+    "home": [
+     {
+      "playerId": 586768,
+      "name": "Guido Rodríguez",
+      "reason": null
+     },
+     {
+      "playerId": 1220187,
+      "name": "Jesús Vázquez",
+      "reason": null
+     },
+     {
+      "playerId": 1284434,
+      "name": "Diego López",
+      "reason": null
+     },
+     {
+      "playerId": 673937,
+      "name": "Sergi Canós",
+      "reason": null
+     }
+    ],
+    "away": [
+     {
+      "playerId": 1752349,
+      "name": "Asier Bonel",
+      "reason": null
+     },
+     {
+      "playerId": 213471,
+      "name": "Aitor Fernández",
+      "reason": null
+     },
+     {
+      "playerId": 1323398,
+      "name": "Abel Bretones",
+      "reason": null
+     },
+     {
+      "playerId": 814663,
+      "name": "Alejandro Catena",
+      "reason": null
+     },
+     {
+      "playerId": 1603025,
+      "name": "Rockson Yeboah",
+      "reason": null
+     }
+    ]
+   },
+   "events": []
+  },
+  "5868143": {
+   "matchId": 5868143,
+   "homeXg": null,
+   "awayXg": null,
+   "lineups": {
+    "home": {
+     "formation": "4-4-2",
+     "formationSource": "fotmob",
+     "coach": "Antonio Hidalgo",
+     "starters": [
+      {
+       "playerId": 1187702,
+       "name": "Leo Román",
+       "shirtNumber": "13",
+       "positionId": 0
+      },
+      {
+       "playerId": 1256478,
+       "name": "Adrià Altimira",
+       "shirtNumber": "2",
+       "positionId": 1
+      },
+      {
+       "playerId": 800891,
+       "name": "Miguel Loureiro",
+       "shirtNumber": "15",
+       "positionId": 1
+      },
+      {
+       "playerId": 474589,
+       "name": "José Giménez",
+       "shirtNumber": "20",
+       "positionId": 1
+      },
+      {
+       "playerId": 1077977,
+       "name": "Giacomo Quagliata",
+       "shirtNumber": "12",
+       "positionId": 1
+      },
+      {
+       "playerId": 1050828,
+       "name": "Mario Soriano",
+       "shirtNumber": "21",
+       "positionId": 2
+      },
+      {
+       "playerId": 1425989,
+       "name": "Lorenzo Amatucci",
+       "shirtNumber": "16",
+       "positionId": 2
+      },
+      {
+       "playerId": 1384883,
+       "name": "Marc Casadó",
+       "shirtNumber": "6",
+       "positionId": 2
+      },
+      {
+       "playerId": 1319204,
+       "name": "Yeremay Hernández",
+       "shirtNumber": "10",
+       "positionId": 3
+      },
+      {
+       "playerId": 1690831,
+       "name": "Bil Nsongo",
+       "shirtNumber": "32",
+       "positionId": 3
+      },
+      {
+       "playerId": 150565,
+       "name": "Pierre-Emerick Aubameyang",
+       "shirtNumber": "7",
+       "positionId": 3
+      }
+     ],
+     "substitutes": null
+    },
+    "away": {
+     "formation": "4-2-3-1",
+     "formationSource": "fotmob",
+     "coach": "Hans-Dieter Flick",
+     "starters": [
+      {
+       "playerId": 1167220,
+       "name": "Joan García",
+       "shirtNumber": "1",
+       "positionId": 0
+      },
+      {
+       "playerId": 940573,
+       "name": "Eric García",
+       "shirtNumber": "24",
+       "positionId": 1
+      },
+      {
+       "playerId": 1532137,
+       "name": "Pau Cubarsí",
+       "shirtNumber": "5",
+       "positionId": 1
+      },
+      {
+       "playerId": 1598982,
+       "name": "Gerard Martín",
+       "shirtNumber": "18",
+       "positionId": 1
+      },
+      {
+       "playerId": 361757,
+       "name": "João Cancelo",
+       "shirtNumber": "2",
+       "positionId": 1
+      },
+      {
+       "playerId": 638622,
+       "name": "Frenkie de Jong",
+       "shirtNumber": "21",
+       "positionId": 2
+      },
+      {
+       "playerId": 1083323,
+       "name": "Pedri",
+       "shirtNumber": "8",
+       "positionId": 2
+      },
+      {
+       "playerId": 1467236,
+       "name": "Lamine Yamal",
+       "shirtNumber": "10",
+       "positionId": 3
+      },
+      {
+       "playerId": 614834,
+       "name": "Dani Olmo",
+       "shirtNumber": "20",
+       "positionId": 2
+      },
+      {
+       "playerId": 906937,
+       "name": "Anthony Gordon",
+       "shirtNumber": "17",
+       "positionId": 3
+      },
+      {
+       "playerId": 696679,
+       "name": "Raphinha",
+       "shirtNumber": "11",
+       "positionId": 3
+      }
+     ],
+     "substitutes": null
+    }
+   },
+   "unavailable": {
+    "home": [
+     {
+      "playerId": 1711969,
+      "name": "Bright Ede",
+      "reason": null
+     }
+    ],
+    "away": [
+     {
+      "playerId": 1901980,
+      "name": "Jordi Pesquer",
+      "reason": null
+     },
+     {
+      "playerId": 1573126,
+      "name": "Marc Bernal",
+      "reason": null
+     },
+     {
+      "playerId": 1708842,
+      "name": "Hamza Abdelkarim",
+      "reason": null
+     },
+     {
+      "playerId": 1254166,
+      "name": "Alejandro Balde",
+      "reason": null
+     },
+     {
+      "playerId": 449232,
+      "name": "Andreas Christensen",
+      "reason": null
+     },
+     {
+      "playerId": 1815149,
+      "name": "Xavi Espart",
+      "reason": null
+     },
+     {
+      "playerId": 1404415,
+      "name": "Fermín López",
+      "reason": null
+     },
+     {
+      "playerId": 1315475,
+      "name": "Roony Bardghji",
+      "reason": null
+     }
+    ]
+   },
+   "events": []
+  },
+  "5868142": {
+   "matchId": 5868142,
+   "homeXg": null,
+   "awayXg": null,
+   "lineups": {
+    "home": {
+     "formation": "3-4-3",
+     "formationSource": "fotmob",
+     "coach": "Claudio Giráldez",
+     "starters": [
+      {
+       "playerId": 681213,
+       "name": "Ionuț Radu",
+       "shirtNumber": "13",
+       "positionId": 0
+      },
+      {
+       "playerId": 1435439,
+       "name": "Javi Rodríguez",
+       "shirtNumber": "20",
+       "positionId": 1
+      },
+      {
+       "playerId": 1020026,
+       "name": "Sebastián Cáceres",
+       "shirtNumber": "21",
+       "positionId": 1
+      },
+      {
+       "playerId": 196169,
+       "name": "Marcos Alonso",
+       "shirtNumber": "3",
+       "positionId": 1
+      },
+      {
+       "playerId": 1106742,
+       "name": "Sergio Carreira",
+       "shirtNumber": "5",
+       "positionId": 2
+      },
+      {
+       "playerId": 1825995,
+       "name": "Hugo Burcio",
+       "shirtNumber": "30",
+       "positionId": 2
+      },
+      {
+       "playerId": 1109046,
+       "name": "Ilaix Moriba",
+       "shirtNumber": "6",
+       "positionId": 2
+      },
+      {
+       "playerId": 695062,
+       "name": "Javi Galán",
+       "shirtNumber": "22",
+       "positionId": 1
+      },
+      {
+       "playerId": 1308414,
+       "name": "Hugo Álvarez",
+       "shirtNumber": "23",
+       "positionId": 3
+      },
+      {
+       "playerId": 1322858,
+       "name": "Pablo Durán",
+       "shirtNumber": "11",
+       "positionId": 3
+      },
+      {
+       "playerId": 1272740,
+       "name": "Williot Swedberg",
+       "shirtNumber": "19",
+       "positionId": 3
+      }
+     ],
+     "substitutes": null
+    },
+    "away": {
+     "formation": "4-5-1",
+     "formationSource": "fotmob",
+     "coach": "Íñigo Pérez",
+     "starters": [
+      {
+       "playerId": 151001,
+       "name": "Péter Gulácsi",
+       "shirtNumber": "25",
+       "positionId": 0
+      },
+      {
+       "playerId": 1338696,
+       "name": "Alex Freeman",
+       "shirtNumber": "3",
+       "positionId": 1
+      },
+      {
+       "playerId": 922877,
+       "name": "Logan Costa",
+       "shirtNumber": "2",
+       "positionId": 1
+      },
+      {
+       "playerId": 1343750,
+       "name": "Renato Veiga",
+       "shirtNumber": "12",
+       "positionId": 1
+      },
+      {
+       "playerId": 1395964,
+       "name": "Carlos Romero",
+       "shirtNumber": "20",
+       "positionId": 1
+      },
+      {
+       "playerId": 575735,
+       "name": "Nicolas Pépé",
+       "shirtNumber": "19",
+       "positionId": 2
+      },
+      {
+       "playerId": 671865,
+       "name": "Santi Comesaña",
+       "shirtNumber": "14",
+       "positionId": 2
+      },
+      {
+       "playerId": 844544,
+       "name": "Pape Gueye",
+       "shirtNumber": "18",
+       "positionId": 2
+      },
+      {
+       "playerId": 1184694,
+       "name": "Alberto Moleiro",
+       "shirtNumber": "10",
+       "positionId": 2
+      },
+      {
+       "playerId": 1026135,
+       "name": "Tajon Buchanan",
+       "shirtNumber": "17",
+       "positionId": 2
+      },
+      {
+       "playerId": 1117069,
+       "name": "Georges Mikautadze",
+       "shirtNumber": "9",
+       "positionId": 3
+      }
+     ],
+     "substitutes": null
+    }
+   },
+   "unavailable": {
+    "home": [
+     {
+      "playerId": 609505,
+      "name": "Borja Iglesias",
+      "reason": null
+     },
+     {
+      "playerId": 497662,
+      "name": "Carl Starfelt",
+      "reason": null
+     },
+     {
+      "playerId": 1578176,
+      "name": "Yoel Lago",
+      "reason": null
+     },
+     {
+      "playerId": 1359911,
+      "name": "Miguel Román",
+      "reason": null
+     },
+     {
+      "playerId": 1226783,
+      "name": "Hugo González",
+      "reason": null
+     }
+    ],
+    "away": [
+     {
+      "playerId": 1531887,
+      "name": "Pau Navarro",
+      "reason": null
+     },
+     {
+      "playerId": 1695966,
+      "name": "Alassane Diatta",
+      "reason": null
+     },
+     {
+      "playerId": 1216798,
+      "name": "Nathan Saliba",
+      "reason": null
+     }
+    ]
+   },
+   "events": []
+  },
+  "5868149": {
+   "matchId": 5868149,
+   "homeXg": null,
+   "awayXg": null,
+   "lineups": {
+    "home": {
+     "formation": "4-2-3-1",
+     "formationSource": "fotmob",
+     "coach": "Pellegrino Matarazzo",
+     "starters": [
+      {
+       "playerId": 616539,
+       "name": "Alex Remiro",
+       "shirtNumber": "1",
+       "positionId": 0
+      },
+      {
+       "playerId": 1490110,
+       "name": "Héctor Fort",
+       "shirtNumber": "22",
+       "positionId": 1
+      },
+      {
+       "playerId": 698653,
+       "name": "Igor Zubeldia",
+       "shirtNumber": "5",
+       "positionId": 1
+      },
+      {
+       "playerId": 1523234,
+       "name": "Jon Martín",
+       "shirtNumber": "6",
+       "positionId": 1
+      },
+      {
+       "playerId": 844477,
+       "name": "Sergio Gómez",
+       "shirtNumber": "17",
+       "positionId": 1
+      },
+      {
+       "playerId": 1210647,
+       "name": "Beñat Turrientes",
+       "shirtNumber": "8",
+       "positionId": 2
+      },
+      {
+       "playerId": 708890,
+       "name": "Carlos Soler",
+       "shirtNumber": "18",
+       "positionId": 2
+      },
+      {
+       "playerId": 848289,
+       "name": "Takefusa Kubo",
+       "shirtNumber": "14",
+       "positionId": 3
+      },
+      {
+       "playerId": 959597,
+       "name": "Luka Sučić",
+       "shirtNumber": "24",
+       "positionId": 2
+      },
+      {
+       "playerId": 678234,
+       "name": "Mikel Oyarzabal",
+       "shirtNumber": "10",
+       "positionId": 3
+      },
+      {
+       "playerId": 1097229,
+       "name": "Orri Óskarsson",
+       "shirtNumber": "9",
+       "positionId": 3
+      }
+     ],
+     "substitutes": null
+    },
+    "away": {
+     "formation": "4-2-3-1",
+     "formationSource": "fotmob",
+     "coach": "Luis García",
+     "starters": [
+      {
+       "playerId": 304355,
+       "name": "Odysseas Vlachodimos",
+       "shirtNumber": "1",
+       "positionId": 0
+      },
+      {
+       "playerId": 1102289,
+       "name": "Juan Iglesias",
+       "shirtNumber": "2",
+       "positionId": 1
+      },
+      {
+       "playerId": 1334767,
+       "name": "Andrés López",
+       "shirtNumber": "5",
+       "positionId": 1
+      },
+      {
+       "playerId": 1327489,
+       "name": "Kike Salas",
+       "shirtNumber": "4",
+       "positionId": 1
+      },
+      {
+       "playerId": 659490,
+       "name": "Gabriel Suazo",
+       "shirtNumber": "17",
+       "positionId": 1
+      },
+      {
+       "playerId": 971790,
+       "name": "Lucien Agoumé",
+       "shirtNumber": "6",
+       "positionId": 2
+      },
+      {
+       "playerId": 678192,
+       "name": "Jon Guridi",
+       "shirtNumber": "18",
+       "positionId": 2
+      },
+      {
+       "playerId": 860752,
+       "name": "Rubén Vargas",
+       "shirtNumber": "11",
+       "positionId": 3
+      },
+      {
+       "playerId": 954621,
+       "name": "Youssouf Fofana",
+       "shirtNumber": "24",
+       "positionId": 2
+      },
+      {
+       "playerId": 942358,
+       "name": "Félix Correia",
+       "shirtNumber": "20",
+       "positionId": 3
+      },
+      {
+       "playerId": 1398377,
+       "name": "Lucas Stassin",
+       "shirtNumber": "19",
+       "positionId": 3
+      }
+     ],
+     "substitutes": null
+    }
+   },
+   "unavailable": {
+    "home": [
+     {
+      "playerId": 1249284,
+      "name": "Jon Aramburu",
+      "reason": null
+     },
+     {
+      "playerId": 636570,
+      "name": "Álvaro Odriozola",
+      "reason": null
+     },
+     {
+      "playerId": 730901,
+      "name": "Yangel Herrera",
+      "reason": null
+     },
+     {
+      "playerId": 1002618,
+      "name": "Ander Barrenetxea",
+      "reason": null
+     }
+    ],
+    "away": [
+     {
+      "playerId": 1281461,
+      "name": "José Ángel Carmona",
+      "reason": null
+     },
+     {
+      "playerId": 753593,
+      "name": "Marcão",
+      "reason": null
+     },
+     {
+      "playerId": 926643,
+      "name": "Alfon González",
+      "reason": null
+     },
+     {
+      "playerId": 1797904,
+      "name": "Miguel Sierra",
+      "reason": null
+     }
+    ]
+   },
+   "events": []
+  },
+  "5868145": {
+   "matchId": 5868145,
+   "homeXg": null,
+   "awayXg": null,
+   "lineups": {
+    "home": {
+     "formation": "5-3-2",
+     "formationSource": "fotmob",
+     "coach": "Eder Sarabia",
+     "starters": [
+      {
+       "playerId": 1184772,
+       "name": "Ángel Fortuño",
+       "shirtNumber": "1",
+       "positionId": 0
+      },
+      {
+       "playerId": 1208708,
+       "name": "Omar El Hilali",
+       "shirtNumber": "23",
+       "positionId": 1
+      },
+      {
+       "playerId": 169586,
+       "name": "Leandro Cabrera",
+       "shirtNumber": "6",
+       "positionId": 1
+      },
+      {
+       "playerId": 1393669,
+       "name": "Quilindschy Hartman",
+       "shirtNumber": "3",
+       "positionId": 1
+      },
+      {
+       "playerId": 1181101,
+       "name": "Tyrhys Dolan",
+       "shirtNumber": "24",
+       "positionId": 3
+      },
+      {
+       "playerId": 1813700,
+       "name": "Alejandro Santiago",
+       "shirtNumber": "36",
+       "positionId": 3
+      },
+      {
+       "playerId": 1609364,
+       "name": "Rafel Bauzà",
+       "shirtNumber": "26",
+       "positionId": 2
+      },
+      {
+       "playerId": 750031,
+       "name": "Pol Lozano",
+       "shirtNumber": "10",
+       "positionId": 2
+      },
+      {
+       "playerId": 837089,
+       "name": "Edu Expósito",
+       "shirtNumber": "8",
+       "positionId": 2
+      },
+      {
+       "playerId": 593129,
+       "name": "Pere Milla",
+       "shirtNumber": "11",
+       "positionId": 3
+      },
+      {
+       "playerId": 1252373,
+       "name": "Roberto Fernández",
+       "shirtNumber": "9",
+       "positionId": 3
+      }
+     ],
+     "substitutes": null
+    },
+    "away": {
+     "formation": "4-4-2",
+     "formationSource": "fotmob",
+     "coach": "José Bordalás",
+     "starters": [
+      {
+       "playerId": 581919,
+       "name": "David Soria",
+       "shirtNumber": "13",
+       "positionId": 0
+      },
+      {
+       "playerId": 175311,
+       "name": "Kiko",
+       "shirtNumber": "17",
+       "positionId": 1
+      },
+      {
+       "playerId": 1792368,
+       "name": "Jean Ives Valou",
+       "shirtNumber": "26",
+       "positionId": 1
+      },
+      {
+       "playerId": 1118199,
+       "name": "Zaid Abner Romero",
+       "shirtNumber": "24",
+       "positionId": 1
+      },
+      {
+       "playerId": 474673,
+       "name": "Johan Mojica",
+       "shirtNumber": "22",
+       "positionId": 1
+      },
+      {
+       "playerId": 1430406,
+       "name": "Andrés García",
+       "shirtNumber": "21",
+       "positionId": 2
+      },
+      {
+       "playerId": 178753,
+       "name": "Nemanja Gudelj",
+       "shirtNumber": "8",
+       "positionId": 1
+      },
+      {
+       "playerId": 765693,
+       "name": "Orel Mangala",
+       "shirtNumber": "23",
+       "positionId": 2
+      },
+      {
+       "playerId": 1202587,
+       "name": "Ramón Terrats",
+       "shirtNumber": "11",
+       "positionId": 2
+      },
+      {
+       "playerId": 464486,
+       "name": "Enes Ünal",
+       "shirtNumber": "19",
+       "positionId": 3
+      },
+      {
+       "playerId": 1203946,
+       "name": "Iván Azón",
+       "shirtNumber": "20",
+       "positionId": 3
+      }
+     ],
+     "substitutes": null
+    }
+   },
+   "unavailable": {
+    "home": [
+     {
+      "playerId": 1187767,
+      "name": "Urko González",
+      "reason": null
+     },
+     {
+      "playerId": 1279557,
+      "name": "Clemens Riedel",
+      "reason": null
+     },
+     {
+      "playerId": 1300457,
+      "name": "Álex Calatrava",
+      "reason": null
+     },
+     {
+      "playerId": 183353,
+      "name": "Kike García",
+      "reason": null
+     }
+    ],
+    "away": [
+     {
+      "playerId": 956921,
+      "name": "Abdelkabir Abqar",
+      "reason": null
+     },
+     {
+      "playerId": 1414777,
+      "name": "Sebastián Boselli",
+      "reason": null
+     },
+     {
+      "playerId": 282674,
+      "name": "Daniel Carvajal",
+      "reason": null
+     },
+     {
+      "playerId": 421365,
+      "name": "Djené",
+      "reason": null
+     },
+     {
+      "playerId": 1580704,
+      "name": "Christantus Uche",
+      "reason": null
+     },
+     {
+      "playerId": 191873,
+      "name": "Juanmi",
+      "reason": null
+     }
+    ]
+   },
+   "events": []
+  },
+  "5868239": {
+   "matchId": 5868239,
+   "homeXg": null,
+   "awayXg": null,
+   "lineups": {
+    "home": {
+     "formation": "4-4-2",
+     "formationSource": "fotmob",
+     "coach": "Pellegrino Matarazzo",
+     "starters": [
+      {
+       "playerId": 1217043,
+       "name": "Unai Marrero",
+       "shirtNumber": "13",
+       "positionId": 0
+      },
+      {
+       "playerId": 1490110,
+       "name": "Héctor Fort",
+       "shirtNumber": "22",
+       "positionId": 1
+      },
+      {
+       "playerId": 1523234,
+       "name": "Jon Martín",
+       "shirtNumber": "6",
+       "positionId": 1
+      },
+      {
+       "playerId": 1426170,
+       "name": "Mamadou Sarr",
+       "shirtNumber": "19",
+       "positionId": 1
+      },
+      {
+       "playerId": 999159,
+       "name": "Aihen Muñoz",
+       "shirtNumber": "3",
+       "positionId": 1
+      },
+      {
+       "playerId": 1724551,
+       "name": "Job Ochieng",
+       "shirtNumber": "12",
+       "positionId": 3
+      },
+      {
+       "playerId": 1210647,
+       "name": "Beñat Turrientes",
+       "shirtNumber": "8",
+       "positionId": 2
+      },
+      {
+       "playerId": 1323827,
+       "name": "Jon Gorrotxategi",
+       "shirtNumber": "4",
+       "positionId": 2
+      },
+      {
+       "playerId": 536455,
+       "name": "Gonçalo Guedes",
+       "shirtNumber": "11",
+       "positionId": 2
+      },
+      {
+       "playerId": 678234,
+       "name": "Mikel Oyarzabal",
+       "shirtNumber": "10",
+       "positionId": 3
+      },
+      {
+       "playerId": 1175610,
+       "name": "Arsen Zakharyan",
+       "shirtNumber": "23",
+       "positionId": 3
+      }
+     ],
+     "substitutes": [
+      {
+       "playerId": 616539,
+       "name": "Alex Remiro",
+       "shirtNumber": "1",
+       "positionId": 0
+      },
+      {
+       "playerId": 698653,
+       "name": "Igor Zubeldia",
+       "shirtNumber": "5",
+       "positionId": 1
+      },
+      {
+       "playerId": 1112072,
+       "name": "Jon Pacheco",
+       "shirtNumber": "16",
+       "positionId": 1
+      },
+      {
+       "playerId": 1697334,
+       "name": "Luken Beitia",
+       "shirtNumber": "34",
+       "positionId": 1
+      },
+      {
+       "playerId": 844477,
+       "name": "Sergio Gómez",
+       "shirtNumber": "17",
+       "positionId": 1
+      },
+      {
+       "playerId": 1426185,
+       "name": "Alex Lebarbier",
+       "shirtNumber": "28",
+       "positionId": 2
+      },
+      {
+       "playerId": 708890,
+       "name": "Carlos Soler",
+       "shirtNumber": "18",
+       "positionId": 2
+      },
+      {
+       "playerId": 959597,
+       "name": "Luka Sučić",
+       "shirtNumber": "24",
+       "positionId": 2
+      },
+      {
+       "playerId": 1712125,
+       "name": "Dani Díaz",
+       "shirtNumber": "30",
+       "positionId": 3
+      },
+      {
+       "playerId": 1097229,
+       "name": "Orri Óskarsson",
+       "shirtNumber": "9",
+       "positionId": 3
+      },
+      {
+       "playerId": 1293912,
+       "name": "Pablo Marín",
+       "shirtNumber": "15",
+       "positionId": 3
+      },
+      {
+       "playerId": 848289,
+       "name": "Takefusa Kubo",
+       "shirtNumber": "14",
+       "positionId": 3
+      }
+     ]
+    },
+    "away": {
+     "formation": "4-2-3-1",
+     "formationSource": "fotmob",
+     "coach": "José Mourinho",
+     "starters": [
+      {
+       "playerId": 170323,
+       "name": "Thibaut Courtois",
+       "shirtNumber": "1",
+       "positionId": 0
+      },
+      {
+       "playerId": 743533,
+       "name": "Federico Valverde",
+       "shirtNumber": "8",
+       "positionId": 2
+      },
+      {
+       "playerId": 844415,
+       "name": "Éder Militão",
+       "shirtNumber": "3",
+       "positionId": 1
+      },
+      {
+       "playerId": 276738,
+       "name": "Antonio Rüdiger",
+       "shirtNumber": "22",
+       "positionId": 1
+      },
+      {
+       "playerId": 873289,
+       "name": "Marc Cucurella",
+       "shirtNumber": "17",
+       "positionId": 1
+      },
+      {
+       "playerId": 488139,
+       "name": "Bernardo Silva",
+       "shirtNumber": "20",
+       "positionId": 2
+      },
+      {
+       "playerId": 914458,
+       "name": "Aurélien Tchouaméni",
+       "shirtNumber": "14",
+       "positionId": 2
+      },
+      {
+       "playerId": 1735453,
+       "name": "Yan Diomande",
+       "shirtNumber": "25",
+       "positionId": 3
+      },
+      {
+       "playerId": 1253890,
+       "name": "Arda Güler",
+       "shirtNumber": "15",
+       "positionId": 2
+      },
+      {
+       "playerId": 846033,
+       "name": "Vinícius Júnior",
+       "shirtNumber": "7",
+       "positionId": 3
+      },
+      {
+       "playerId": 701154,
+       "name": "Kylian Mbappé",
+       "shirtNumber": "10",
+       "positionId": 3
+      }
+     ],
+     "substitutes": [
+      {
+       "playerId": 800882,
+       "name": "Andriy Lunin",
+       "shirtNumber": "13",
+       "positionId": 0
+      },
+      {
+       "playerId": 1405014,
+       "name": "Sergio Mestre",
+       "shirtNumber": "26",
+       "positionId": 0
+      },
+      {
+       "playerId": 1190025,
+       "name": "Álvaro Carreras",
+       "shirtNumber": "18",
+       "positionId": 1
+      },
+      {
+       "playerId": 1367619,
+       "name": "Dean Huijsen",
+       "shirtNumber": "4",
+       "positionId": 1
+      },
+      {
+       "playerId": 593118,
+       "name": "Denzel Dumfries",
+       "shirtNumber": "24",
+       "positionId": 1
+      },
+      {
+       "playerId": 820140,
+       "name": "Ibrahima Konaté",
+       "shirtNumber": "16",
+       "positionId": 1
+      },
+      {
+       "playerId": 760712,
+       "name": "Trent Alexander-Arnold",
+       "shirtNumber": "12",
+       "positionId": 1
+      },
+      {
+       "playerId": 1015185,
+       "name": "Eduardo Camavinga",
+       "shirtNumber": "6",
+       "positionId": 2
+      },
+      {
+       "playerId": 1077894,
+       "name": "Jude Bellingham",
+       "shirtNumber": "5",
+       "positionId": 2
+      },
+      {
+       "playerId": 1796908,
+       "name": "Thiago Pitarch",
+       "shirtNumber": "27",
+       "positionId": 2
+      },
+      {
+       "playerId": 750027,
+       "name": "Brahim Díaz",
+       "shirtNumber": "21",
+       "positionId": 3
+      },
+      {
+       "playerId": 1610744,
+       "name": "Carlos Espí",
+       "shirtNumber": "19",
+       "positionId": 3
+      }
+     ]
+    }
+   },
+   "unavailable": {
+    "home": [
+     {
+      "playerId": 1249284,
+      "name": "Jon Aramburu",
+      "reason": null
+     },
+     {
+      "playerId": 730901,
+      "name": "Yangel Herrera",
+      "reason": null
+     },
+     {
+      "playerId": 1002618,
+      "name": "Ander Barrenetxea",
+      "reason": null
+     },
+     {
+      "playerId": 636570,
+      "name": "Álvaro Odriozola",
+      "reason": null
+     }
+    ],
+    "away": [
+     {
+      "playerId": 760712,
+      "name": "Trent Alexander-Arnold",
+      "reason": null
+     },
+     {
+      "playerId": 1580528,
+      "name": "Raúl Asencio",
+      "reason": null
+     },
+     {
+      "playerId": 895362,
+      "name": "Rodrygo",
+      "reason": null
+     },
+     {
+      "playerId": 1406729,
+      "name": "Endrick",
+      "reason": null
+     }
+    ]
+   },
+   "events": []
+  },
+  "5868237": {
+   "matchId": 5868237,
+   "homeXg": null,
+   "awayXg": null,
+   "lineups": {
+    "home": {
+     "formation": "4-2-3-1",
+     "formationSource": "fotmob",
+     "coach": "Hans-Dieter Flick",
+     "starters": [
+      {
+       "playerId": 1167220,
+       "name": "Joan García",
+       "shirtNumber": "1",
+       "positionId": 0
+      },
+      {
+       "playerId": 705450,
+       "name": "Jules Koundé",
+       "shirtNumber": "23",
+       "positionId": 1
+      },
+      {
+       "playerId": 638622,
+       "name": "Frenkie de Jong",
+       "shirtNumber": "21",
+       "positionId": 2
+      },
+      {
+       "playerId": 1598982,
+       "name": "Gerard Martín",
+       "shirtNumber": "18",
+       "positionId": 1
+      },
+      {
+       "playerId": 1254166,
+       "name": "Alejandro Balde",
+       "shirtNumber": "3",
+       "positionId": 1
+      },
+      {
+       "playerId": 1279040,
+       "name": "Gavi",
+       "shirtNumber": "6",
+       "positionId": 2
+      },
+      {
+       "playerId": 1083323,
+       "name": "Pedri",
+       "shirtNumber": "8",
+       "positionId": 2
+      },
+      {
+       "playerId": 959594,
+       "name": "Karim Adeyemi",
+       "shirtNumber": "14",
+       "positionId": 3
+      },
+      {
+       "playerId": 1404415,
+       "name": "Fermín López",
+       "shirtNumber": "7",
+       "positionId": 2
+      },
+      {
+       "playerId": 906937,
+       "name": "Anthony Gordon",
+       "shirtNumber": "17",
+       "positionId": 3
+      },
+      {
+       "playerId": 576165,
+       "name": "Gabriel Jesus",
+       "shirtNumber": "9",
+       "positionId": 3
+      }
+     ],
+     "substitutes": [
+      {
+       "playerId": 383971,
+       "name": "Dominik Livaković",
+       "shirtNumber": "25",
+       "positionId": 0
+      },
+      {
+       "playerId": 169718,
+       "name": "Wojciech Szczęsny",
+       "shirtNumber": "13",
+       "positionId": 0
+      },
+      {
+       "playerId": 1820574,
+       "name": "Álex Campos",
+       "shirtNumber": "41",
+       "positionId": 1
+      },
+      {
+       "playerId": 940573,
+       "name": "Eric García",
+       "shirtNumber": "24",
+       "positionId": 1
+      },
+      {
+       "playerId": 361757,
+       "name": "João Cancelo",
+       "shirtNumber": "2",
+       "positionId": 1
+      },
+      {
+       "playerId": 1532137,
+       "name": "Pau Cubarsí",
+       "shirtNumber": "5",
+       "positionId": 1
+      },
+      {
+       "playerId": 1821727,
+       "name": "Brian Fariñas",
+       "shirtNumber": "4",
+       "positionId": 2
+      },
+      {
+       "playerId": 614834,
+       "name": "Dani Olmo",
+       "shirtNumber": "20",
+       "positionId": 2
+      },
+      {
+       "playerId": 1573126,
+       "name": "Marc Bernal",
+       "shirtNumber": "22",
+       "positionId": 2
+      },
+      {
+       "playerId": 1656591,
+       "name": "Jesse Bisiwu",
+       "shirtNumber": "27",
+       "positionId": 3
+      },
+      {
+       "playerId": 1684428,
+       "name": "Óscar Gistau",
+       "shirtNumber": "42",
+       "positionId": 3
+      },
+      {
+       "playerId": 696679,
+       "name": "Raphinha",
+       "shirtNumber": "11",
+       "positionId": 3
+      }
+     ]
+    },
+    "away": {
+     "formation": "4-4-2",
+     "formationSource": "fotmob",
+     "coach": "Diego Simeone",
+     "starters": [
+      {
+       "playerId": 177126,
+       "name": "Jan Oblak",
+       "shirtNumber": "13",
+       "positionId": 0
+      },
+      {
+       "playerId": 602563,
+       "name": "Marcos Llorente",
+       "shirtNumber": "14",
+       "positionId": 1
+      },
+      {
+       "playerId": 609516,
+       "name": "Robin Le Normand",
+       "shirtNumber": "24",
+       "positionId": 1
+      },
+      {
+       "playerId": 727897,
+       "name": "Dávid Hancko",
+       "shirtNumber": "17",
+       "positionId": 1
+      },
+      {
+       "playerId": 288406,
+       "name": "Alejandro Grimaldo",
+       "shirtNumber": "22",
+       "positionId": 2
+      },
+      {
+       "playerId": 940976,
+       "name": "Kang-In Lee",
+       "shirtNumber": "7",
+       "positionId": 3
+      },
+      {
+       "playerId": 184533,
+       "name": "Koke",
+       "shirtNumber": "6",
+       "positionId": 2
+      },
+      {
+       "playerId": 1173678,
+       "name": "Johnny Cardoso",
+       "shirtNumber": "5",
+       "positionId": 2
+      },
+      {
+       "playerId": 942372,
+       "name": "Álex Baena",
+       "shirtNumber": "10",
+       "positionId": 2
+      },
+      {
+       "playerId": 440330,
+       "name": "Alexander Sørloth",
+       "shirtNumber": "9",
+       "positionId": 3
+      },
+      {
+       "playerId": 974753,
+       "name": "Julián Álvarez",
+       "shirtNumber": "19",
+       "positionId": 3
+      }
+     ],
+     "substitutes": [
+      {
+       "playerId": 389050,
+       "name": "Juan Musso",
+       "shirtNumber": "1",
+       "positionId": 0
+      },
+      {
+       "playerId": 1531100,
+       "name": "Dani Martínez",
+       "shirtNumber": "30",
+       "positionId": 1
+      },
+      {
+       "playerId": 1323897,
+       "name": "Marc Pubill",
+       "shirtNumber": "18",
+       "positionId": 1
+      },
+      {
+       "playerId": 1682315,
+       "name": "Romeo Hueso",
+       "shirtNumber": "26",
+       "positionId": 1
+      },
+      {
+       "playerId": 1226147,
+       "name": "Giuliano Simeone",
+       "shirtNumber": "20",
+       "positionId": 2
+      },
+      {
+       "playerId": 1692877,
+       "name": "Jorge Castillo",
+       "shirtNumber": "46",
+       "positionId": 2
+      },
+      {
+       "playerId": 950199,
+       "name": "Morten Hjulmand",
+       "shirtNumber": "23",
+       "positionId": 2
+      },
+      {
+       "playerId": 1254394,
+       "name": "Obed Vargas",
+       "shirtNumber": "3",
+       "positionId": 2
+      },
+      {
+       "playerId": 1338192,
+       "name": "Pablo Barrios",
+       "shirtNumber": "8",
+       "positionId": 2
+      },
+      {
+       "playerId": 1419969,
+       "name": "Rodrigo Mendoza",
+       "shirtNumber": "4",
+       "positionId": 2
+      },
+      {
+       "playerId": 1297989,
+       "name": "Arnau Ortiz",
+       "shirtNumber": "16",
+       "positionId": 3
+      },
+      {
+       "playerId": 939569,
+       "name": "Jonathan David",
+       "shirtNumber": "15",
+       "positionId": 3
+      }
+     ]
+    }
+   },
+   "unavailable": {
+    "home": [
+     {
+      "playerId": 1901980,
+      "name": "Jordi Pesquer",
+      "reason": null
+     },
+     {
+      "playerId": 1404415,
+      "name": "Fermín López",
+      "reason": null
+     },
+     {
+      "playerId": 1573126,
+      "name": "Marc Bernal",
+      "reason": null
+     },
+     {
+      "playerId": 1254166,
+      "name": "Alejandro Balde",
+      "reason": null
+     },
+     {
+      "playerId": 449232,
+      "name": "Andreas Christensen",
+      "reason": null
+     },
+     {
+      "playerId": 1815149,
+      "name": "Xavi Espart",
+      "reason": null
+     },
+     {
+      "playerId": 1708842,
+      "name": "Hamza Abdelkarim",
+      "reason": null
+     },
+     {
+      "playerId": 1315475,
+      "name": "Roony Bardghji",
+      "reason": null
+     }
+    ],
+    "away": [
+     {
+      "playerId": 1842329,
+      "name": "Jorge Domínguez",
+      "reason": null
+     },
+     {
+      "playerId": 440330,
+      "name": "Alexander Sørloth",
+      "reason": null
+     },
+     {
+      "playerId": 789066,
+      "name": "Cristian Romero",
+      "reason": null
+     },
+     {
+      "playerId": 690516,
+      "name": "Ademola Lookman",
+      "reason": null
+     }
+    ]
+   },
+   "events": []
+  },
+  "5868151": {
+   "matchId": 5868151,
+   "homeXg": null,
+   "awayXg": null,
+   "lineups": {
+    "home": {
+     "formation": "",
+     "formationSource": null,
+     "coach": null,
+     "starters": [],
+     "substitutes": null
+    },
+    "away": {
+     "formation": "",
+     "formationSource": null,
+     "coach": null,
+     "starters": [],
+     "substitutes": null
+    }
+   },
+   "unavailable": {
+    "home": [
+     {
+      "playerId": 799914,
+      "name": "Carlos Protesoni",
+      "reason": null
+     },
+     {
+      "playerId": 1678688,
+      "name": "Lander Pinillos",
+      "reason": null
+     },
+     {
+      "playerId": 1175969,
+      "name": "Hugo Novoa",
+      "reason": null
+     },
+     {
+      "playerId": 845067,
+      "name": "Facundo Garcés",
+      "reason": null
+     },
+     {
+      "playerId": 1426189,
+      "name": "Mikel Rodríguez",
+      "reason": null
+     }
+    ],
+    "away": [
+     {
+      "playerId": 1300457,
+      "name": "Álex Calatrava",
+      "reason": null
+     },
+     {
+      "playerId": 1187767,
+      "name": "Urko González",
+      "reason": null
+     },
+     {
+      "playerId": 183353,
+      "name": "Kike García",
+      "reason": null
+     }
+    ]
+   },
+   "events": []
+  },
+  "5868157": {
+   "matchId": 5868157,
+   "homeXg": null,
+   "awayXg": null,
+   "lineups": {
+    "home": {
+     "formation": null,
+     "formationSource": null,
+     "coach": null,
+     "starters": [],
+     "substitutes": null
+    },
+    "away": {
+     "formation": null,
+     "formationSource": null,
+     "coach": null,
+     "starters": [],
+     "substitutes": null
+    }
+   },
+   "unavailable": {
+    "home": [
+     {
+      "playerId": 1363232,
+      "name": "Maguette Gueye",
+      "reason": null
+     },
+     {
+      "playerId": 899195,
+      "name": "Andrés Martín",
+      "reason": null
+     },
+     {
+      "playerId": 1199649,
+      "name": "Álvaro Mantilla",
+      "reason": null
+     }
+    ],
+    "away": [
+     {
+      "playerId": 1711969,
+      "name": "Bright Ede",
+      "reason": null
+     }
+    ]
+   },
+   "events": []
+  },
+  "5868158": {
+   "matchId": 5868158,
+   "homeXg": null,
+   "awayXg": null,
+   "lineups": {
+    "home": {
+     "formation": null,
+     "formationSource": null,
+     "coach": null,
+     "starters": [],
+     "substitutes": null
+    },
+    "away": {
+     "formation": null,
+     "formationSource": null,
+     "coach": null,
+     "starters": [],
+     "substitutes": null
+    }
+   },
+   "unavailable": {
+    "home": [
+     {
+      "playerId": 956622,
+      "name": "Óscar Valentín",
+      "reason": null
+     },
+     {
+      "playerId": 672840,
+      "name": "Luiz Felipe",
+      "reason": null
+     },
+     {
+      "playerId": 621415,
+      "name": "Augusto Batalla",
+      "reason": null
+     }
+    ],
+    "away": [
+     {
+      "playerId": 914401,
+      "name": "Oriol Rey",
+      "reason": null
+     },
+     {
+      "playerId": 1302821,
+      "name": "Petar Ratkov",
+      "reason": null
+     },
+     {
+      "playerId": 443966,
+      "name": "Jeremy Toljan",
+      "reason": null
+     },
+     {
+      "playerId": 1052330,
+      "name": "Manuel Sánchez",
+      "reason": null
+     }
+    ]
+   },
+   "events": []
+  },
+  "5868160": {
+   "matchId": 5868160,
+   "homeXg": null,
+   "awayXg": null,
+   "lineups": {
+    "home": {
+     "formation": null,
+     "formationSource": null,
+     "coach": null,
+     "starters": [],
+     "substitutes": null
+    },
+    "away": {
+     "formation": null,
+     "formationSource": null,
+     "coach": null,
+     "starters": [],
+     "substitutes": null
+    }
+   },
+   "unavailable": {
+    "home": [
+     {
+      "playerId": 1216798,
+      "name": "Nathan Saliba",
+      "reason": null
+     },
+     {
+      "playerId": 1695966,
+      "name": "Alassane Diatta",
+      "reason": null
+     }
+    ],
+    "away": [
+     {
+      "playerId": 1249284,
+      "name": "Jon Aramburu",
+      "reason": null
+     },
+     {
+      "playerId": 730901,
+      "name": "Yangel Herrera",
+      "reason": null
+     },
+     {
+      "playerId": 1002618,
+      "name": "Ander Barrenetxea",
+      "reason": null
+     },
+     {
+      "playerId": 636570,
+      "name": "Álvaro Odriozola",
+      "reason": null
+     }
+    ]
+   },
+   "events": []
+  },
+  "5868154": {
+   "matchId": 5868154,
+   "homeXg": null,
+   "awayXg": null,
+   "lineups": {
+    "home": {
+     "formation": null,
+     "formationSource": null,
+     "coach": null,
+     "starters": [],
+     "substitutes": null
+    },
+    "away": {
+     "formation": null,
+     "formationSource": null,
+     "coach": null,
+     "starters": [],
+     "substitutes": null
+    }
+   },
+   "unavailable": {
+    "home": [
+     {
+      "playerId": 1901980,
+      "name": "Jordi Pesquer",
+      "reason": null
+     },
+     {
+      "playerId": 1573126,
+      "name": "Marc Bernal",
+      "reason": null
+     },
+     {
+      "playerId": 1708842,
+      "name": "Hamza Abdelkarim",
+      "reason": null
+     },
+     {
+      "playerId": 1254166,
+      "name": "Alejandro Balde",
+      "reason": null
+     },
+     {
+      "playerId": 449232,
+      "name": "Andreas Christensen",
+      "reason": null
+     },
+     {
+      "playerId": 1815149,
+      "name": "Xavi Espart",
+      "reason": null
+     },
+     {
+      "playerId": 1315475,
+      "name": "Roony Bardghji",
+      "reason": null
+     }
+    ],
+    "away": [
+     {
+      "playerId": 1226783,
+      "name": "Hugo González",
+      "reason": null
+     },
+     {
+      "playerId": 609505,
+      "name": "Borja Iglesias",
+      "reason": null
+     },
+     {
+      "playerId": 497662,
+      "name": "Carl Starfelt",
+      "reason": null
+     },
+     {
+      "playerId": 1359911,
+      "name": "Miguel Román",
+      "reason": null
+     }
+    ]
+   },
+   "events": []
+  }
+ }
+}
