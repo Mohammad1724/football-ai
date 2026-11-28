@@ -1,0 +1,397 @@
+{
+ "contractVersion": 2,
+ "generatedAt": "2026-11-28T10:57:07Z",
+ "matches": [
+  {
+   "id": 1000023188,
+   "leagueSlug": "iran",
+   "kickoffUtc": "2026-11-28T11:45:00.000Z",
+   "status": "upcoming",
+   "minute": null,
+   "home": {
+    "teamId": 176352,
+    "name": "Tractor"
+   },
+   "away": {
+    "teamId": 101618,
+    "name": "Zob Ahan"
+   },
+   "homeScore": null,
+   "awayScore": null
+  },
+  {
+   "id": 5868141,
+   "leagueSlug": "la-liga",
+   "kickoffUtc": "2026-11-28T13:00:00.000Z",
+   "status": "upcoming",
+   "minute": null,
+   "home": {
+    "teamId": 8603,
+    "name": "Real Betis"
+   },
+   "away": {
+    "teamId": 8370,
+    "name": "Rayo Vallecano"
+   },
+   "homeScore": null,
+   "awayScore": null
+  },
+  {
+   "id": 1000023189,
+   "leagueSlug": "iran",
+   "kickoffUtc": "2026-11-28T13:45:00.000Z",
+   "status": "upcoming",
+   "minute": null,
+   "home": {
+    "teamId": 101614,
+    "name": "Esteghlal"
+   },
+   "away": {
+    "teamId": 101624,
+    "name": "Sanat Naft Abadan"
+   },
+   "homeScore": null,
+   "awayScore": null
+  },
+  {
+   "id": 5749763,
+   "leagueSlug": "serie-a",
+   "kickoffUtc": "2026-11-28T14:00:00.000Z",
+   "status": "upcoming",
+   "minute": null,
+   "home": {
+    "teamId": 9891,
+    "name": "Frosinone"
+   },
+   "away": {
+    "teamId": 10167,
+    "name": "Parma"
+   },
+   "homeScore": null,
+   "awayScore": null
+  },
+  {
+   "id": 1000023190,
+   "leagueSlug": "iran",
+   "kickoffUtc": "2026-11-28T14:00:00.000Z",
+   "status": "upcoming",
+   "minute": null,
+   "home": {
+    "teamId": 101611,
+    "name": "Sepahan"
+   },
+   "away": {
+    "teamId": 392200,
+    "name": "Nassaji Mazandaran FC"
+   },
+   "homeScore": null,
+   "awayScore": null
+  },
+  {
+   "id": 5881234,
+   "leagueSlug": "bundesliga",
+   "kickoffUtc": "2026-11-28T14:30:00.000Z",
+   "status": "upcoming",
+   "minute": null,
+   "home": {
+    "teamId": 8722,
+    "name": "1. FC Köln"
+   },
+   "away": {
+    "teamId": 8232,
+    "name": "Elversberg"
+   },
+   "homeScore": null,
+   "awayScore": null
+  },
+  {
+   "id": 5881236,
+   "leagueSlug": "bundesliga",
+   "kickoffUtc": "2026-11-28T14:30:00.000Z",
+   "status": "upcoming",
+   "minute": null,
+   "home": {
+    "teamId": 9790,
+    "name": "Hamburger SV"
+   },
+   "away": {
+    "teamId": 9823,
+    "name": "Bayern München"
+   },
+   "homeScore": null,
+   "awayScore": null
+  },
+  {
+   "id": 5881238,
+   "leagueSlug": "bundesliga",
+   "kickoffUtc": "2026-11-28T14:30:00.000Z",
+   "status": "upcoming",
+   "minute": null,
+   "home": {
+    "teamId": 9905,
+    "name": "Mainz 05"
+   },
+   "away": {
+    "teamId": 8149,
+    "name": "Union Berlin"
+   },
+   "homeScore": null,
+   "awayScore": null
+  },
+  {
+   "id": 5881239,
+   "leagueSlug": "bundesliga",
+   "kickoffUtc": "2026-11-28T14:30:00.000Z",
+   "status": "upcoming",
+   "minute": null,
+   "home": {
+    "teamId": 8460,
+    "name": "Paderborn"
+   },
+   "away": {
+    "teamId": 10189,
+    "name": "Schalke 04"
+   },
+   "homeScore": null,
+   "awayScore": null
+  },
+  {
+   "id": 5795531,
+   "leagueSlug": "premier-league",
+   "kickoffUtc": "2026-11-28T15:00:00.000Z",
+   "status": "upcoming",
+   "minute": null,
+   "home": {
+    "teamId": 8463,
+    "name": "Leeds United"
+   },
+   "away": {
+    "teamId": 8669,
+    "name": "Coventry City"
+   },
+   "homeScore": null,
+   "awayScore": null
+  },
+  {
+   "id": 5795532,
+   "leagueSlug": "premier-league",
+   "kickoffUtc": "2026-11-28T15:00:00.000Z",
+   "status": "upcoming",
+   "minute": null,
+   "home": {
+    "teamId": 10260,
+    "name": "Manchester United"
+   },
+   "away": {
+    "teamId": 9937,
+    "name": "Brentford"
+   },
+   "homeScore": null,
+   "awayScore": null
+  },
+  {
+   "id": 5868147,
+   "leagueSlug": "la-liga",
+   "kickoffUtc": "2026-11-28T15:15:00.000Z",
+   "status": "upcoming",
+   "minute": null,
+   "home": {
+    "teamId": 9864,
+    "name": "Málaga"
+   },
+   "away": {
+    "teamId": 8315,
+    "name": "Athletic Club"
+   },
+   "homeScore": null,
+   "awayScore": null
+  },
+  {
+   "id": 5803000,
+   "leagueSlug": "ligue-1",
+   "kickoffUtc": "2026-11-28T16:15:00.000Z",
+   "status": "upcoming",
+   "minute": null,
+   "home": {
+    "teamId": 8121,
+    "name": "Angers"
+   },
+   "away": {
+    "teamId": 8588,
+    "name": "Lens"
+   },
+   "homeScore": null,
+   "awayScore": null
+  },
+  {
+   "id": 5749767,
+   "leagueSlug": "serie-a",
+   "kickoffUtc": "2026-11-28T17:00:00.000Z",
+   "status": "upcoming",
+   "minute": null,
+   "home": {
+    "teamId": 9804,
+    "name": "Torino"
+   },
+   "away": {
+    "teamId": 8543,
+    "name": "Lazio"
+   },
+   "homeScore": null,
+   "awayScore": null
+  },
+  {
+   "id": 5795530,
+   "leagueSlug": "premier-league",
+   "kickoffUtc": "2026-11-28T17:30:00.000Z",
+   "status": "upcoming",
+   "minute": null,
+   "home": {
+    "teamId": 9902,
+    "name": "Ipswich Town"
+   },
+   "away": {
+    "teamId": 10252,
+    "name": "Aston Villa"
+   },
+   "homeScore": null,
+   "awayScore": null
+  },
+  {
+   "id": 5868144,
+   "leagueSlug": "la-liga",
+   "kickoffUtc": "2026-11-28T17:30:00.000Z",
+   "status": "upcoming",
+   "minute": null,
+   "home": {
+    "teamId": 10268,
+    "name": "Elche"
+   },
+   "away": {
+    "teamId": 9906,
+    "name": "Atlético Madrid"
+   },
+   "homeScore": null,
+   "awayScore": null
+  },
+  {
+   "id": 5881240,
+   "leagueSlug": "bundesliga",
+   "kickoffUtc": "2026-11-28T17:30:00.000Z",
+   "status": "upcoming",
+   "minute": null,
+   "home": {
+    "teamId": 10269,
+    "name": "VfB Stuttgart"
+   },
+   "away": {
+    "teamId": 9810,
+    "name": "Eintracht Frankfurt"
+   },
+   "homeScore": null,
+   "awayScore": null
+  },
+  {
+   "id": 5749764,
+   "leagueSlug": "serie-a",
+   "kickoffUtc": "2026-11-28T19:45:00.000Z",
+   "status": "upcoming",
+   "minute": null,
+   "home": {
+    "teamId": 8636,
+    "name": "Inter"
+   },
+   "away": {
+    "teamId": 10233,
+    "name": "Genoa"
+   },
+   "homeScore": null,
+   "awayScore": null
+  },
+  {
+   "id": 5803003,
+   "leagueSlug": "ligue-1",
+   "kickoffUtc": "2026-11-28T19:45:00.000Z",
+   "status": "upcoming",
+   "minute": null,
+   "home": {
+    "teamId": 9746,
+    "name": "Le Havre"
+   },
+   "away": {
+    "teamId": 9848,
+    "name": "Strasbourg"
+   },
+   "homeScore": null,
+   "awayScore": null
+  },
+  {
+   "id": 5803004,
+   "leagueSlug": "ligue-1",
+   "kickoffUtc": "2026-11-28T19:45:00.000Z",
+   "status": "upcoming",
+   "minute": null,
+   "home": {
+    "teamId": 8682,
+    "name": "Le Mans"
+   },
+   "away": {
+    "teamId": 8639,
+    "name": "Lille"
+   },
+   "homeScore": null,
+   "awayScore": null
+  },
+  {
+   "id": 5803006,
+   "leagueSlug": "ligue-1",
+   "kickoffUtc": "2026-11-28T19:45:00.000Z",
+   "status": "upcoming",
+   "minute": null,
+   "home": {
+    "teamId": 9831,
+    "name": "Nice"
+   },
+   "away": {
+    "teamId": 10242,
+    "name": "Troyes"
+   },
+   "homeScore": null,
+   "awayScore": null
+  },
+  {
+   "id": 5803007,
+   "leagueSlug": "ligue-1",
+   "kickoffUtc": "2026-11-28T19:45:00.000Z",
+   "status": "upcoming",
+   "minute": null,
+   "home": {
+    "teamId": 9847,
+    "name": "Paris Saint-Germain"
+   },
+   "away": {
+    "teamId": 8689,
+    "name": "Lorient"
+   },
+   "homeScore": null,
+   "awayScore": null
+  },
+  {
+   "id": 5868148,
+   "leagueSlug": "la-liga",
+   "kickoffUtc": "2026-11-28T20:00:00.000Z",
+   "status": "upcoming",
+   "minute": null,
+   "home": {
+    "teamId": 8633,
+    "name": "Real Madrid"
+   },
+   "away": {
+    "teamId": 9866,
+    "name": "Deportivo Alavés"
+   },
+   "homeScore": null,
+   "awayScore": null
+  }
+ ]
+}
