@@ -977,6 +977,10 @@ private fun CompetitionCard(
  * ([DailyAnalysisPolicy.pick]) calls the outcome clear rather than close or
  * insufficient — the same honesty rule the predictions tab uses. A floor of 40% on
  * the leading probability keeps a three-way coin flip out of a "most confident" row.
+ * A forecast graded LOW confidence is excluded however strong its leading
+ * probability is: the section promises the day's most confident picks, and a card
+ * that carries the «اطمینان کم» chip under a hero percentage contradicts that
+ * promise on its face.
  */
 internal fun topPicks(matches: List<MatchSummary>): List<MatchSummary> =
     matches.asSequence()
@@ -987,7 +991,13 @@ internal fun topPicks(matches: List<MatchSummary>): List<MatchSummary> =
                 prediction.homeWin, prediction.draw, prediction.awayWin, prediction.qualityLevel,
             )
             val top = maxOf(prediction.homeWin, prediction.draw, prediction.awayWin)
-            if (pick in TOP_PICK_OUTCOMES && top >= TOP_PICK_MIN_PROBABILITY) match to top else null
+            if (pick in TOP_PICK_OUTCOMES && top >= TOP_PICK_MIN_PROBABILITY &&
+                prediction.confidenceLevel != "LOW"
+            ) {
+                match to top
+            } else {
+                null
+            }
         }
         .sortedByDescending { it.second }
         .map { it.first }
@@ -1144,7 +1154,16 @@ private fun RecentMatchRow(
                 // the team line collapsed to zero height and vanished.
                 MatchTeam(match.home, languageTag, Modifier.fillMaxWidth())
             }
+            // The moment owns a fixed central slot, and the spacers on both sides
+            // are its moat: the away badge leads its side of the row, so without
+            // them it sat flush against the slot and a crest could cover the
+            // kickoff time's first digit. With clear space guaranteed, neither a
+            // badge nor a name — Persian or long Latin — can reach the time,
+            // and the fixed-width slot itself can never be squeezed by the two
+            // weighted sides.
+            Spacer(Modifier.width(8.dp))
             MatchMoment(match, languageTag, Modifier.width(72.dp))
+            Spacer(Modifier.width(8.dp))
             MatchTeam(match.away, languageTag, Modifier.weight(1f))
         }
         if (pickLabel != null && prediction != null) {

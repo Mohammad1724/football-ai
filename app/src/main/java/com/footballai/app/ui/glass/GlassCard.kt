@@ -12,11 +12,13 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
@@ -231,7 +233,18 @@ fun GlassProbabilityBar(
         }
         if (showLabels) {
             Spacer(Modifier.height(6.dp))
-            Row(modifier = Modifier.fillMaxWidth()) {
+            // The labels divide the row exactly as the bar above them does — same
+            // weights, same gaps — and each label is centred in its own segment's
+            // cell, so a percentage always sits under the segment it describes.
+            // Equal thirds put a small away share's label under the draw segment
+            // and the draw's label under the home segment. A narrow cell does not
+            // clip its label: the texts are measured unbounded and centred on the
+            // cell, so they keep their natural width and stay inside the card,
+            // whose own clip bounds them at its edge.
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(3.dp),
+            ) {
                 val labels = listOf(
                     homeLabel ?: stringResource(R.string.selection_home),
                     stringResource(R.string.selection_draw),
@@ -239,19 +252,24 @@ fun GlassProbabilityBar(
                 )
                 val raw = listOf(homeWin, draw, awayWin)
                 labels.forEachIndexed { index, label ->
-                    Column(modifier = Modifier.weight(1f)) {
+                    Column(
+                        modifier = Modifier.weight(values[index].toFloat().coerceAtLeast(0.001f)),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
                         Text(
                             text = Formatters.percent(raw[index], languageTag),
                             style = MaterialTheme.typography.labelLarge,
                             fontWeight = FontWeight.Bold,
                             color = if (index == leading) GlassViolet else GlassLightInk,
                             maxLines = 1,
+                            modifier = Modifier.wrapContentWidth(unbounded = true),
                         )
                         Text(
                             text = label,
                             style = MaterialTheme.typography.labelSmall,
                             color = GlassLightInkMuted,
                             maxLines = 1,
+                            modifier = Modifier.wrapContentWidth(unbounded = true),
                         )
                     }
                 }
